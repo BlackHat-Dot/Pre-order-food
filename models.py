@@ -16,3 +16,4 @@ class Shop(Base):
     categories = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_open = Column(Boolean, default=False, nullable=False)
+    is_accepting_orders = Column(Boolean, default=True, nullable=False)

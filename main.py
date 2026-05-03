@@ -95,7 +95,8 @@ def login(data: Annotated[OAuth2PasswordRequestForm, Depends()], db: SessionDep)
 
 @app.get("/me")
 def get_me(shop: Shop = Depends(get_current_shop)):
-    return {"id": shop.id, "name": shop.name,"status":shop.is_open}
+    return {"id": shop.id, "name": shop.name,"status":shop.is_open
+            ,"accepting_orders":shop.is_accepting_orders}
 
 @app.patch("/shops/me/status")
 def update_status(
@@ -112,3 +113,22 @@ def update_status(
         "shop_id": shop.id,
         "is_open": shop.is_open
         }
+
+@app.patch("/shops/me/orders")
+def set_order_acceptance(
+    accept: bool,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop)
+):
+    if not shop.is_open:
+        raise HTTPException(400, "Shop is closed")
+
+    shop.is_accepting_orders = accept
+    db.add(shop)
+    db.commit()
+    db.refresh(shop)
+
+    return {
+        "shop_id": shop.id,
+        "is_accepting_orders": shop.is_accepting_orders
+    }
