@@ -1,7 +1,6 @@
 # main.py
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from db import SessionLocal
 from models import Shop
 from schemas import ShopCreate,LoginRequest
 from db import engine
@@ -13,28 +12,57 @@ from jose import jwt, JWTError
 from auth import SECRET_KEY, ALGORITHM
 from sqlalchemy.exc import IntegrityError
 from pydantic import field_validator
+from typing import Annotated
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt.exceptions import JWTException
+from contextlib import asynccontextmanager
+from init_db import create_db_and_tables
+from fastapi.responses import RedirectResponse
+from models import Shop
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 
-Base.metadata.create_all(bind=engine)
-app = FastAPI()
+def get_session(): #done
+    with Session(engine) as session:
+        yield session
 
-def get_db():
-    db = SessionLocal()
+
+SessionDep = Annotated[Session, Depends(get_session)]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI): #done
+    Base.metadata.create_all(bind=engine)#func is executed and yield is executed and the func is paused
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+
+def get_current_shop(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: SessionDep
+):
     try:
-        yield db
-    finally:
-        db.close()
-
-def get_current_shop(authorization: str):
-    try:
-        token = authorization.split(" ")[1]
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        shop_id = payload.get("sub")
-        return shop_id
-    except:
+        user_id = payload.get("sub")
+
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+    user = session.get(Shop, int(user_id))
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url="/docs")
+
 @app.post("/shops")
-def create_shop(shop: ShopCreate, db: Session = Depends(get_db)):
+def create_shop(shop: ShopCreate, db:SessionDep):
     new_shop = Shop(
         name=shop.name,
         phone=shop.phone,
@@ -54,17 +82,33 @@ def create_shop(shop: ShopCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422,detail="Phone number already exist")
     return {"id": new_shop.id, "message": "Shop registered"}
 
-@app.post("/login")
-def login(data: LoginRequest, db: Session = Depends(get_db)):
-    shop = db.query(Shop).filter(Shop.phone == data.phone).first()
+@app.post("/login/")
+def login(data: Annotated[OAuth2PasswordRequestForm, Depends()], db: SessionDep):
+    shop = db.query(Shop).filter(Shop.phone == data.username).first()
 
     if not shop or not verify_password(data.password, shop.password):
-        return {"error": "Invalid credentials"}
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_token({"sub": str(shop.id)})
 
     return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/me")
-def get_me(shop_id: str = Depends(get_current_shop)):
-    return {"shop_id": shop_id}
+def get_me(shop: Shop = Depends(get_current_shop)):
+    return {"id": shop.id, "name": shop.name,"status":shop.is_open}
+
+@app.patch("/shops/me/status")
+def update_status(
+    is_open: bool,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop)):
+        print(shop)
+        shop.is_open = is_open
+        db.add(shop)
+        db.commit()
+        db.refresh(shop)
+
+        return {
+        "shop_id": shop.id,
+        "is_open": shop.is_open
+        }

@@ -1,6 +1,7 @@
 # models.py
 from sqlalchemy import Column, Integer, String, JSON, DateTime
 from datetime import datetime
+from sqlalchemy import Column, Boolean
 from db import Base
 
 class Shop(Base):
@@ -14,3 +15,4 @@ class Shop(Base):
     opening_hours = Column(String)
     categories = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_open = Column(Boolean, default=False, nullable=False)
