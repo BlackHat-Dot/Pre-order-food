@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food Pre-Order</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+  <div class="max-w-md mx-auto p-4">
+
+    <h1 class="text-xl font-bold mb-4 text-center">Food Pre-Order</h1>
+
+    <!-- Menu -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+      <h2 class="font-semibold mb-2">Menu</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span>Pizza</span>
+          <span>₹200 • 15 min</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Burger</span>
+          <span>₹120 • 10 min</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Pasta</span>
+          <span>₹180 • 12 min</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Form -->
+    <form class="bg-white p-4 rounded-lg shadow space-y-3">
+      <h2 class="font-semibold">Order Details</h2>
+
+      <input type="text" placeholder="Customer Name"
+        class="w-full border p-2 rounded text-sm" required>
+
+      <input type="tel" placeholder="Phone Number"
+        class="w-full border p-2 rounded text-sm" required>
+
+      <select class="w-full border p-2 rounded text-sm">
+        <option>Select Item</option>
+        <option>Pizza</option>
+        <option>Burger</option>
+        <option>Pasta</option>
+      </select>
+
+      <button type="button"
+        class="w-full bg-black text-white py-2 rounded">
+        Checkout
+      </button>
+    </form>
+
+  </div>
+
+</body>
+</html>
