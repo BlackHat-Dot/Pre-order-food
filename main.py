@@ -2,9 +2,9 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from models import Shop
-from schemas import ShopCreate,LoginRequest
+from schemas import ShopCreate,LoginRequest,CustomerCreate
 from db import engine
-from models import Base
+from models import Base,Customer
 from auth import password_hasher
 from auth import verify_password, create_token
 from fastapi import Header, HTTPException
@@ -132,3 +132,30 @@ def set_order_acceptance(
         "shop_id": shop.id,
         "is_accepting_orders": shop.is_accepting_orders
     }
+
+@app.post("/customers")
+def create_customer(data: CustomerCreate, db: SessionDep):
+    customer = Customer(
+        name=data.name,
+        phone=data.phone,
+        email=data.email,
+        password=password_hasher(data.password))
+
+    try:
+            db.add(customer)
+            db.commit()
+            db.refresh(customer)
+    
+    except IntegrityError as e:
+        db.rollback()
+    
+        msg = str(e.orig)
+        print(msg)
+        if "customers.phone" in msg:
+            raise HTTPException(400, "Phone number already registered")
+        if "customers.email" in msg:
+            raise HTTPException(400, "Email already registered")
+    
+        raise HTTPException(400, "Integrity error")
+    
+    return {"id": customer.id}

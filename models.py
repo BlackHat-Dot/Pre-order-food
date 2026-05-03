@@ -17,3 +17,13 @@ class Shop(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_open = Column(Boolean, default=False, nullable=False)
     is_accepting_orders = Column(Boolean, default=True, nullable=False)
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False, unique=True)
+    email = Column(String, nullable=True, unique=True)
+    password = Column(String, nullable=False)  # NEW
+    created_at = Column(DateTime, default=datetime.utcnow)
