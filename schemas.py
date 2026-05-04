@@ -84,3 +84,16 @@ class MenuItemCreate(BaseModel):
         if v not in ALLOWED_PREP_TIMES:
             raise ValueError("Invalid prep time")
         return v
+
+
+class BatchAvailabilityUpdate(BaseModel):
+    item_ids: List[int]
+    available: bool
+
+    @field_validator("item_ids")
+    def validate_ids(cls, v):
+        if not v:
+            raise ValueError("item_ids cannot be empty")
+        if len(set(v)) != len(v):
+            raise ValueError("Duplicate item_ids not allowed")
+        return v

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from models import Shop, Address
 from schemas import ShopCreate,LoginRequest,CustomerCreate,CustomerLogin
 from db import engine
-from schemas import AddressCreate,MenuItemCreate
+from schemas import AddressCreate,MenuItemCreate,BatchAvailabilityUpdate
 from models import Base,Customer
 from auth import password_hasher
 from auth import verify_password, create_token
@@ -347,7 +347,7 @@ def get_menu(shop_id: int, db: SessionDep):
         MenuItem.shop_id == shop_id,
         MenuItem.is_available == True
     ).all()
-    
+
     return [
         {
             "id": i.id,
@@ -405,3 +405,38 @@ def get_menu(shop_id: int, db: SessionDep):
     ).all()
 
     return items
+
+from sqlalchemy import update
+@app.patch("/shops/menu/batch-availability")
+def batch_set_availability(
+    data: BatchAvailabilityUpdate,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop),
+    
+):
+    # update only items that belong to this shop
+    stmt = (
+        update(MenuItem)
+        .where(
+            MenuItem.shop_id == shop.id,
+            MenuItem.id.in_(data.item_ids)
+        )
+        .values(is_available=data.available)
+    )
+
+    result = db.execute(stmt)
+    db.commit()
+
+    updated = result.rowcount or 0
+
+    # optional strictness: ensure all requested ids belonged to the shop
+    if updated != len(data.item_ids):
+        raise HTTPException(
+            status_code=404,
+            detail="Some items not found or not owned by this shop"
+        )
+
+    return {
+        "updated_count": updated,
+        "is_available": data.available
+    }
