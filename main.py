@@ -2,7 +2,7 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from models import Shop
-from schemas import ShopCreate,LoginRequest,CustomerCreate
+from schemas import ShopCreate,LoginRequest,CustomerCreate,CustomerLogin
 from db import engine
 from models import Base,Customer
 from auth import password_hasher
@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 from init_db import create_db_and_tables
 from fastapi.responses import RedirectResponse
 from models import Shop
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 
 def get_session(): #done
@@ -54,6 +55,29 @@ def get_current_shop(
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
+def get_current_customer(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: SessionDep
+):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+
+        if not sub or not sub.startswith("customer:"):
+            raise HTTPException(401, "Invalid token")
+
+        user_id = int(sub.split(":")[1])
+
+    except JWTError:
+        raise HTTPException(401, "Invalid token")
+
+    user = db.get(Customer, user_id)
+
+    if not user:
+        raise HTTPException(401, "User not found")
 
     return user
 
@@ -159,3 +183,22 @@ def create_customer(data: CustomerCreate, db: SessionDep):
         raise HTTPException(400, "Integrity error")
     
     return {"id": customer.id}
+
+
+@app.post("/customers/login")
+def customer_login(data: CustomerLogin, db: SessionDep):
+    user = db.query(Customer).filter(Customer.phone == data.phone).first()
+
+    if not user or not verify_password(data.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_token({"sub": f"customer:{user.id}"})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
+
+@app.get("/customers/me")
+def me(user: Customer = Depends(get_current_customer)):
+    return {"id": user.id, "phone": user.phone}

@@ -42,3 +42,8 @@ class CustomerCreate(BaseModel):
 class LoginRequest(BaseModel):
     phone: str
     password: str
+
+
+class CustomerLogin(BaseModel):
+    phone: str
+    password: str
