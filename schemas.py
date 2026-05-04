@@ -47,3 +47,17 @@ class LoginRequest(BaseModel):
 class CustomerLogin(BaseModel):
     phone: str
     password: str
+
+class AddressCreate(BaseModel):
+    line1: str
+    line2: str | None = None
+    city: str
+    state: str
+    pincode: str
+    is_default: bool = False
+
+    @field_validator("pincode")
+    def validate_pincode(cls, v):
+        if not v.isdigit() or len(v) != 6:
+            raise ValueError("Pincode must be 6 digits")
+        return v

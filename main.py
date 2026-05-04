@@ -1,9 +1,10 @@
 # main.py
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from models import Shop
+from models import Shop, Address
 from schemas import ShopCreate,LoginRequest,CustomerCreate,CustomerLogin
 from db import engine
+from schemas import AddressCreate
 from models import Base,Customer
 from auth import password_hasher
 from auth import verify_password, create_token
@@ -185,20 +186,78 @@ def create_customer(data: CustomerCreate, db: SessionDep):
     return {"id": customer.id}
 
 
-@app.post("/customers/login")
-def customer_login(data: CustomerLogin, db: SessionDep):
-    user = db.query(Customer).filter(Customer.phone == data.phone).first()
+from fastapi.security import OAuth2PasswordRequestForm
 
-    if not user or not verify_password(data.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+@app.post("/customers/login")
+def customer_login(
+    db: SessionDep,
+    form: OAuth2PasswordRequestForm = Depends()
+):
+    user = db.query(Customer).filter(Customer.phone == form.username).first()
+
+    if not user or not verify_password(form.password, user.password):
+        raise HTTPException(401, "Invalid credentials")
 
     token = create_token({"sub": f"customer:{user.id}"})
 
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/customers/me")
 def me(user: Customer = Depends(get_current_customer)):
     return {"id": user.id, "phone": user.phone}
+
+@app.post("/customers/addresses")
+def add_address(
+    data: AddressCreate,
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer),
+):
+    if data.is_default:
+        db.query(Address).filter(Address.customer_id == user.id).update(
+            {"is_default": False}
+        )
+
+    addr = Address(
+        customer_id=user.id,
+        line1=data.line1,
+        line2=data.line2,
+        city=data.city,
+        state=data.state,
+        pincode=data.pincode,
+        is_default=data.is_default
+    )
+
+    db.add(addr)
+    db.commit()
+    db.refresh(addr)
+
+    return {"id": addr.id}
+
+@app.get("/customers/addresses")
+def list_addresses(
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer), 
+):
+    addresses = db.query(Address).filter(Address.customer_id == user.id).all()
+
+    return addresses
+
+@app.patch("/customers/addresses/{addr_id}/default")
+def set_default(
+    addr_id: int,
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer)
+):
+    addr = db.get(Address, addr_id)
+
+    if not addr or addr.customer_id != user.id:
+        raise HTTPException(404, "Address not found")
+
+    db.query(Address).filter(Address.customer_id == user.id).update(
+        {"is_default": False}
+    )
+
+    addr.is_default = True
+    db.commit()
+
+    return {"message": "Default updated"}

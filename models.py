@@ -1,6 +1,7 @@
 # models.py
-from sqlalchemy import Column, Integer, String, JSON, DateTime
+from sqlalchemy import Column, Integer,ForeignKey, String, JSON, DateTime
 from datetime import datetime
+from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Boolean
 from db import Base
 
@@ -27,3 +28,20 @@ class Customer(Base):
     email = Column(String, nullable=True, unique=True)
     password = Column(String, nullable=False)  # NEW
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class Address(Base):
+    __tablename__ = "addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+
+    line1 = Column(String, nullable=False)
+    line2 = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    state = Column(String, nullable=False)
+    pincode = Column(String, nullable=False)
+
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    customer = relationship("Customer")
