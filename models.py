@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer,ForeignKey, String, JSON, DateTime,Float
+from sqlalchemy import Column, Integer,ForeignKey, String, JSON, DateTime,Float,Date
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Boolean
@@ -76,3 +76,5 @@ class MenuItem(Base):
     prep_time = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_available = Column(Boolean, default=True, nullable=False)
+    is_special = Column(Boolean, default=False, nullable=False)
+    special_date = Column(Date, nullable=True)  # which day it is special

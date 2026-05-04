@@ -5,6 +5,7 @@ from models import Shop, Address
 from schemas import ShopCreate,LoginRequest,CustomerCreate,CustomerLogin
 from db import engine
 from schemas import AddressCreate,MenuItemCreate,BatchAvailabilityUpdate
+from schemas import SetDailySpecial
 from models import Base,Customer
 from auth import password_hasher
 from auth import verify_password, create_token
@@ -20,6 +21,7 @@ from contextlib import asynccontextmanager
 from init_db import create_db_and_tables
 from fastapi.responses import RedirectResponse
 from models import Shop,Favorite,MenuItem
+from datetime import date
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
@@ -440,3 +442,48 @@ def batch_set_availability(
         "updated_count": updated,
         "is_available": data.available
     }
+
+@app.patch("/shops/menu/daily-specials")
+def set_daily_specials(
+    data: SetDailySpecial,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop)
+):
+    # clear previous specials for that date
+    db.execute(
+        update(MenuItem)
+        .where(
+            MenuItem.shop_id == shop.id,
+            MenuItem.special_date == data.special_date
+        )
+        .values(is_special=False, special_date=None)
+    )
+
+    # set new specials
+    result = db.execute(
+        update(MenuItem)
+        .where(
+            MenuItem.shop_id == shop.id,
+            MenuItem.id.in_(data.item_ids)
+        )
+        .values(is_special=True, special_date=data.special_date)
+    )
+
+    db.commit()
+
+    return {
+        "special_date": data.special_date,
+        "count": result.rowcount
+    }
+
+@app.get("/shops/{shop_id}/specials")
+def get_specials(shop_id: int, db: SessionDep):
+    today = date.today()
+
+    items = db.query(MenuItem).filter(
+        MenuItem.shop_id == shop_id,
+        MenuItem.is_special == True,
+        MenuItem.special_date == today
+    ).all()
+
+    return items

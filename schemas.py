@@ -2,6 +2,7 @@
 from pydantic import BaseModel,field_validator,EmailStr, HttpUrl
 from typing import List,Optional
 from fastapi import HTTPException
+from datetime import date
 
 ALLOWED_PREP_TIMES = {5, 10, 15, 20, 25, 30}
 
@@ -97,3 +98,7 @@ class BatchAvailabilityUpdate(BaseModel):
         if len(set(v)) != len(v):
             raise ValueError("Duplicate item_ids not allowed")
         return v
+    
+class SetDailySpecial(BaseModel):
+    item_ids: List[int]
+    special_date: date  # enforce explicit date
