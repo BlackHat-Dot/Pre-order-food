@@ -19,9 +19,10 @@ from jwt.exceptions import JWTException
 from contextlib import asynccontextmanager
 from init_db import create_db_and_tables
 from fastapi.responses import RedirectResponse
-from models import Shop
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
+from models import Shop,Favorite
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="customers/login")
+
 
 def get_session(): #done
     with Session(engine) as session:
@@ -261,3 +262,56 @@ def set_default(
     db.commit()
 
     return {"message": "Default updated"}
+
+@app.post("/customers/favorites/{shop_id}")
+def add_favorite(
+    shop_id: int,
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer),
+):
+    shop = db.get(Shop, shop_id)
+    if not shop:
+        raise HTTPException(404, "Shop not found")
+
+    fav = Favorite(customer_id=user.id, shop_id=shop_id)
+
+    try:
+        db.add(fav)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Already in favorites")
+
+    return {"message": "Added to favorites"}
+
+@app.delete("/customers/favorites/{shop_id}")
+def remove_favorite(
+    shop_id: int,
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer),
+):
+    fav = db.query(Favorite).filter(
+        Favorite.customer_id == user.id,
+        Favorite.shop_id == shop_id
+    ).first()
+
+    if not fav:
+        raise HTTPException(404, "Favorite not found")
+
+    db.delete(fav)
+    db.commit()
+
+    return {"message": "Removed"}
+
+@app.get("/customers/favorites")
+def list_favorites(
+    db: SessionDep,
+    user: Customer = Depends(get_current_customer),
+):
+    favs = db.query(Favorite).filter(Favorite.customer_id == user.id).all()
+
+    shop_ids = [f.shop_id for f in favs]
+
+    shops = db.query(Shop).filter(Shop.id.in_(shop_ids)).all()
+
+    return [{"id": s.id, "name": s.name} for s in shops]

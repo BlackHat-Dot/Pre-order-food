@@ -45,3 +45,19 @@ class Address(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     customer = relationship("Customer")
+
+# models.py
+from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint, DateTime
+from datetime import datetime
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+
+    id = Column(Integer, primary_key=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    shop_id = Column(Integer, ForeignKey("shops.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("customer_id", "shop_id", name="uix_customer_shop"),
+    )
