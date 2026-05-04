@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer,ForeignKey, String, JSON, DateTime
+from sqlalchemy import Column, Integer,ForeignKey, String, JSON, DateTime,Float
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Boolean
@@ -61,3 +61,18 @@ class Favorite(Base):
     __table_args__ = (
         UniqueConstraint("customer_id", "shop_id", name="uix_customer_shop"),
     )
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shop_id = Column(Integer, ForeignKey("shops.id"), nullable=False)
+
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    price = Column(Float, nullable=False)
+    category = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+    prep_time = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_available = Column(Boolean, default=True, nullable=False)

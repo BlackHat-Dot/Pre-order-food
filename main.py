@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from models import Shop, Address
 from schemas import ShopCreate,LoginRequest,CustomerCreate,CustomerLogin
 from db import engine
-from schemas import AddressCreate
+from schemas import AddressCreate,MenuItemCreate
 from models import Base,Customer
 from auth import password_hasher
 from auth import verify_password, create_token
@@ -19,9 +19,9 @@ from jwt.exceptions import JWTException
 from contextlib import asynccontextmanager
 from init_db import create_db_and_tables
 from fastapi.responses import RedirectResponse
-from models import Shop,Favorite
+from models import Shop,Favorite,MenuItem
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="customers/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 
 def get_session(): #done
@@ -108,7 +108,7 @@ def create_shop(shop: ShopCreate, db:SessionDep):
         raise HTTPException(status_code=422,detail="Phone number already exist")
     return {"id": new_shop.id, "message": "Shop registered"}
 
-@app.post("/login/")
+@app.post("/login")
 def login(data: Annotated[OAuth2PasswordRequestForm, Depends()], db: SessionDep):
     shop = db.query(Shop).filter(Shop.phone == data.username).first()
 
@@ -315,3 +315,93 @@ def list_favorites(
     shops = db.query(Shop).filter(Shop.id.in_(shop_ids)).all()
 
     return [{"id": s.id, "name": s.name} for s in shops]
+
+@app.post("/shops/menu")
+def add_menu_item(
+    data: MenuItemCreate,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop)
+):
+    item = MenuItem(
+        shop_id=shop.id,
+        name=data.name,
+        description=data.description,
+        price=data.price,
+        category=data.category,
+        prep_time=data.prep_time,
+        image_url=str(data.image_url) if data.image_url else None
+)
+
+    try:
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=401,detail="item already exist")
+    return {"id": item.id}
+
+@app.get("/shops/{shop_id}/menu")
+def get_menu(shop_id: int, db: SessionDep):
+    items = db.query(MenuItem).filter(
+        MenuItem.shop_id == shop_id,
+        MenuItem.is_available == True
+    ).all()
+    
+    return [
+        {
+            "id": i.id,
+            "name": i.name,
+            "price": i.price,
+            "category": i.category,
+            "prep_time": i.prep_time
+        }
+        for i in items
+    ]
+
+@app.delete("/shops/menu/{item_id}")
+def delete_item(
+    item_id: int,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop),
+    
+):
+    item = db.get(MenuItem, item_id)
+
+    if not item or item.shop_id != shop.id:
+        raise HTTPException(404, "Item not found")
+
+    db.delete(item)
+    db.commit()
+
+    return {"message": "Deleted"}
+
+@app.patch("/shops/menu/{item_id}/availability")
+def set_availability(
+    item_id: int,
+    available: bool,
+    db: SessionDep,
+    shop: Shop = Depends(get_current_shop)
+):
+    item = db.get(MenuItem, item_id)
+
+    if not item or item.shop_id != shop.id:
+        raise HTTPException(404, "Item not found")
+
+    item.is_available = available
+    db.commit()
+    db.refresh(item)
+
+    return {
+        "item_id": item.id,
+        "is_available": item.is_available
+    }
+
+@app.get("/shops/{shop_id}/menu")
+def get_menu(shop_id: int, db: SessionDep):
+    items = db.query(MenuItem).filter(
+        MenuItem.shop_id == shop_id,
+        MenuItem.is_available == True
+    ).all()
+
+    return items

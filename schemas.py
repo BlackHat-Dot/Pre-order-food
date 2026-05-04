@@ -1,7 +1,10 @@
 # schemas.py
-from pydantic import BaseModel,field_validator,EmailStr
+from pydantic import BaseModel,field_validator,EmailStr, HttpUrl
 from typing import List,Optional
 from fastapi import HTTPException
+
+ALLOWED_PREP_TIMES = {5, 10, 15, 20, 25, 30}
+
 
 class ShopCreate(BaseModel):
     name: str
@@ -60,4 +63,24 @@ class AddressCreate(BaseModel):
     def validate_pincode(cls, v):
         if not v.isdigit() or len(v) != 6:
             raise ValueError("Pincode must be 6 digits")
+        return v
+    
+class MenuItemCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    category: str
+    image_url: Optional[HttpUrl] = None
+    prep_time: int
+
+    @field_validator("price")
+    def validate_price(cls, v):
+        if v <= 0:
+            raise ValueError("Price must be greater than 0")
+        return v
+    
+    @field_validator("prep_time")
+    def validate_prep_time(cls, v):
+        if v not in ALLOWED_PREP_TIMES:
+            raise ValueError("Invalid prep time")
         return v
