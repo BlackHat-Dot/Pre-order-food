@@ -1,6 +1,6 @@
 # schemas.py
 from pydantic import BaseModel,field_validator,EmailStr, HttpUrl
-from typing import List,Optional
+from typing import List,Optional,Literal
 from fastapi import HTTPException
 from datetime import date
 
@@ -73,6 +73,7 @@ class MenuItemCreate(BaseModel):
     category: str
     image_url: Optional[HttpUrl] = None
     prep_time: int
+    dietary_type: Literal["veg", "non_veg", "vegan"]
 
     @field_validator("price")
     def validate_price(cls, v):
@@ -102,3 +103,48 @@ class BatchAvailabilityUpdate(BaseModel):
 class SetDailySpecial(BaseModel):
     item_ids: List[int]
     special_date: date  # enforce explicit date
+
+class VariantCreate(BaseModel):
+    name: str
+    price: float
+    prep_time: int
+
+    @field_validator("price")
+    def validate_price(cls, v):
+        if v <= 0:
+            raise ValueError("Invalid price")
+        return v
+
+class AddVariants(BaseModel):
+    variants: List[VariantCreate]
+
+from datetime import datetime
+from pydantic_core.core_schema import ValidationInfo
+
+from pydantic import BaseModel, model_validator
+
+class OrderItemInput(BaseModel):
+    item_id: Optional[int] = None
+    variant_id: Optional[int] = None
+    quantity: int
+
+    @model_validator(mode="after")
+    def validate_choice(self):
+        if not self.item_id and not self.variant_id:
+            raise ValueError("Either item_id or variant_id required")
+
+        if self.item_id and self.variant_id:
+            raise ValueError("Provide only one of item_id or variant_id")
+
+        if self.quantity <= 0:
+            raise ValueError("Quantity must be >= 1")
+
+        return self
+
+
+class OrderCreate(BaseModel):
+    shop_id: int
+    items: List[OrderItemInput]
+    scheduled_time: Optional[datetime] = None
+    payment_method: str
+    instructions: Optional[str] = None

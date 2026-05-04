@@ -78,3 +78,51 @@ class MenuItem(Base):
     is_available = Column(Boolean, default=True, nullable=False)
     is_special = Column(Boolean, default=False, nullable=False)
     special_date = Column(Date, nullable=True)  # which day it is special
+    dietary_type = Column(String, nullable=False) 
+
+class MenuItemVariant(Base):
+    __tablename__ = "menu_item_variants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("menu_items.id"), nullable=False)
+
+    name = Column(String, nullable=False)  # small / medium / large
+    price = Column(Float, nullable=False)
+    prep_time = Column(Integer, nullable=False)  # can differ per size
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# models.py
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
+from datetime import datetime
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    shop_id = Column(Integer, ForeignKey("shops.id"), nullable=False)
+
+    status = Column(String, default="pending")  # state machine
+    total_price = Column(Float, nullable=False)
+
+    prep_time = Column(Integer, nullable=False)  # computed
+    scheduled_time = Column(DateTime, nullable=True)  # pickup time
+
+    instructions = Column(String, nullable=True)
+    payment_method = Column(String, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True)
+
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    item_id = Column(Integer, ForeignKey("menu_items.id"))
+    variant_id = Column(Integer, ForeignKey("menu_item_variants.id"))
+
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)  # snapshot price
