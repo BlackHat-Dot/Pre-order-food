@@ -16,8 +16,13 @@ from app.db.session import engine as async_engine
 
 
 async def create_database_tables() -> None:
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database tables created/verified")
+    except Exception as e:
+        print(f"❌ Failed to create database tables: {e}")
+        raise
 
 
 def create_app() -> FastAPI:
@@ -46,7 +51,11 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict:
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "environment": settings.ENV,
+            "app_name": settings.APP_NAME
+        }
 
     app.include_router(api_router, prefix=settings.API_PREFIX)
     return app

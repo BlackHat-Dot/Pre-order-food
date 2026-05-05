@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +17,19 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/preorder.db"
+    DATABASE_URL: str | None = None
     REDIS_URL: str = "redis://redis:6379/0"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def validate_database_url(cls, v: str | None) -> str:
+        if not v or not v.strip():
+            raise ValueError(
+                "DATABASE_URL environment variable is required. "
+                "For Railway: connect a PostgreSQL database add-on which auto-sets DATABASE_URL. "
+                "For local: set DATABASE_URL='sqlite+aiosqlite:///./data/preorder.db' in .env"
+            )
+        return v
 
     SENTRY_DSN: str | None = None
 

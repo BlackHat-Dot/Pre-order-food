@@ -78,4 +78,55 @@ pytest -q
 ## Deployment (Railway/Render)
 - Use the included `Dockerfile`
 - Configure env variables from `.env.example`
+
+### Railway Deployment (Recommended)
+
+1. **Connect Git repo** to Railway project
+2. **Add PostgreSQL database**:
+   - Railway dashboard → "+ Add" → "Database" → "PostgreSQL"
+   - Railway automatically sets `DATABASE_URL` in your environment
+3. **Verify variables**:
+   - Check Railway "Variables" panel has `DATABASE_URL` set (auto-created by PostgreSQL add-on)
+   - Add other optional vars: `JWT_SECRET_KEY`, `SENTRY_DSN`, etc.
+4. **Deploy**:
+   - Push to Git → Railway auto-deploys using `Dockerfile`
+   - Monitor logs at Railway dashboard
+5. **Test**:
+   - Visit `https://<your-railway-domain>/health`
+   - Swagger UI: `https://<your-railway-domain>/docs`
+
+### Local Testing with Railway Config
+
+For local testing with PostgreSQL (instead of SQLite):
+
+```powershell
+# Install PostgreSQL async driver
+pip install asyncpg
+
+# Create .env with PostgreSQL
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/preorder_db
+```
+
+Then run:
+```powershell
+uvicorn app.main:app --reload
+```
+
+### Troubleshooting Railway Deployment
+
+**Error: "Could not parse SQLAlchemy URL"**
+- Cause: `DATABASE_URL` not set in Railway Variables
+- Fix: Add PostgreSQL database add-on (auto-sets DATABASE_URL) or manually set it
+
+**Error: "connection refused"**
+- Cause: App running before database is ready
+- Fix: Railway health check will retry; ensure PostgreSQL is in Variables
+
+**Error: "module not found" or import errors**
+- Cause: Missing dependencies in production
+- Fix: Use `requirements-production.txt` (includes `asyncpg`); Dockerfile handles this
+
+**Health check failing**
+- Monitor: Railway "Logs" tab shows `/health` requests
+- App recovery: Railway auto-restarts failed deployments (5 retries max)
 - For production, switch `DATABASE_URL` to PostgreSQL and provision Redis
