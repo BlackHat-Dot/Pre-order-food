@@ -4,12 +4,16 @@ import sys
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+import os
 
+os.makedirs("./data", exist_ok=True)
 
 def fix_database_url(url: str) -> str:
-    """Convert Railway PostgreSQL URL to asyncpg format."""
+    url = url.strip().strip('"').strip("'")
+
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
     return url
 
 
