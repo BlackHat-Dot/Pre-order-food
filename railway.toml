@@ -1,0 +1,17 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyMaxRetries = 5
+restartPolicyWindowSeconds = 600
+
+[[services]]
+name = "preorder-api"
+healthchecks = [
+  {
+    path = "/health",
+    interval = 10,
+    timeout = 5
+  }
+]

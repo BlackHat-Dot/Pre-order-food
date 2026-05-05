@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-production.txt requirements.txt ./
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements-production.txt || pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
