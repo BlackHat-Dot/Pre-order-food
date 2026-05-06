@@ -71,7 +71,7 @@ function RootComponent() {
       <AuthProvider>
         <TooltipProvider delayDuration={150}>
           <Outlet />
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="top-right" theme="dark" />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
