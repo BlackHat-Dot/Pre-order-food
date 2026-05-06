@@ -72,8 +72,11 @@ export const cart = {
 };
 
 export function useCart() {
-  const [lines, setLines] = useState<CartLine[]>(read);
+  const [lines, setLines] = useState<CartLine[]>([]);
   useEffect(() => {
+    // Initialise from localStorage only on the client, after first render,
+    // so server and client start with the same empty array (no hydration mismatch).
+    setLines(read());
     const handler = () => setLines(read());
     window.addEventListener("pof_cart", handler);
     window.addEventListener("storage", handler);

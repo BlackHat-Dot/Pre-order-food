@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Utensils, ShoppingBag, User2, LogOut } from "lucide-react";
-import { useAuth, landingForRole } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import { landingForRole } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart";
 import {

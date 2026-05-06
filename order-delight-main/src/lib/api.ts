@@ -12,11 +12,11 @@ const REFRESH_KEY = "pof_refresh_token";
 
 export const tokenStore = {
   get access() {
-    if (typeof window === "undefined") return null;
+    if (import.meta.env.SSR) return null;
     return localStorage.getItem(ACCESS_KEY);
   },
   get refresh() {
-    if (typeof window === "undefined") return null;
+    if (import.meta.env.SSR) return null;
     return localStorage.getItem(REFRESH_KEY);
   },
   set(access: string, refresh?: string) {
