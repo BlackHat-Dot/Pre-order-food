@@ -34,11 +34,13 @@ class Shop(Base):
     rating_avg: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
     rating_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
-    default=lambda: datetime.now(timezone.utc), 
-    onupdate=lambda: datetime.now(timezone.utc)
-)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     owner = relationship("User")
     items = relationship("MenuItem", back_populates="shop", cascade="all, delete-orphan")
