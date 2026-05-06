@@ -14,6 +14,8 @@ class ShopCreate(BaseModel):
     pincode: str = Field(min_length=4, max_length=12)
     category: str
     opening_hours: str | None = None
+    image_url: str | None = None
+    loyalty_discount_per_point: float | None = Field(default=0.1, ge=0, le=100)
 
 
 class ShopUpdate(BaseModel):
@@ -25,6 +27,9 @@ class ShopUpdate(BaseModel):
     pincode: str | None = Field(default=None, min_length=4, max_length=12)
     category: str | None = None
     opening_hours: str | None = None
+    phone: str | None = None
+    image_url: str | None = None
+    loyalty_discount_per_point: float | None = Field(default=None, ge=0, le=100)
     is_open: bool | None = None
     is_accepting_orders: bool | None = None
 
@@ -42,6 +47,7 @@ class ShopOut(BaseModel):
     category: str
     opening_hours: str | None
     image_url: str | None
+    loyalty_discount_per_point: float
     is_open: bool
     is_accepting_orders: bool
     is_verified: bool

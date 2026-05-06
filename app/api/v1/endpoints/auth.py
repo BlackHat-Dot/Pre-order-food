@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,9 +26,10 @@ async def register(payload: RegisterRequest, db: Annotated[AsyncSession, Depends
     if existing:
         raise HTTPException(status_code=409, detail="Phone already registered")
 
-    existing = await get_user_by_email(db, payload.email)
-    if existing:
-        raise HTTPException(status_code=409, detail="email already registered")
+    if payload.email:
+        existing = await get_user_by_email(db, payload.email)
+        if existing:
+            raise HTTPException(status_code=409, detail="email already registered")
     
     user = User(
         id=new_id(),
@@ -47,11 +47,31 @@ async def register(payload: RegisterRequest, db: Annotated[AsyncSession, Depends
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
-    user = await get_user_by_phone(db, form_data.username)
-    if not user or not verify_password(form_data.password, user.password_hash):
+    username = ""
+    password = ""
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+        form = await request.form()
+        username = str(form.get("username") or form.get("email") or form.get("phone") or "").strip()
+        password = str(form.get("password") or "").strip()
+    else:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="Invalid login payload")
+        username = str(payload.get("username") or payload.get("email") or payload.get("phone") or "").strip()
+        password = str(payload.get("password") or "").strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username/email/phone and password are required")
+
+    # Backward compatibility: accept email or phone
+    user = await get_user_by_phone(db, username)
+    if not user and "@" in username:
+        user = await get_user_by_email(db, username)
+    if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")

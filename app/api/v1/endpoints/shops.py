@@ -39,6 +39,8 @@ async def create_shop(
         pincode=payload.pincode,
         category=payload.category,
         opening_hours=payload.opening_hours,
+        image_url=payload.image_url,
+        loyalty_discount_per_point=payload.loyalty_discount_per_point or 0.1,
         is_verified=(user.role == "admin"),
     )
     db.add(shop)

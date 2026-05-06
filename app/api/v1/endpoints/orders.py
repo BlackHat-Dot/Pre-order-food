@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import basic_rate_limit, require_roles
 from app.db.session import get_db
+from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
 from app.models.menu import MenuItem, MenuItemVariant
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop
@@ -95,11 +96,63 @@ async def create_order(
         instructions=payload.instructions,
         payment_method=payload.payment_method,
     )
+    # Optional shop-specific loyalty redemption.
+    redeem_points = max(payload.redeem_loyalty_points or 0, 0)
+    discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
+    if redeem_points > 0:
+        account_stmt = select(LoyaltyAccount).where(
+            LoyaltyAccount.customer_id == user.id,
+            LoyaltyAccount.shop_id == shop.id,
+        )
+        account = (await db.execute(account_stmt)).scalar_one_or_none()
+        if not account or account.points_balance < redeem_points:
+            raise HTTPException(400, "Insufficient loyalty points for this shop")
+        max_discount_points = int(total_price / discount_per_point) if discount_per_point > 0 else 0
+        points_to_use = min(redeem_points, max_discount_points)
+        discount_amount = round(points_to_use * discount_per_point, 2)
+        if points_to_use > 0:
+            account.points_balance -= points_to_use
+            order.loyalty_points_used = points_to_use
+            order.loyalty_discount_amount = discount_amount
+            order.total_price = round(max(total_price - discount_amount, 0), 2)
+            db.add(
+                LoyaltyTransaction(
+                    id=new_id(),
+                    account_id=account.id,
+                    order_id=order.id,
+                    points=-points_to_use,
+                    action="redeemed",
+                )
+            )
+
+    # Earn points as fixed 5% of final payable amount (shop-specific wallet).
+    points_earned = int(order.total_price * 0.05)
+    order.loyalty_points_earned = max(points_earned, 0)
     db.add(order)
     await db.flush()
     for oi in order_items:
         oi.order_id = order.id
         db.add(oi)
+    if order.loyalty_points_earned > 0:
+        account_stmt = select(LoyaltyAccount).where(
+            LoyaltyAccount.customer_id == user.id,
+            LoyaltyAccount.shop_id == shop.id,
+        )
+        account = (await db.execute(account_stmt)).scalar_one_or_none()
+        if not account:
+            account = LoyaltyAccount(id=new_id(), customer_id=user.id, shop_id=shop.id, points_balance=0, tier="bronze")
+            db.add(account)
+            await db.flush()
+        account.points_balance += order.loyalty_points_earned
+        db.add(
+            LoyaltyTransaction(
+                id=new_id(),
+                account_id=account.id,
+                order_id=order.id,
+                points=order.loyalty_points_earned,
+                action="earned",
+            )
+        )
     await db.commit()
 
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")

@@ -26,6 +26,7 @@ class OrderCreate(BaseModel):
     scheduled_at: datetime | None = None
     instructions: str | None = None
     payment_method: str = Field(pattern="^(cod|online)$")
+    redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -56,6 +57,9 @@ class OrderOut(BaseModel):
     instructions: str | None
     payment_method: str
     payment_status: str
+    loyalty_points_used: int = 0
+    loyalty_discount_amount: float = 0
+    loyalty_points_earned: int = 0
     created_at: datetime
     items: list[OrderItemOut]
 

@@ -1,60 +1,330 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Food Pre-Order</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreOrder Food - Simple Client</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 30px;
+    }
+    h1 { margin: 0 0 16px; font-size: 28px; }
+    .muted { color: #94a3b8; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    label { display: block; font-size: 13px; margin-bottom: 4px; color: #cbd5e1; }
+    input, select, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 11px;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      background: #020617;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+      background: #1d4ed8;
+      border-color: #2563eb;
+      font-weight: 600;
+    }
+    button.secondary { background: #334155; border-color: #475569; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    pre {
+      white-space: pre-wrap;
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 300px;
+      overflow: auto;
+      font-size: 12px;
+    }
+    .shop-item, .menu-item {
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: #0b1220;
+    }
+    .pill {
+      display: inline-block;
+      background: #334155;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-right: 6px;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body>
+  <div class="wrap">
+    <h1>PreOrder Food - Simple Frontend</h1>
+    <div class="muted">Use this page to test your backend quickly (register, login, list shops, get menu, place order).</div>
 
-  <div class="max-w-md mx-auto p-4">
-
-    <h1 class="text-xl font-bold mb-4 text-center">Food Pre-Order</h1>
-
-    <!-- Menu -->
-    <div class="bg-white p-4 rounded-lg shadow mb-4">
-      <h2 class="font-semibold mb-2">Menu</h2>
-      <div class="space-y-2 text-sm">
-        <div class="flex justify-between">
-          <span>Pizza</span>
-          <span>₹200 • 15 min</span>
+    <div class="card">
+      <label for="baseUrl">API Base URL</label>
+      <input id="baseUrl" value="http://127.0.0.1:8000/api/v1" />
+      <div class="row">
+        <div>
+          <label>Access Token</label>
+          <input id="accessToken" placeholder="Auto-filled after login" />
         </div>
-        <div class="flex justify-between">
-          <span>Burger</span>
-          <span>₹120 • 10 min</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Pasta</span>
-          <span>₹180 • 12 min</span>
+        <div>
+          <label>Refresh Token</label>
+          <input id="refreshToken" placeholder="Auto-filled after login" />
         </div>
       </div>
     </div>
 
-    <!-- Order Form -->
-    <form class="bg-white p-4 rounded-lg shadow space-y-3">
-      <h2 class="font-semibold">Order Details</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>1) Register</h3>
+        <label>Role</label>
+        <select id="regRole">
+          <option value="customer">customer</option>
+          <option value="shop_owner">shop_owner</option>
+          <option value="admin">admin</option>
+        </select>
+        <label>Name</label>
+        <input id="regName" value="Test User" />
+        <label>Phone (10 digits)</label>
+        <input id="regPhone" value="9000000001" />
+        <label>Email</label>
+        <input id="regEmail" value="test1@example.com" />
+        <label>Password</label>
+        <input id="regPassword" type="password" value="StrongPass123" />
+        <button id="registerBtn">Register</button>
+      </div>
 
-      <input type="text" placeholder="Customer Name"
-        class="w-full border p-2 rounded text-sm" required>
+      <div class="card">
+        <h3>2) Login</h3>
+        <label>Phone</label>
+        <input id="loginPhone" value="9000000001" />
+        <label>Password</label>
+        <input id="loginPassword" type="password" value="StrongPass123" />
+        <button id="loginBtn">Login</button>
+        <button id="meBtn" class="secondary">Get /auth/me</button>
+      </div>
 
-      <input type="tel" placeholder="Phone Number"
-        class="w-full border p-2 rounded text-sm" required>
+      <div class="card">
+        <h3>3) Shops</h3>
+        <button id="shopsBtn">List Shops</button>
+        <div id="shopsList"></div>
+        <label>Selected Shop ID</label>
+        <input id="selectedShopId" placeholder="click 'Use this shop'" />
+      </div>
 
-      <select class="w-full border p-2 rounded text-sm">
-        <option>Select Item</option>
-        <option>Pizza</option>
-        <option>Burger</option>
-        <option>Pasta</option>
-      </select>
+      <div class="card">
+        <h3>4) Menu</h3>
+        <button id="menuBtn">Load Menu for Selected Shop</button>
+        <div id="menuList"></div>
+        <label>Item ID to Order</label>
+        <input id="orderItemId" placeholder="click 'Use this item'" />
+      </div>
 
-      <button type="button"
-        class="w-full bg-black text-white py-2 rounded">
-        Checkout
-      </button>
-    </form>
+      <div class="card">
+        <h3>5) Place Order</h3>
+        <label>Quantity</label>
+        <input id="orderQty" type="number" min="1" value="1" />
+        <label>Payment Method</label>
+        <select id="paymentMethod">
+          <option value="cod">cod</option>
+          <option value="online">online</option>
+        </select>
+        <label>Instructions</label>
+        <textarea id="instructions" rows="2" placeholder="No onions"></textarea>
+        <button id="createOrderBtn">Create Order</button>
+      </div>
 
+      <div class="card">
+        <h3>6) My Orders (Customer)</h3>
+        <button id="myOrdersBtn">Load /orders/customer/me</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Response / Logs</h3>
+      <pre id="output">Ready.</pre>
+    </div>
   </div>
 
+  <script>
+    const el = (id) => document.getElementById(id);
+    const out = el("output");
+
+    function log(title, data) {
+      out.textContent = title + "\n\n" + (typeof data === "string" ? data : JSON.stringify(data, null, 2));
+    }
+
+    function apiBase() {
+      return el("baseUrl").value.replace(/\/+$/, "");
+    }
+
+    function authHeaders() {
+      const token = el("accessToken").value.trim();
+      return token ? { Authorization: "Bearer " + token } : {};
+    }
+
+    async function request(method, path, body, isForm = false) {
+      const headers = { ...authHeaders() };
+      let payload;
+
+      if (body !== undefined && body !== null) {
+        if (isForm) {
+          headers["Content-Type"] = "application/x-www-form-urlencoded";
+          payload = new URLSearchParams(body).toString();
+        } else {
+          headers["Content-Type"] = "application/json";
+          payload = JSON.stringify(body);
+        }
+      }
+
+      const res = await fetch(apiBase() + path, { method, headers, body: payload });
+      const text = await res.text();
+      let data;
+      try { data = text ? JSON.parse(text) : {}; } catch { data = text; }
+      if (!res.ok) throw { status: res.status, data };
+      return data;
+    }
+
+    el("registerBtn").onclick = async () => {
+      try {
+        const body = {
+          role: el("regRole").value,
+          name: el("regName").value,
+          phone: el("regPhone").value,
+          email: el("regEmail").value,
+          password: el("regPassword").value,
+        };
+        const data = await request("POST", "/auth/register", body);
+        log("Registered", data);
+      } catch (e) {
+        log("Register failed", e);
+      }
+    };
+
+    el("loginBtn").onclick = async () => {
+      try {
+        const data = await request(
+          "POST",
+          "/auth/login",
+          { username: el("loginPhone").value, password: el("loginPassword").value },
+          true
+        );
+        el("accessToken").value = data.access_token || "";
+        el("refreshToken").value = data.refresh_token || "";
+        log("Login success", data);
+      } catch (e) {
+        log("Login failed", e);
+      }
+    };
+
+    el("meBtn").onclick = async () => {
+      try {
+        const data = await request("GET", "/auth/me");
+        log("Current user", data);
+      } catch (e) {
+        log("Get me failed", e);
+      }
+    };
+
+    el("shopsBtn").onclick = async () => {
+      try {
+        const shops = await request("GET", "/shops?page=1&page_size=20");
+        const list = el("shopsList");
+        list.innerHTML = "";
+        shops.forEach((s) => {
+          const div = document.createElement("div");
+          div.className = "shop-item";
+          div.innerHTML = `
+            <div><strong>${s.name}</strong></div>
+            <div class="muted">${s.city || ""} | ${s.category || ""}</div>
+            <div><span class="pill">id: ${s.id}</span></div>
+            <button class="secondary" data-id="${s.id}">Use this shop</button>
+          `;
+          div.querySelector("button").onclick = () => (el("selectedShopId").value = s.id);
+          list.appendChild(div);
+        });
+        log("Shops loaded", shops);
+      } catch (e) {
+        log("List shops failed", e);
+      }
+    };
+
+    el("menuBtn").onclick = async () => {
+      try {
+        const shopId = el("selectedShopId").value.trim();
+        if (!shopId) return log("Validation", "Select a shop id first.");
+        const items = await request("GET", `/menu/shops/${shopId}/items?page=1&page_size=50`);
+        const list = el("menuList");
+        list.innerHTML = "";
+        items.forEach((i) => {
+          const div = document.createElement("div");
+          div.className = "menu-item";
+          div.innerHTML = `
+            <div><strong>${i.name}</strong> - ₹${i.price}</div>
+            <div class="muted">${i.category} | ${i.dietary_type} | prep ${i.prep_time_minutes}m</div>
+            <div><span class="pill">item_id: ${i.id}</span></div>
+            <button class="secondary" data-id="${i.id}">Use this item</button>
+          `;
+          div.querySelector("button").onclick = () => (el("orderItemId").value = i.id);
+          list.appendChild(div);
+        });
+        log("Menu loaded", items);
+      } catch (e) {
+        log("Load menu failed", e);
+      }
+    };
+
+    el("createOrderBtn").onclick = async () => {
+      try {
+        const shopId = el("selectedShopId").value.trim();
+        const itemId = el("orderItemId").value.trim();
+        const qty = Number(el("orderQty").value || 1);
+        if (!shopId || !itemId) return log("Validation", "Select shop and item first.");
+
+        const body = {
+          shop_id: shopId,
+          items: [{ item_id: itemId, quantity: qty }],
+          payment_method: el("paymentMethod").value,
+          instructions: el("instructions").value || null
+        };
+        const data = await request("POST", "/orders", body);
+        log("Order created", data);
+      } catch (e) {
+        log("Create order failed", e);
+      }
+    };
+
+    el("myOrdersBtn").onclick = async () => {
+      try {
+        const data = await request("GET", "/orders/customer/me?page=1&page_size=20");
+        log("My orders", data);
+      } catch (e) {
+        log("Load orders failed", e);
+      }
+    };
+  </script>
 </body>
 </html>

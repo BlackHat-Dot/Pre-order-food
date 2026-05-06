@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class LoyaltyAccountOut(BaseModel):
     id: str
     customer_id: str
+    shop_id: str
     points_balance: int
     tier: str
     created_at: datetime
@@ -27,5 +28,6 @@ class LoyaltyTransactionOut(BaseModel):
 
 
 class LoyaltyRedeemRequest(BaseModel):
+    shop_id: str
     points: int = Field(ge=1, le=10000)
 

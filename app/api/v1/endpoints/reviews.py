@@ -30,8 +30,13 @@ async def create_review(
         raise HTTPException(404, "Order not found")
     if user.role == "customer" and order.customer_id != user.id:
         raise HTTPException(403, "Forbidden")
-    if order.status != "completed":
-        raise HTTPException(400, "Review allowed only for completed orders")
+    if order.status not in {"ready", "completed"} and order.payment_status != "paid":
+        raise HTTPException(400, "Review allowed only after payment or completion")
+    existing = (
+        await db.execute(select(Review).where(Review.order_id == order.id, Review.customer_id == order.customer_id))
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, "Review already submitted for this order")
 
     review = Review(id=new_id(), order_id=order.id, shop_id=order.shop_id, customer_id=order.customer_id, rating=payload.rating, comment=payload.comment)
     db.add(review)

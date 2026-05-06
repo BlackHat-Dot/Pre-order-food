@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import require_roles
 from app.db.session import get_db
 from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
+from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.loyalty import LoyaltyAccountOut, LoyaltyRedeemRequest, LoyaltyTransactionOut
 from app.utils.ids import new_id
@@ -18,8 +19,12 @@ router = APIRouter(prefix="/loyalty", tags=["Loyalty"])
 
 
 @router.get("/me", response_model=LoyaltyAccountOut)
-async def my_loyalty(db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(require_roles("customer", "admin"))]) -> LoyaltyAccountOut:
-    account = await _ensure_account(db, user.id)
+async def my_loyalty(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles("customer", "admin"))],
+    shop_id: str = Query(...),
+) -> LoyaltyAccountOut:
+    account = await _ensure_account(db, user.id, shop_id)
     return LoyaltyAccountOut.model_validate(account)
 
 
@@ -27,10 +32,11 @@ async def my_loyalty(db: Annotated[AsyncSession, Depends(get_db)], user: Annotat
 async def my_loyalty_transactions(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("customer", "admin"))],
+    shop_id: str = Query(...),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ) -> list[LoyaltyTransactionOut]:
-    account = await _ensure_account(db, user.id)
+    account = await _ensure_account(db, user.id, shop_id)
     stmt = (
         select(LoyaltyTransaction)
         .where(LoyaltyTransaction.account_id == account.id)
@@ -48,7 +54,7 @@ async def redeem_points(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("customer", "admin"))],
 ) -> LoyaltyAccountOut:
-    account = await _ensure_account(db, user.id)
+    account = await _ensure_account(db, user.id, payload.shop_id)
     if account.points_balance < payload.points:
         raise HTTPException(400, "Insufficient points")
     account.points_balance -= payload.points
@@ -61,11 +67,12 @@ async def redeem_points(
 @router.post("/admin/adjust/{customer_id}", response_model=LoyaltyAccountOut)
 async def adjust_points(
     customer_id: str,
+    shop_id: str,
     points: int,
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(require_roles("admin"))],
 ) -> LoyaltyAccountOut:
-    account = await _ensure_account(db, customer_id)
+    account = await _ensure_account(db, customer_id, shop_id)
     account.points_balance += points
     db.add(LoyaltyTransaction(id=new_id(), account_id=account.id, points=points, action="adjusted"))
     await db.commit()
@@ -73,12 +80,18 @@ async def adjust_points(
     return LoyaltyAccountOut.model_validate(account)
 
 
-async def _ensure_account(db: AsyncSession, customer_id: str) -> LoyaltyAccount:
-    stmt = select(LoyaltyAccount).where(LoyaltyAccount.customer_id == customer_id)
+async def _ensure_account(db: AsyncSession, customer_id: str, shop_id: str) -> LoyaltyAccount:
+    shop = await db.get(Shop, shop_id)
+    if not shop:
+        raise HTTPException(404, "Shop not found")
+    stmt = select(LoyaltyAccount).where(
+        LoyaltyAccount.customer_id == customer_id,
+        LoyaltyAccount.shop_id == shop_id,
+    )
     account = (await db.execute(stmt)).scalar_one_or_none()
     if account:
         return account
-    account = LoyaltyAccount(id=new_id(), customer_id=customer_id, points_balance=0, tier="bronze")
+    account = LoyaltyAccount(id=new_id(), customer_id=customer_id, shop_id=shop_id, points_balance=0, tier="bronze")
     db.add(account)
     await db.commit()
     await db.refresh(account)

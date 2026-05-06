@@ -10,8 +10,8 @@ class PaymentCreateRequest(BaseModel):
 
 class PaymentVerifyRequest(BaseModel):
     order_id: str
-    provider_order_id: str
-    provider_payment_id: str
+    provider_order_id: str = None
+    provider_payment_id: str = None
     signature: str | None = None
 
 

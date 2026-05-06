@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -10,9 +10,11 @@ from app.db.base import Base
 
 class LoyaltyAccount(Base):
     __tablename__ = "loyalty_accounts"
+    __table_args__ = (UniqueConstraint("customer_id", "shop_id", name="uq_loyalty_accounts_customer_shop"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    customer_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    customer_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    shop_id: Mapped[str] = mapped_column(String(36), ForeignKey("shops.id", ondelete="CASCADE"), nullable=False)
     points_balance: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     tier: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'bronze'"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -36,4 +38,5 @@ class LoyaltyTransaction(Base):
 
 
 Index("ix_loyalty_transactions_account_id_created_at", LoyaltyTransaction.account_id, LoyaltyTransaction.created_at)
+Index("ix_loyalty_accounts_customer_shop", LoyaltyAccount.customer_id, LoyaltyAccount.shop_id)
 

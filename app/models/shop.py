@@ -24,6 +24,7 @@ class Shop(Base):
     category: Mapped[str] = mapped_column(String(60), nullable=False)
     opening_hours: Mapped[str | None] = mapped_column(String(120), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    loyalty_discount_per_point: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0.1"))
 
     is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     is_accepting_orders: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))

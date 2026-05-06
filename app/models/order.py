@@ -23,6 +23,9 @@ class Order(Base):
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"))
+    loyalty_points_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    loyalty_discount_amount: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
+    loyalty_points_earned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
