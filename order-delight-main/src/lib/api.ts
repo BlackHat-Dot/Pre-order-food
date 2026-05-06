@@ -776,20 +776,108 @@ export const loyaltyApi = {
     apiRequest<any>(`/api/v1/loyalty/admin/adjust/${customer_id}`, { method: "POST", query: { shop_id: body.shop_id, points: body.points } }),
 };
 
+export interface AdminShopOut {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  state: string;
+  phone: string;
+  is_verified: boolean;
+  is_active: boolean;
+  is_open: boolean;
+  is_accepting_orders: boolean;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  owner_name: string;
+  owner_email: string | null;
+  owner_id: string;
+}
+
+export interface AdminOrderOut {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  shop_id: string;
+  shop_name: string;
+  status: string;
+  total_price: number;
+  payment_method: string;
+  payment_status: string;
+  created_at: string;
+}
+
+export interface AnalyticsOverview {
+  users: number;
+  active_users: number;
+  shops: number;
+  verified_shops: number;
+  orders: number;
+  today_orders: number;
+  pending_orders: number;
+  cancelled_orders: number;
+  total_revenue: number;
+  month_revenue: number;
+  week_revenue: number;
+  today_revenue: number;
+}
+
+export interface DailyOrderPoint { date: string; orders: number; revenue: number; }
+export interface DailySignupPoint { date: string; signups: number; }
+export interface AnalyticsTrends {
+  daily_orders: DailyOrderPoint[];
+  daily_signups: DailySignupPoint[];
+  order_by_status: Record<string, number>;
+}
+
+export interface TopShop {
+  shop_id: string;
+  shop_name: string;
+  category: string;
+  city: string;
+  order_count: number;
+  revenue: number;
+  rating: number;
+  is_verified: boolean;
+}
+
+export interface RecentOrder {
+  id: string;
+  customer_name: string;
+  shop_name: string;
+  status: string;
+  total: number;
+  created_at: string;
+}
+
+export interface CategoryRevenue { category: string; orders: number; revenue: number; }
+
 export const adminApi = {
-  listUsers: (params: { page?: number; page_size?: number; role?: string } = {}) =>
+  listUsers: (params: { page?: number; page_size?: number; role?: string; search?: string } = {}) =>
     apiRequest<UserOut[]>("/api/v1/admin/users", { query: params }),
+  countUsers: () => apiRequest<{ total: number; active: number; by_role: Record<string, number> }>("/api/v1/admin/users/count"),
+  getUser: (id: string) => apiRequest<UserOut>(`/api/v1/admin/users/${id}`),
   setUserActive: (id: string, body: { is_active: boolean }) =>
     apiRequest<any>(`/api/v1/admin/users/${id}/active`, { method: "PATCH", query: { is_active: body.is_active } }),
-  listShops: (params: { page?: number; page_size?: number } = {}) =>
-    apiRequest<ShopOut[]>("/api/v1/admin/shops", { query: params }),
+  changeUserRole: (id: string, role: string) =>
+    apiRequest<any>(`/api/v1/admin/users/${id}/role`, { method: "PATCH", query: { role } }),
+  createUser: (body: { name: string; phone: string; email?: string; password: string; role: string }) =>
+    apiRequest<UserOut>("/api/v1/admin/users", { method: "POST", body }),
+  listShops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
+    apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
+  countShops: () => apiRequest<{ total: number; verified: number; active: number; open_now: number }>("/api/v1/admin/shops/count"),
   verifyShop: (id: string, body: { is_verified: boolean }) =>
     apiRequest<any>(`/api/v1/admin/shops/${id}/verify`, { method: "PATCH", query: { verified: body.is_verified } }),
   setShopActive: (id: string, body: { is_active: boolean }) =>
     apiRequest<any>(`/api/v1/admin/shops/${id}/active`, { method: "PATCH", query: { is_active: body.is_active } }),
   listOrders: (params: { page?: number; page_size?: number; status?: string } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/admin/orders", { query: params }),
-  analytics: () => apiRequest<any>("/api/v1/admin/analytics/overview"),
+    apiRequest<AdminOrderOut[]>("/api/v1/admin/orders", { query: params }),
+  analytics: () => apiRequest<AnalyticsOverview>("/api/v1/admin/analytics/overview"),
+  trends: (days?: number) => apiRequest<AnalyticsTrends>("/api/v1/admin/analytics/trends", { query: { days } }),
+  topShops: (limit?: number) => apiRequest<TopShop[]>("/api/v1/admin/analytics/top-shops", { query: { limit } }),
+  recentOrders: (limit?: number) => apiRequest<RecentOrder[]>("/api/v1/admin/analytics/recent-orders", { query: { limit } }),
+  revenueByCategory: () => apiRequest<CategoryRevenue[]>("/api/v1/admin/analytics/revenue-by-category"),
 };
 
 export const healthApi = {

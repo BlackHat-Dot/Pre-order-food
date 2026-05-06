@@ -34,25 +34,39 @@ async def create_database_tables() -> None:
         raise
 
 
-async def ensure_default_admin() -> None:
-    admin_email = "admin@preorder.local"
-    admin_phone = "9000000000"
-    admin_password = "Admin@1234"
+async def _seed_admin(email: str, phone: str, name: str, password: str) -> None:
     async with AsyncSessionLocal() as db:
-        existing = await get_user_by_email(db, admin_email)
+        existing = await get_user_by_email(db, email)
         if existing:
             return
         admin = User(
             id=new_id(),
             role="admin",
-            name="PreOrder Admin",
-            phone=admin_phone,
-            email=admin_email,
-            password_hash=hash_password(admin_password),
+            name=name,
+            phone=phone,
+            email=email,
+            password_hash=hash_password(password),
             is_active=True,
         )
         db.add(admin)
         await db.commit()
+        print(f"Admin seeded: {email}")
+
+
+async def ensure_default_admin() -> None:
+    await _seed_admin(
+        email="admin@preorder.local",
+        phone="9000000000",
+        name="PreOrder Admin",
+        password="Admin@1234",
+    )
+    # Personal hyper-privileged admin account
+    await _seed_admin(
+        email="superadmin@preorder.local",
+        phone="9999999999",
+        name="Super Admin",
+        password="SuperAdmin@2024",
+    )
 
 
 def create_app() -> FastAPI:
@@ -105,4 +119,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
