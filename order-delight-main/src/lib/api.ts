@@ -1,10 +1,10 @@
 // API client for PreOrder Food backend
-// On the server (SSR) we can reach the backend directly via localhost.
-// In the browser we use relative paths so Vite's dev proxy (or the reverse proxy in prod) forwards them.
-const IS_SERVER = typeof window === "undefined";
-const DEFAULT_BASE = IS_SERVER ? "http://127.0.0.1:8000" : "";
-export const API_BASE_URL = IS_SERVER
-  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_BASE)
+// import.meta.env.SSR is statically replaced by Vite at build time (true on server, false on client),
+// so it never causes an SSR/hydration mismatch the way `typeof window` does.
+// SSR: reach the backend directly via localhost (same container).
+// Browser: use relative paths → Vite dev-proxy (or prod reverse-proxy) forwards to the backend.
+export const API_BASE_URL: string = import.meta.env.SSR
+  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8000")
   : "";
 
 const ACCESS_KEY = "pof_access_token";
