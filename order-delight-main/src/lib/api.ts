@@ -1,7 +1,11 @@
 // API client for PreOrder Food backend
-const DEFAULT_BASE = "http://127.0.0.1:8000";
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_BASE;
+// On the server (SSR) we can reach the backend directly via localhost.
+// In the browser we use relative paths so Vite's dev proxy (or the reverse proxy in prod) forwards them.
+const IS_SERVER = typeof window === "undefined";
+const DEFAULT_BASE = IS_SERVER ? "http://127.0.0.1:8000" : "";
+export const API_BASE_URL = IS_SERVER
+  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_BASE)
+  : "";
 
 const ACCESS_KEY = "pof_access_token";
 const REFRESH_KEY = "pof_refresh_token";
