@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import basic_rate_limit, require_roles
 from app.db.session import get_db
-from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
 from app.models.menu import MenuItem, MenuItemVariant
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop
@@ -125,7 +124,8 @@ async def create_order(
                 )
             )
 
-    # Earn points as fixed 5% of final payable amount (shop-specific wallet).
+    # Loyalty points are earned after payment is confirmed (see payments.py).
+    # Store the expected earn amount on the order for display purposes only.
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     db.add(order)
@@ -133,26 +133,6 @@ async def create_order(
     for oi in order_items:
         oi.order_id = order.id
         db.add(oi)
-    if order.loyalty_points_earned > 0:
-        account_stmt = select(LoyaltyAccount).where(
-            LoyaltyAccount.customer_id == user.id,
-            LoyaltyAccount.shop_id == shop.id,
-        )
-        account = (await db.execute(account_stmt)).scalar_one_or_none()
-        if not account:
-            account = LoyaltyAccount(id=new_id(), customer_id=user.id, shop_id=shop.id, points_balance=0, tier="bronze")
-            db.add(account)
-            await db.flush()
-        account.points_balance += order.loyalty_points_earned
-        db.add(
-            LoyaltyTransaction(
-                id=new_id(),
-                account_id=account.id,
-                order_id=order.id,
-                points=order.loyalty_points_earned,
-                action="earned",
-            )
-        )
     await db.commit()
 
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")

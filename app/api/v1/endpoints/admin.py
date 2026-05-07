@@ -299,24 +299,24 @@ async def analytics_overview(
 
     month_revenue = (await db.execute(
         select(func.coalesce(func.sum(Order.total_price), 0.0)).where(
-            Order.created_at >= month_start, Order.status != "cancelled"
+            Order.created_at >= month_start, Order.payment_status == "paid"
         )
     )).scalar_one()
 
     today_revenue = (await db.execute(
         select(func.coalesce(func.sum(Order.total_price), 0.0)).where(
-            Order.created_at >= today_start, Order.status != "cancelled"
+            Order.created_at >= today_start, Order.payment_status == "paid"
         )
     )).scalar_one()
 
     week_revenue = (await db.execute(
         select(func.coalesce(func.sum(Order.total_price), 0.0)).where(
-            Order.created_at >= week_start, Order.status != "cancelled"
+            Order.created_at >= week_start, Order.payment_status == "paid"
         )
     )).scalar_one()
 
     total_revenue = (await db.execute(
-        select(func.coalesce(func.sum(Order.total_price), 0.0)).where(Order.status != "cancelled")
+        select(func.coalesce(func.sum(Order.total_price), 0.0)).where(Order.payment_status == "paid")
     )).scalar_one()
 
     cancelled = (await db.execute(
@@ -411,7 +411,7 @@ async def top_shops(
             func.count(Order.id).label("order_count"),
             func.coalesce(func.sum(Order.total_price), 0.0).label("revenue"),
         )
-        .where(Order.status != "cancelled")
+        .where(Order.payment_status == "paid")
         .group_by(Order.shop_id)
         .order_by(func.sum(Order.total_price).desc())
         .limit(limit)
@@ -469,7 +469,7 @@ async def revenue_by_category(
             func.coalesce(func.sum(Order.total_price), 0.0).label("revenue"),
         )
         .join(Order, Order.shop_id == Shop.id)
-        .where(Order.status != "cancelled")
+        .where(Order.payment_status == "paid")
         .group_by(Shop.category)
         .order_by(func.sum(Order.total_price).desc())
     )).all()

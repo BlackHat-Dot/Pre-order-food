@@ -35,7 +35,7 @@ function CheckoutPage() {
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [paymentRef, setPaymentRef] = useState<string | null>(null);
   const [useLoyalty, setUseLoyalty] = useState(false);
-  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  const [redeemPoints, setRedeemPoints] = useState<string>("");
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -54,10 +54,16 @@ function CheckoutPage() {
 
   const discountPerPoint = shop?.loyalty_discount_per_point ?? 0.1;
   const maxRedeemByTotal = Math.floor(total / Math.max(discountPerPoint, 0.01));
-  const appliedRedeemPoints = useLoyalty ? Math.min(redeemPoints, loyalty?.points ?? 0, maxRedeemByTotal) : 0;
+  const parsedRedeemPoints = Math.max(0, parseInt(redeemPoints, 10) || 0);
+  const appliedRedeemPoints = useLoyalty ? Math.min(parsedRedeemPoints, loyalty?.points ?? 0, maxRedeemByTotal) : 0;
   const loyaltyDiscount = appliedRedeemPoints * discountPerPoint;
   const payableTotal = Math.max(total - loyaltyDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
+
+  const cancelOrder = useMutation({
+    mutationFn: (id: string) => ordersApi.cancel(id),
+    onError: () => {},
+  });
 
   const placeOrder = useMutation({
     mutationFn: async () => {
@@ -83,6 +89,7 @@ function CheckoutPage() {
           (pay && (pay.id || pay.payment_id || pay.reference || pay.order_id)) ?? order.id,
         );
       } catch (err) {
+        await ordersApi.cancel(order.id).catch(() => {});
         toast.error(err instanceof ApiError ? err.message : "Failed to start payment");
       }
     },
@@ -107,6 +114,15 @@ function CheckoutPage() {
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Verification failed"),
   });
+
+  function handleDialogOpenChange(open: boolean) {
+    if (!open && pendingOrderId) {
+      cancelOrder.mutate(pendingOrderId);
+      setPendingOrderId(null);
+      setPaymentRef(null);
+      toast.info("Order cancelled — payment was not completed.");
+    }
+  }
 
   if (count === 0) {
     return (
@@ -163,18 +179,28 @@ function CheckoutPage() {
                     · 1 point = {formatCurrency(discountPerPoint)} discount.
                   </p>
                   <div className="flex items-center gap-2">
-                    <Checkbox checked={useLoyalty} onCheckedChange={(v) => setUseLoyalty(Boolean(v))} />
+                    <Checkbox
+                      checked={useLoyalty}
+                      onCheckedChange={(v) => {
+                        setUseLoyalty(Boolean(v));
+                        setRedeemPoints("");
+                      }}
+                    />
                     <span className="text-sm">Use loyalty points for this order (optional)</span>
                   </div>
                   {useLoyalty && (
                     <div className="space-y-1">
-                      <Label>Points to use</Label>
+                      <Label>Points to use (max {Math.min(loyalty.points, maxRedeemByTotal)})</Label>
                       <Input
                         type="number"
                         min={0}
                         max={Math.min(loyalty.points, maxRedeemByTotal)}
                         value={redeemPoints}
-                        onChange={(e) => setRedeemPoints(Number(e.target.value || 0))}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/^0+(?=\d)/, "");
+                          setRedeemPoints(raw);
+                        }}
                       />
                     </div>
                   )}
@@ -217,7 +243,7 @@ function CheckoutPage() {
                 <span>{formatCurrency(payableTotal)}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                You will earn approximately <span className="font-semibold text-primary">{estimatedEarn}</span> shop loyalty points on this order.
+                You will earn approximately <span className="font-semibold text-primary">{estimatedEarn}</span> shop loyalty points after payment.
               </p>
               <Button
                 className="w-full"
@@ -232,18 +258,18 @@ function CheckoutPage() {
         </div>
       </div>
 
-      <Dialog open={!!pendingOrderId} onOpenChange={(o) => !o && setPendingOrderId(null)}>
+      <Dialog open={!!pendingOrderId} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm payment</DialogTitle>
             <DialogDescription>
-              This is a demo payment. Confirm to mark the payment as successful.
+              This is a demo payment. Confirm to mark the payment as successful. Closing this dialog will cancel your order.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount</span>
-              <span className="font-semibold">{formatCurrency(total)}</span>
+              <span className="font-semibold">{formatCurrency(payableTotal)}</span>
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted-foreground">Reference</span>
@@ -251,8 +277,8 @@ function CheckoutPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPendingOrderId(null)}>
-              Cancel
+            <Button variant="ghost" onClick={() => handleDialogOpenChange(false)}>
+              Cancel order
             </Button>
             <Button onClick={() => verify.mutate()} disabled={verify.isPending}>
               {verify.isPending ? "Verifying…" : "Confirm payment"}

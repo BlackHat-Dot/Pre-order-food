@@ -18,6 +18,7 @@ function ProfilePage() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
   });
+  const [showPwdForm, setShowPwdForm] = useState(false);
   const [pwd, setPwd] = useState({ current_password: "", new_password: "" });
 
   const updateProfile = useMutation({
@@ -39,6 +40,7 @@ function ProfilePage() {
     onSuccess: () => {
       toast.success("Password updated");
       setPwd({ current_password: "", new_password: "" });
+      setShowPwdForm(false);
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
   });
@@ -57,12 +59,17 @@ function ProfilePage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Name</Label>
-            <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <Input
+              autoComplete="name"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
             <Input
               type="email"
+              autoComplete="email"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
@@ -70,6 +77,7 @@ function ProfilePage() {
           <div className="space-y-2">
             <Label>Phone</Label>
             <Input
+              autoComplete="tel"
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             />
@@ -85,28 +93,51 @@ function ProfilePage() {
           <CardTitle>Change password</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Current password</Label>
-            <Input
-              type="password"
-              value={pwd.current_password}
-              onChange={(e) => setPwd((p) => ({ ...p, current_password: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>New password</Label>
-            <Input
-              type="password"
-              value={pwd.new_password}
-              onChange={(e) => setPwd((p) => ({ ...p, new_password: e.target.value }))}
-            />
-          </div>
-          <Button
-            onClick={() => updatePwd.mutate()}
-            disabled={updatePwd.isPending || !pwd.current_password || !pwd.new_password}
-          >
-            {updatePwd.isPending ? "Updating…" : "Update password"}
-          </Button>
+          {!showPwdForm ? (
+            <Button variant="outline" onClick={() => setShowPwdForm(true)}>
+              Change password
+            </Button>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={pwd.current_password}
+                  onChange={(e) => setPwd((p) => ({ ...p, current_password: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pwd.new_password}
+                  onChange={(e) => setPwd((p) => ({ ...p, new_password: e.target.value }))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => updatePwd.mutate()}
+                  disabled={updatePwd.isPending || !pwd.current_password || !pwd.new_password}
+                >
+                  {updatePwd.isPending ? "Updating…" : "Update password"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowPwdForm(false);
+                    setPwd({ current_password: "", new_password: "" });
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

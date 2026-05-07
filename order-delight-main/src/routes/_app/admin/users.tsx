@@ -151,12 +151,13 @@ function AdminUsers() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "users", page, role, search],
-    queryFn: () => adminApi.listUsers({
-      page,
-      page_size: 20,
-      role: role === "all" ? undefined : role,
-      search: search || undefined,
-    }),
+    queryFn: () => {
+      const params: Parameters<typeof adminApi.listUsers>[0] = { page, page_size: 20 };
+      if (role !== "all") params.role = role;
+      if (search) params.search = search;
+      return adminApi.listUsers(params);
+    },
+    staleTime: 0,
   });
 
   const { data: counts } = useQuery({

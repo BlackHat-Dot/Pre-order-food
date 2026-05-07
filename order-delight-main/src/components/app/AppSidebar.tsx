@@ -57,6 +57,7 @@ const adminNav: NavItem[] = [
   { title: "Shops", url: "/admin/shops", icon: Store },
   { title: "Orders", url: "/admin/orders", icon: Receipt },
   { title: "Loyalty", url: "/admin/loyalty", icon: Gift },
+  { title: "My orders", url: "/orders", icon: ShoppingBag },
   { title: "Profile", url: "/profile", icon: User2 },
 ];
 

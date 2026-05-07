@@ -457,6 +457,7 @@ function VariantsDialog({ item, onClose }: { item: MenuItemOut | null; onClose: 
 function OrdersTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["shop", shopId, "orders", status],
     queryFn: () =>
@@ -468,13 +469,16 @@ function OrdersTab({ shopId }: { shopId: string }) {
     refetchInterval: 15_000,
   });
   const updateStatus = useMutation({
-    mutationFn: ({ id, st }: { id: string; st: OrderStatus }) =>
-      ordersApi.updateStatus(id, { status: st }),
+    mutationFn: ({ id, st }: { id: string; st: OrderStatus }) => {
+      setUpdatingOrderId(id);
+      return ordersApi.updateStatus(id, { status: st });
+    },
     onSuccess: () => {
       toast.success("Updated");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    onSettled: () => setUpdatingOrderId(null),
   });
 
   return (
@@ -516,6 +520,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                 <span className="font-semibold">{formatCurrency(o.total)}</span>
                 <Select
                   value={o.status}
+                  disabled={updatingOrderId !== null}
                   onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
                 >
                   <SelectTrigger className="w-36">

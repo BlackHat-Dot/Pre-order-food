@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_roles
 from app.db.session import get_db
+from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
 from app.models.order import Order, Payment
 from app.models.shop import Shop
 from app.models.user import User
@@ -71,6 +72,35 @@ async def verify_payment(
     payment.provider_payment_id = payload.provider_payment_id
     payment.status = "paid"
     order.payment_status = "paid"
+
+    # Award loyalty points now that payment is confirmed.
+    if order.loyalty_points_earned and order.loyalty_points_earned > 0:
+        account_stmt = select(LoyaltyAccount).where(
+            LoyaltyAccount.customer_id == order.customer_id,
+            LoyaltyAccount.shop_id == order.shop_id,
+        )
+        account = (await db.execute(account_stmt)).scalar_one_or_none()
+        if not account:
+            account = LoyaltyAccount(
+                id=new_id(),
+                customer_id=order.customer_id,
+                shop_id=order.shop_id,
+                points_balance=0,
+                tier="bronze",
+            )
+            db.add(account)
+            await db.flush()
+        account.points_balance += order.loyalty_points_earned
+        db.add(
+            LoyaltyTransaction(
+                id=new_id(),
+                account_id=account.id,
+                order_id=order.id,
+                points=order.loyalty_points_earned,
+                action="earned",
+            )
+        )
+
     await db.commit()
     await db.refresh(payment)
     return PaymentOut.model_validate(payment)
