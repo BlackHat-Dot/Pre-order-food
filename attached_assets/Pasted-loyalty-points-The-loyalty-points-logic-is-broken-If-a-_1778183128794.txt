@@ -1,0 +1,25 @@
+loyalty points :
+The loyalty points logic is broken, If a user buy a food with loyalty points and just click place order and pay and leave the box that as been popped in , they still get the loyalty points without the actual payment.
+Also the users loyalty points entering box as fixed initial number that is "0"and any number written in that is just a zero with intended number, for an example,
+if i want to use 100 loyalty points from wallet and if i enter in that box it becomes "0100" although the logic is not broken but we should need to make that box completed blank and user can write their number without a prefix "zero".
+
+Order creation :
+When I select my foods it just stored in the cart for further payment works and for user readability that makes sure they carted some foods and need a payment to actually confirm order request, but this logic is completely broken in current scenario like when I click proceed to checkout it just moves me to another dialogue box which for payment , In that if I click "place order and pay" and leave the pop-up the order is still placed and the order is sent to shop for confirmation(major flaw).
+
+Payment confirmation :
+If a shop owner received a order , the dashboard shows the revenue included with current order but still the order is not actually as acceptance/decline so how it can be considered as a part of monthly revenue.
+
+Admin previlege :
+Admin can also see their own orders in "my orders".(should be implemented)
+
+Delay in order status :
+I can see a simple delay while selecting the status of the order, for example, if I go from pending to confirmed it takes sometime and says confirmed and also I use that delay to give a status for another order it produces a error "failed"
+
+Admin feature :
+If admin see the users of app and select "All roles" as a filter the app didn't show any user and if selected users as a role the app shows the user's without any blank , how it is possible a account of role user can exist in the user but not in the all roles.
+
+Important :
+The speed is the number one problem , fetch is slow and the price and order total takes time to show up and shows zero sometimes.
+
+Current password :
+The current password is used to verify the current user legitimacy but in the app the current password is writtern in the box by default so if a bad actor can somehow steal a phone with a logged-in account, the bad actor can change password of the account without knowing current password, for example, if I need to change the password from "vijaykumar" to "vijaykumar11" and i got to settings and see the current password as "vijaykumar" even before my write in that box.
