@@ -72,6 +72,7 @@ class Payment(Base):
 
 Index("ix_orders_customer_id_created_at", Order.customer_id, Order.created_at)
 Index("ix_orders_shop_id_status", Order.shop_id, Order.status)
+Index("ix_orders_payment_status_created_at", Order.payment_status, Order.created_at)
 Index("ix_order_items_order_id", OrderItem.order_id)
 Index("ix_payments_order_id", Payment.order_id)
 
