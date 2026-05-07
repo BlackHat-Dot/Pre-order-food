@@ -7,3 +7,5 @@ DATABASE_URL = "sqlite:///./myapp.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 Base = declarative_base()
+
+# changed the url back to sqlite for simplicity and easy access
