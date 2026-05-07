@@ -116,6 +116,7 @@ function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["shops", "list", search],
     queryFn: () => shopsApi.list({ page: 1, page_size: 24, search: search || undefined }),
+    staleTime: 5 * 60 * 1000,
   });
 
   return (

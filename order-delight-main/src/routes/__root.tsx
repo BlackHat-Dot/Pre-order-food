@@ -36,7 +36,10 @@ export const Route = createRootRoute({
       { name: "description", content: "Pre-order your favorite food and skip the queue." },
       { name: "theme-color", content: "#0F0F14" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
