@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_roles
@@ -18,6 +18,13 @@ from app.utils.ids import new_id
 
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+def _day_bucket_expr(db: AsyncSession, column):
+    dialect = db.bind.dialect.name if db.bind is not None else ""
+    if dialect == "sqlite":
+        return func.date(column)
+    return func.date_trunc("day", column)
 
 
 # ─── Users ───────────────────────────────────────────────────────────────────
@@ -352,26 +359,33 @@ async def analytics_trends(
     now = datetime.now(timezone.utc)
     since = now - timedelta(days=days)
 
-    daily_orders = (await db.execute(
-        select(
-            func.date_trunc("day", Order.created_at).label("day"),
-            func.count(Order.id).label("orders"),
-            func.coalesce(func.sum(Order.total_price), 0.0).label("revenue"),
-        )
-        .where(Order.created_at >= since)
-        .group_by(text("day"))
-        .order_by(text("day"))
-    )).all()
+    order_day = _day_bucket_expr(db, Order.created_at).label("day")
+    user_day = _day_bucket_expr(db, User.created_at).label("day")
 
-    daily_users = (await db.execute(
-        select(
-            func.date_trunc("day", User.created_at).label("day"),
-            func.count(User.id).label("signups"),
+    daily_orders = (
+        await db.execute(
+            select(
+                order_day,
+                func.count(Order.id).label("orders"),
+                func.coalesce(func.sum(Order.total_price), 0.0).label("revenue"),
+            )
+            .where(Order.created_at >= since)
+            .group_by(order_day)
+            .order_by(order_day)
         )
-        .where(User.created_at >= since)
-        .group_by(text("day"))
-        .order_by(text("day"))
-    )).all()
+    ).all()
+
+    daily_users = (
+        await db.execute(
+            select(
+                user_day,
+                func.count(User.id).label("signups"),
+            )
+            .where(User.created_at >= since)
+            .group_by(user_day)
+            .order_by(user_day)
+        )
+    ).all()
 
     order_by_status = (await db.execute(
         select(Order.status, func.count(Order.id))

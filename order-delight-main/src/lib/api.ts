@@ -5,7 +5,7 @@
 // Browser: use relative paths → Vite dev-proxy (or prod reverse-proxy) forwards to the backend.
 export const API_BASE_URL: string = import.meta.env.SSR
   ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8000")
-  : "";
+  : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "");
 
 const ACCESS_KEY = "pof_access_token";
 const REFRESH_KEY = "pof_refresh_token";
@@ -84,13 +84,28 @@ interface RequestOpts {
   query?: Record<string, string | number | boolean | undefined | null>;
   auth?: boolean;
   isForm?: boolean;
+  retries?: number;
+  accessToken?: string | null;
 }
 
 const REQUEST_TIMEOUT_MS = 15000;
+const RETRY_BASE_DELAY_MS = 400;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildUrl(path: string): string {
+  if (API_BASE_URL) return new URL(`${API_BASE_URL}${path}`).toString();
+  if (typeof window === "undefined" || !window.location?.origin) {
+    throw new Error("Unable to build request URL: no base URL available.");
+  }
+  return new URL(path, window.location.origin).toString();
+}
 
 export async function apiRequest<T = unknown>(path: string, opts: RequestOpts = {}): Promise<T> {
-  const { method = "GET", body, query, auth = true, isForm = false } = opts;
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const { method = "GET", body, query, auth = true, isForm = false, retries = 0, accessToken } = opts;
+  const url = new URL(buildUrl(path));
   if (query) {
     Object.entries(query).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
@@ -100,25 +115,47 @@ export async function apiRequest<T = unknown>(path: string, opts: RequestOpts = 
   const headers: Record<string, string> = {};
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
   if (isForm && body !== undefined) headers["Content-Type"] = "application/x-www-form-urlencoded";
-  if (auth && tokenStore.access) headers["Authorization"] = `Bearer ${tokenStore.access}`;
+  const activeAccessToken = accessToken ?? tokenStore.access;
+  if (auth && activeAccessToken) headers["Authorization"] = `Bearer ${activeAccessToken}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let res: Response;
-  try {
-    res = await fetch(url.toString(), {
-      method,
-      headers,
-      signal: controller.signal,
-      body: body === undefined ? undefined : isForm ? (body as BodyInit) : JSON.stringify(body),
-    });
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new ApiError(408, "Request timeout. Please try again.");
+  let networkError: ApiError | null = null;
+  let attempt = 0;
+  const maxAttempts = Math.max(1, retries + 1);
+  for (;;) {
+    networkError = null;
+    try {
+      res = await fetch(url.toString(), {
+        method,
+        headers,
+        signal: controller.signal,
+        body: body === undefined ? undefined : isForm ? (body as BodyInit) : JSON.stringify(body),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        networkError = new ApiError(408, "Request timeout. Please try again.");
+      } else {
+        networkError = new ApiError(0, "Unable to reach backend server. Please check if API is running.");
+      }
+      attempt += 1;
+      if (attempt >= maxAttempts) {
+        clearTimeout(timeoutId);
+        throw networkError;
+      }
+      await sleep(RETRY_BASE_DELAY_MS * attempt);
+      continue;
     }
-    throw error;
+
+    // Retry only idempotent GET requests when backend is transiently unavailable.
+    if (method === "GET" && res.status >= 500 && attempt + 1 < maxAttempts) {
+      attempt += 1;
+      await sleep(RETRY_BASE_DELAY_MS * attempt);
+      continue;
+    }
+    break;
   }
 
   if (res.status === 401 && auth && tokenStore.refresh) {
@@ -139,7 +176,7 @@ export async function apiRequest<T = unknown>(path: string, opts: RequestOpts = 
         if (error instanceof Error && error.name === "AbortError") {
           throw new ApiError(408, "Request timeout. Please try again.");
         }
-        throw error;
+        throw new ApiError(0, "Unable to reach backend server. Please check if API is running.");
       }
     }
   }
@@ -267,10 +304,12 @@ export interface OrderOut {
 export interface PaymentOut {
   id: string;
   order_id: string;
+  provider: string;
+  provider_order_id?: string | null;
+  provider_payment_id?: string | null;
   amount: number;
+  currency: string;
   status: string;
-  method?: string;
-  reference?: string | null;
   created_at: string;
 }
 
@@ -515,7 +554,7 @@ export const authApi = {
       auth: false,
     }),
   me: () => apiRequest<UserOut>("/api/v1/auth/me"),
-  logout: () => apiRequest<void>("/api/v1/auth/logout", { method: "POST" }),
+  logout: (accessToken?: string | null) => apiRequest<void>("/api/v1/auth/logout", { method: "POST", accessToken }),
 };
 
 export const usersApi = {
@@ -554,7 +593,7 @@ export const shopsApi = {
       category: params.cuisine,
       city: params.city,
     };
-    const rows = await apiRequest<BackendShopOut[]>("/api/v1/shops", { query: backendQuery, auth: false });
+    const rows = await apiRequest<BackendShopOut[]>("/api/v1/shops", { query: backendQuery, auth: false, retries: 2 });
     return rows.map(mapShopFromBackend);
   },
   get: async (id: string) => {
@@ -735,9 +774,9 @@ export const ordersApi = {
 };
 
 export const paymentsApi = {
-  create: (body: { order_id: string; method?: string }) =>
-    apiRequest<any>("/api/v1/payments/create", { method: "POST", body }),
-  verify: (body: Record<string, unknown>) =>
+  create: (body: { order_id: string }) =>
+    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }),
+  verify: (body: { order_id: string; provider_order_id: string; provider_payment_id: string; signature?: string }) =>
     apiRequest<PaymentOut>("/api/v1/payments/verify", { method: "POST", body }),
   list: (order_id: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${order_id}`),
 };
@@ -791,8 +830,8 @@ export interface AdminShopOut {
   is_active: boolean;
   is_open: boolean;
   is_accepting_orders: boolean;
-  rating_avg: number;
-  rating_count: number;
+  rating_avg: number | null;
+  rating_count: number | null;
   created_at: string;
   owner_name: string;
   owner_email: string | null;

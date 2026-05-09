@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import basic_rate_limit, require_roles
 from app.db.session import get_db
+from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
 from app.models.menu import MenuItem, MenuItemVariant
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop

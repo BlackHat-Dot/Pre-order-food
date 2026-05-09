@@ -11,11 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatDate, formatCurrency } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/admin/shops")({ component: AdminShops });
 
 function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) {
+  const ratingAvg = typeof s.rating_avg === "number" ? s.rating_avg : 0;
+  const ratingCount = typeof s.rating_count === "number" ? s.rating_count : 0;
+
   const verify = useMutation({
     mutationFn: (v: boolean) => adminApi.verifyShop(s.id, { is_verified: v }),
     onSuccess: () => { toast.success(s.is_verified ? "Shop unverified" : "Shop verified"); onMutated(); },
@@ -51,7 +54,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
               <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</span>
               <span className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                {s.rating_avg.toFixed(1)} ({s.rating_count})
+                {ratingAvg.toFixed(1)} ({ratingCount})
               </span>
             </div>
             <p className="text-xs text-muted-foreground">

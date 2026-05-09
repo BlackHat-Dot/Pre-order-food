@@ -14,7 +14,7 @@ from app.models.order import Order, Payment
 from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.payment import PaymentCreateRequest, PaymentOut, PaymentVerifyRequest
-from app.services.payments import create_payment_order
+from app.services.payments import create_payment_order, verify_payment_signature
 from app.utils.ids import new_id
 
 
@@ -67,6 +67,20 @@ async def verify_payment(
         raise HTTPException(404, "Order not found")
     if user.role == "customer" and order.customer_id != user.id:
         raise HTTPException(403, "Forbidden")
+    if order.payment_status == "paid":
+        raise HTTPException(400, "Order is already paid")
+
+    if not payload.provider_order_id or not payload.provider_payment_id:
+        raise HTTPException(400, "provider_order_id and provider_payment_id are required")
+    if payment.provider_order_id and payment.provider_order_id != payload.provider_order_id:
+        raise HTTPException(400, "provider_order_id does not match created payment order")
+    if not verify_payment_signature(
+        provider=payment.provider,
+        provider_order_id=payload.provider_order_id,
+        provider_payment_id=payload.provider_payment_id,
+        signature=payload.signature,
+    ):
+        raise HTTPException(400, "Payment signature verification failed")
 
     payment.provider_order_id = payload.provider_order_id
     payment.provider_payment_id = payload.provider_payment_id

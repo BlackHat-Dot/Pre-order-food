@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -52,6 +52,31 @@ class Settings(BaseSettings):
 
     RAZORPAY_KEY_ID: str | None = None
     RAZORPAY_KEY_SECRET: str | None = None
+
+    ENABLE_ADMIN_SEED: bool = False
+    DEFAULT_ADMIN_EMAIL: str | None = None
+    DEFAULT_ADMIN_PHONE: str | None = None
+    DEFAULT_ADMIN_NAME: str = "PreOrder Admin"
+    DEFAULT_ADMIN_PASSWORD: str | None = None
+
+    @model_validator(mode="after")
+    def validate_security(self) -> "Settings":
+        env = (self.ENV or "local").lower()
+        if env in {"production", "prod", "staging"}:
+            if self.JWT_SECRET_KEY == "change-me" or len(self.JWT_SECRET_KEY) < 32:
+                raise ValueError("JWT_SECRET_KEY must be changed and at least 32 characters in production-like environments")
+
+            if self.ENABLE_ADMIN_SEED:
+                required = [
+                    self.DEFAULT_ADMIN_EMAIL,
+                    self.DEFAULT_ADMIN_PHONE,
+                    self.DEFAULT_ADMIN_PASSWORD,
+                ]
+                if not all(required):
+                    raise ValueError(
+                        "DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PHONE, and DEFAULT_ADMIN_PASSWORD are required when ENABLE_ADMIN_SEED=true"
+                    )
+        return self
 
 
 settings = Settings()

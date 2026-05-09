@@ -33,7 +33,8 @@ function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [pickup, setPickup] = useState("");
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
-  const [paymentRef, setPaymentRef] = useState<string | null>(null);
+  const [providerOrderId, setProviderOrderId] = useState<string | null>(null);
+  const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState<string>("");
 
@@ -83,11 +84,10 @@ function CheckoutPage() {
     },
     onSuccess: async (order) => {
       try {
-        const pay = await paymentsApi.create({ order_id: order.id, method: "mock" });
+        const pay = await paymentsApi.create({ order_id: order.id });
         setPendingOrderId(order.id);
-        setPaymentRef(
-          (pay && (pay.id || pay.payment_id || pay.reference || pay.order_id)) ?? order.id,
-        );
+        setProviderOrderId(pay.provider_order_id ?? null);
+        setProviderPaymentId(pay.provider_payment_id ?? `mock_pay_${order.id}`);
       } catch (err) {
         await ordersApi.cancel(order.id).catch(() => {});
         toast.error(err instanceof ApiError ? err.message : "Failed to start payment");
@@ -98,11 +98,14 @@ function CheckoutPage() {
 
   const verify = useMutation({
     mutationFn: async () => {
+      if (!pendingOrderId || !providerOrderId || !providerPaymentId) {
+        throw new ApiError(400, "Invalid payment state");
+      }
       await paymentsApi.verify({
         order_id: pendingOrderId,
-        payment_id: paymentRef,
+        provider_order_id: providerOrderId,
+        provider_payment_id: providerPaymentId,
         signature: "mock_signature",
-        status: "success",
       });
     },
     onSuccess: () => {
@@ -119,7 +122,8 @@ function CheckoutPage() {
     if (!open && pendingOrderId) {
       cancelOrder.mutate(pendingOrderId);
       setPendingOrderId(null);
-      setPaymentRef(null);
+      setProviderOrderId(null);
+      setProviderPaymentId(null);
       toast.info("Order cancelled — payment was not completed.");
     }
   }
@@ -273,7 +277,7 @@ function CheckoutPage() {
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted-foreground">Reference</span>
-              <span className="font-mono text-xs">{paymentRef}</span>
+              <span className="max-w-[200px] truncate font-mono text-xs">{providerPaymentId}</span>
             </div>
           </div>
           <DialogFooter>

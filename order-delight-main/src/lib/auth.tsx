@@ -8,7 +8,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   role: Role | null;
   refresh: () => Promise<void>;
-  login: (email: string, password: string) => Promise<UserOut>;
+  login: (identifier: string, password: string) => Promise<UserOut>;
   register: (body: { name: string; email: string; phone: string; password: string; role?: Role }) => Promise<UserOut>;
   logout: () => Promise<void>;
 }
@@ -20,12 +20,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
 
   const refresh = useCallback(async () => {
-    if (!tokenStore.access) {
+    const access = tokenStore.access;
+    const refreshToken = tokenStore.refresh;
+    if (!access && !refreshToken) {
       setUser(null);
       setLoading(false);
       return;
     }
     try {
+      // Session bootstrap: if access token is missing/expired but refresh exists,
+      // mint a fresh access token before fetching profile.
+      if (!access && refreshToken) {
+        const tokens = await authApi.refresh(refreshToken);
+        tokenStore.set(tokens.access_token, tokens.refresh_token);
+      }
       const me = await authApi.me();
       setUser(me);
     } catch {
@@ -40,9 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    // UI uses an "email" input; backend accepts either phone or email via `username`.
-    const tokens = await authApi.login({ username: email, password });
+  const login = useCallback(async (identifier: string, password: string) => {
+    const tokens = await authApi.login({ username: identifier, password });
     tokenStore.set(tokens.access_token, tokens.refresh_token);
     const me = await authApi.me();
     setUser(me);
@@ -63,13 +70,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    const accessToken = tokenStore.access;
+    tokenStore.clear();
+    setUser(null);
+    setLoading(false);
     try {
-      await authApi.logout();
+      // Best-effort server logout. UI state is already cleared to avoid stale auth rendering.
+      if (accessToken) {
+        await authApi.logout(accessToken);
+      }
     } catch {
       /* ignore */
     }
-    tokenStore.clear();
-    setUser(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(

@@ -29,3 +29,23 @@ async def create_payment_order(amount_inr: float, receipt: str) -> dict:
         "status": order.get("status", "created"),
     }
 
+
+def verify_payment_signature(provider: str, provider_order_id: str, provider_payment_id: str, signature: str | None) -> bool:
+    if provider == "mock":
+        return bool(provider_order_id and provider_payment_id)
+
+    if provider != "razorpay":
+        return False
+    if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+        return False
+    if not signature:
+        return False
+
+    import hmac
+    import hashlib
+
+    message = f"{provider_order_id}|{provider_payment_id}".encode("utf-8")
+    secret = settings.RAZORPAY_KEY_SECRET.encode("utf-8")
+    expected = hmac.new(secret, message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+

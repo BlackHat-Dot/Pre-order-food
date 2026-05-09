@@ -22,6 +22,9 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(payload: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]) -> UserOut:
+    if payload.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin registration is restricted")
+
     existing = await get_user_by_phone(db, payload.phone)
     if existing:
         raise HTTPException(status_code=409, detail="Phone already registered")

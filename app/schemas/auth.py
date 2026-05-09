@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
-    role: str = Field(pattern="^(customer|shop_owner|admin)$")
+    role: str = Field(pattern="^(customer|shop_owner)$")
     name: str = Field(min_length=2, max_length=120)
     phone: str
     email: EmailStr | None = None

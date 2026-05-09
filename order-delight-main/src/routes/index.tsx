@@ -113,10 +113,11 @@ function HomePage() {
   const [search, setSearch] = useState("");
   const [inputVal, setInputVal] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["shops", "list", search],
     queryFn: () => shopsApi.list({ page: 1, page_size: 24, search: search || undefined }),
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   return (
@@ -224,6 +225,19 @@ function HomePage() {
               <Skeleton key={i} className="h-64 rounded-2xl" />
             ))}
           </div>
+        ) : isError ? (
+          <Card className="border-amber-500/30">
+            <CardContent className="py-16 text-center">
+              <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-amber-500" />
+              <p className="font-semibold">Unable to load shops right now</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : "Please try again in a moment."}
+              </p>
+              <Button className="mt-5" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? "Retrying..." : "Retry"}
+              </Button>
+            </CardContent>
+          </Card>
         ) : !data || data.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-20 text-center">

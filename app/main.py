@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +24,8 @@ from app.db.session import AsyncSessionLocal
 from app.models.user import User
 import app.models  # noqa: F401
 from app.utils.ids import new_id
+
+logger = logging.getLogger(__name__)
 
 
 async def create_database_tables() -> None:
@@ -51,22 +54,20 @@ async def _seed_admin(email: str, phone: str, name: str, password: str) -> None:
         )
         db.add(admin)
         await db.commit()
-        print(f"Admin seeded: {email}")
+        logger.info("Admin seeded: %s", email)
 
 
 async def ensure_default_admin() -> None:
+    if not settings.ENABLE_ADMIN_SEED:
+        return
+    if not (settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PHONE and settings.DEFAULT_ADMIN_PASSWORD):
+        logger.warning("Admin seeding skipped due to incomplete DEFAULT_ADMIN_* configuration")
+        return
     await _seed_admin(
-        email="admin@preorder.local",
-        phone="9000000000",
-        name="PreOrder Admin",
-        password="Admin@1234",
-    )
-    # Personal hyper-privileged admin account
-    await _seed_admin(
-        email="superadmin@preorder.local",
-        phone="9999999999",
-        name="Super Admin",
-        password="SuperAdmin@2024",
+        email=settings.DEFAULT_ADMIN_EMAIL,
+        phone=settings.DEFAULT_ADMIN_PHONE,
+        name=settings.DEFAULT_ADMIN_NAME,
+        password=settings.DEFAULT_ADMIN_PASSWORD,
     )
 
 
@@ -93,8 +94,12 @@ def create_app() -> FastAPI:
     )
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"error": "internal_server_error", "detail": str(exc)})
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled exception for %s %s", request.method, request.url.path, exc_info=exc)
+        content = {"error": "internal_server_error"}
+        if settings.ENV.lower() in {"local", "dev", "development", "test"}:
+            content["detail"] = str(exc)
+        return JSONResponse(status_code=500, content=content)
 
     frontend_dir = Path(__file__).resolve().parents[1] / "frontend"
     if frontend_dir.exists():

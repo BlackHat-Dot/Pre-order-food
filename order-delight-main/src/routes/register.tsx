@@ -40,13 +40,32 @@ function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const payload = {
+      ...form,
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      password: form.password,
+    };
+
+    if (!/^\d{10}$/.test(payload.phone)) {
+      toast.error("Phone number must be exactly 10 digits.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const me = await register(form);
+      const me = await register(payload);
       toast.success(`Welcome, ${me.name.split(" ")[0]}`);
       navigate({ to: landingForRole(me.role) });
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Sign up failed");
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else if (err instanceof Error && err.message) {
+        toast.error(err.message);
+      } else {
+        toast.error("Sign up failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -96,8 +115,11 @@ function RegisterPage() {
                   id="phone"
                   type="tel"
                   required
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
+                  maxLength={10}
                   value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
+                  onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
                 />
               </div>
               <div className="space-y-2">
@@ -106,7 +128,7 @@ function RegisterPage() {
                   id="password"
                   type="password"
                   required
-                  minLength={6}
+                  minLength={8}
                   value={form.password}
                   onChange={(e) => set("password", e.target.value)}
                 />

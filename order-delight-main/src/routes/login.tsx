@@ -18,19 +18,30 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const cleanIdentifier = identifier.trim();
+    if (!cleanIdentifier) {
+      toast.error("Email or phone is required.");
+      return;
+    }
     setLoading(true);
     try {
-      const me = await login(email, password);
+      const me = await login(cleanIdentifier, password);
       toast.success(`Welcome back, ${me.name.split(" ")[0]}`);
       navigate({ to: landingForRole(me.role) });
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Sign in failed");
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else if (err instanceof Error && err.message) {
+        toast.error(err.message);
+      } else {
+        toast.error("Sign in failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -56,14 +67,14 @@ function LoginPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="identifier">Email or phone</Label>
                 <Input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                 />
               </div>
               <div className="space-y-2">

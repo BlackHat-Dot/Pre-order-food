@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import basic_rate_limit, get_current_user, require_roles
@@ -19,6 +19,13 @@ from app.utils.ids import new_id
 
 
 router = APIRouter(prefix="/shops", tags=["Shops"], dependencies=[Depends(basic_rate_limit)])
+
+
+def _hour_bucket_expr(db: AsyncSession, column):
+    dialect = db.bind.dialect.name if db.bind is not None else ""
+    if dialect == "sqlite":
+        return cast(func.strftime("%H", column), Integer)
+    return cast(func.extract("hour", column), Integer)
 
 
 @router.post("", response_model=ShopOut, status_code=201)
@@ -64,7 +71,8 @@ async def list_shops(
     if cached:
         return [ShopOut.model_validate(row) for row in cached]
 
-    stmt = select(Shop).where(Shop.is_active.is_(True))
+    # Public listing should only expose active and verified shops.
+    stmt = select(Shop).where(Shop.is_active.is_(True), Shop.is_verified.is_(True))
     if city:
         stmt = stmt.where(Shop.city.ilike(f"%{city}%"))
     if category:
@@ -178,12 +186,13 @@ async def dashboard(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)], 
         )
     ).all()
 
+    hour_bucket = _hour_bucket_expr(db, Order.created_at).label("h")
     peak_rows = (
         await db.execute(
-            select(func.extract("hour", Order.created_at).label("h"), func.count(Order.id))
+            select(hour_bucket, func.count(Order.id))
             .where(Order.shop_id == shop_id, Order.created_at >= start, Order.created_at < end)
-            .group_by("h")
-            .order_by("h")
+            .group_by(hour_bucket)
+            .order_by(hour_bucket)
         )
     ).all()
 
