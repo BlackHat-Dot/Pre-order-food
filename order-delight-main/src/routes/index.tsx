@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Search, Star, MapPin, ChevronRight, ShieldCheck, AlertTriangle,
-  Zap, Clock, TrendingUp, Award, ArrowRight,
+  Zap, Clock, TrendingUp, Award,
 } from "lucide-react";
 import { shopsApi } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
@@ -48,21 +48,44 @@ const FEATURES = [
   },
 ];
 
+const FALLBACK_SHOP_IMAGES = [
+  "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80",
+];
+
+function getShopFallbackImage(shop: ShopOut) {
+  const key = `${shop.id}-${shop.name}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash << 5) - hash + key.charCodeAt(i);
+    hash |= 0;
+  }
+  return FALLBACK_SHOP_IMAGES[Math.abs(hash) % FALLBACK_SHOP_IMAGES.length];
+}
+
 function ShopCard({ shop }: { shop: ShopOut }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const fallbackImage = getShopFallbackImage(shop);
+  const displayImage = !imgFailed && shop.image_url ? shop.image_url : fallbackImage;
+
   return (
     <Link to="/shops/$shopId" params={{ shopId: shop.id }} className="group block">
       <Card className="h-full overflow-hidden border-border/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-[0_0_0_1px_oklch(0.7_0.18_60/0.3),0_8px_32px_oklch(0.7_0.18_60/0.15)]">
         <div className="aspect-[16/9] w-full overflow-hidden bg-muted relative">
-          {shop.image_url ? (
-            <img
-              src={shop.image_url}
-              alt={shop.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center" style={{ background: "var(--gradient-primary)", opacity: 0.15 }} />
-          )}
+          <img
+            src={displayImage}
+            alt={shop.name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => {
+              if (!imgFailed) setImgFailed(true);
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent" />
           {shop.is_open && (
             <span className="absolute top-2 left-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
               Open now
@@ -121,57 +144,99 @@ function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen overflow-x-clip bg-background">
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]" />
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+      </div>
       <PublicNav />
 
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border/40">
-        {/* Background layers */}
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 60% at 50% -20%, oklch(0.55 0.18 60 / 0.18), transparent)" }} />
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 80% 80%, oklch(0.45 0.15 270 / 0.08), transparent)" }} />
-        <div className="pointer-events-none absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+        <div className="pointer-events-none absolute -left-8 top-10 hidden h-64 w-64 rounded-full bg-primary/20 blur-3xl lg:block" />
+        <div className="pointer-events-none absolute right-4 top-10 hidden h-72 w-72 rounded-full bg-primary/15 blur-3xl lg:block" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-36">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="outline" className="mb-6 border-primary/40 bg-primary/8 px-4 py-1.5 text-primary">
-              <Star className="mr-1.5 h-3 w-3 fill-current" /> Pre-order · Skip the queue · Earn rewards
-            </Badge>
+        <div className="relative mx-auto max-w-[1320px] px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:pb-20">
+          <div className="grid items-center gap-8 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
+            <div className="hidden lg:block">
+              <div className="relative">
+                <div className="absolute left-2 top-0 grid h-28 w-28 place-items-center rounded-full text-7xl shadow-[0_0_50px_0_rgba(255,157,66,0.9)]">🍔</div>
+                <div className="absolute left-16 top-36 grid h-32 w-32 place-items-center rounded-full text-8xl shadow-[0_0_60px_0_rgba(255,157,66,0.9)]">🍜</div>
+                <div className="absolute left-2 top-[18.5rem] grid h-24 w-24 place-items-center rounded-full text-6xl shadow-[0_0_45px_0_rgba(255,157,66,0.9)]">🍣</div>
+                <div className="absolute left-20 top-[24rem] grid h-20 w-20 place-items-center rounded-full text-5xl shadow-[0_0_42px_0_rgba(255,157,66,0.9)]">🍥</div>
+                <div className="h-[30rem]" />
+              </div>
+            </div>
 
-            <h1 className="text-5xl font-black tracking-tight sm:text-7xl">
-              Your favourite food.{" "}
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: "var(--gradient-primary)" }}
+            <div className="mx-auto w-full max-w-3xl text-center lg:pt-4">
+              <Badge variant="outline" className="mb-5 border-primary/40 bg-primary/10 px-4 py-1.5 text-primary">
+                <Star className="mr-1.5 h-3 w-3 fill-current" /> Pre order · Skip the queue · Earn rewards
+              </Badge>
+
+              <h1 className="text-5xl font-black tracking-tight sm:text-7xl">
+                Your favourite food.
+                <br />
+                <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
+                  Ready when you arrive.
+                </span>
+              </h1>
+
+              <p className="mx-auto mt-5 max-w-xl text-sm text-muted-foreground sm:text-lg">
+                Browse local shops, place your order ahead of time, and walk in to pick it up — no waiting, no stress.
+              </p>
+
+              <form
+                className="mx-auto mt-9 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/10 bg-card/70 p-1.5 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+                onSubmit={(e) => { e.preventDefault(); setSearch(inputVal); }}
               >
-                Ready when you arrive.
-              </span>
-            </h1>
+                <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" />
+                <Input
+                  value={inputVal}
+                  onChange={(e) => setInputVal(e.target.value)}
+                  placeholder="Search shops, cuisines, cities..."
+                  className="h-12 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
+                />
+                <Button type="submit" size="lg" className="h-11 shrink-0 px-7 font-semibold">
+                  Search
+                </Button>
+              </form>
 
-            <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg leading-relaxed">
-              Browse local shops, place your order ahead of time, and walk in to pick it up — no waiting, no stress.
-            </p>
+              <div className="mt-5 flex items-center justify-center gap-5 text-[11px] text-muted-foreground sm:text-xs">
+                <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-primary" /> Verified shops</span>
+                <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> Instant confirmation</span>
+                <span className="flex items-center gap-1.5"><Award className="h-3.5 w-3.5 text-primary" /> Loyalty rewards</span>
+              </div>
+            </div>
 
-            {/* Search */}
-            <form
-              className="mx-auto mt-10 flex max-w-2xl items-center gap-2 rounded-2xl border border-border/60 bg-card/80 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur"
-              onSubmit={(e) => { e.preventDefault(); setSearch(inputVal); }}
-            >
-              <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" />
-              <Input
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Search shops, cuisines, cities…"
-                className="h-12 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
-              />
-              <Button type="submit" size="lg" className="h-11 shrink-0 px-6 font-semibold">
-                Search
-              </Button>
-            </form>
-
-            <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-primary" /> Verified shops</span>
-              <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> Instant confirmation</span>
-              <span className="flex items-center gap-1.5"><Award className="h-3.5 w-3.5 text-primary" /> Loyalty rewards</span>
+            <div className="relative hidden h-[530px] items-center justify-center lg:flex">
+              <div className="absolute inset-0 m-auto h-[420px] w-[260px] rounded-full bg-primary/25 blur-3xl" />
+              <div className="relative z-10 w-[250px] rotate-6 rounded-[2.2rem] border border-white/15 bg-card/50 p-3 shadow-[0_30px_80px_-30px_rgba(255,157,66,0.95)] backdrop-blur-xl">
+                <div className="overflow-hidden rounded-[1.7rem] border border-white/15 bg-black/40">
+                  <img
+                    src="https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80"
+                    alt="Local shops preview"
+                    className="h-[450px] w-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="absolute -left-24 top-12 rounded-xl border border-white/15 bg-card/80 px-3 py-2 shadow-xl backdrop-blur-lg">
+                  <p className="text-[10px] uppercase tracking-wide text-primary">Live activity:</p>
+                  <p className="text-xs font-semibold">Pre-ordered 10 mins ago</p>
+                  <p className="text-[10px] text-muted-foreground">Bangalore</p>
+                </div>
+                <div className="absolute -left-20 bottom-28 rounded-xl border border-white/15 bg-card/80 px-3 py-2 shadow-xl backdrop-blur-lg">
+                  <p className="text-[10px] uppercase tracking-wide text-primary">5 ★</p>
+                  <p className="text-xs font-semibold">Best Coffee Ever!</p>
+                  <p className="text-[10px] text-muted-foreground">Tina R.</p>
+                </div>
+                <div className="absolute -right-12 bottom-12 rounded-xl border border-white/15 bg-card/80 px-3 py-2 shadow-xl backdrop-blur-lg">
+                  <p className="text-[10px] uppercase tracking-wide text-primary">Featured Restaurant:</p>
+                  <p className="text-xs font-semibold">"Spice Junction"</p>
+                  <p className="text-[10px] text-muted-foreground">Tandoori</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -255,36 +320,6 @@ function HomePage() {
             ))}
           </div>
         )}
-      </section>
-
-      {/* CTA */}
-      <section className="border-t border-border/30 py-20">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <div
-            className="relative overflow-hidden rounded-3xl px-8 py-14"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
-            <h2 className="relative text-3xl font-black text-white sm:text-4xl">
-              Ready to skip the line?
-            </h2>
-            <p className="relative mt-3 text-base text-white/80">
-              Join thousands of customers who pre-order and never wait.
-            </p>
-            <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/register">
-                <Button size="lg" className="bg-white text-primary hover:bg-white/90 font-bold px-8">
-                  Get started free <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline" className="border-white/40 text-white hover:bg-white/10 font-semibold">
-                  Sign in
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
       </section>
 
       <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">

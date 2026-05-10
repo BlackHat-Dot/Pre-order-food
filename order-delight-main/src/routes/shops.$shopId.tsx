@@ -26,9 +26,26 @@ import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/shops/$shopId")({ component: ShopDetail });
 
+const FALLBACK_DETAIL_IMAGES = [
+  "https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1400&q=80",
+  "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1400&q=80",
+  "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1400&q=80",
+];
+
+function getFallbackDetailImage(shopId: string, shopName: string) {
+  const key = `${shopId}-${shopName}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash << 5) - hash + key.charCodeAt(i);
+    hash |= 0;
+  }
+  return FALLBACK_DETAIL_IMAGES[Math.abs(hash) % FALLBACK_DETAIL_IMAGES.length];
+}
+
 function ShopDetail() {
   const { shopId } = Route.useParams();
   const { count } = useCart();
+  const [heroImageFailed, setHeroImageFailed] = useState(false);
   const { data: shop, isLoading } = useQuery({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
@@ -56,6 +73,9 @@ function ShopDetail() {
     );
   }
   if (!shop) return null;
+  const heroImage = !heroImageFailed && shop.image_url
+    ? shop.image_url
+    : getFallbackDetailImage(shop.id, shop.name);
 
   const grouped = (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
     const k = it.category || "Menu";
@@ -66,28 +86,26 @@ function ShopDetail() {
   return (
     <div className="min-h-screen">
       <PublicNav />
-      <div className="relative h-56 w-full overflow-hidden sm:h-72">
-        {shop.image_url ? (
-          <img
-            src={shop.image_url}
-            alt={shop.name}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              const el = e.currentTarget;
-              el.style.display = "none";
-              const p = el.parentElement;
-              if (p) p.style.background = "var(--gradient-primary)";
-            }}
-          />
-        ) : null}
-        {!shop.image_url && <div className="h-full w-full" style={{ background: "var(--gradient-primary)" }} />}
+      <div className="relative h-[320px] w-full overflow-hidden sm:h-[380px]">
+        <img
+          src={heroImage}
+          alt={shop.name}
+          className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => {
+            if (!heroImageFailed) setHeroImageFailed(true);
+          }}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/45 to-background" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(255,178,54,0.28),transparent_38%)]" />
       </div>
-      <div className="mx-auto -mt-16 max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto -mt-28 max-w-6xl px-4 sm:px-6">
         <Link to="/" className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" /> All shops
         </Link>
-        <Card className="border-border/60 shadow-[var(--shadow-elegant)]">
-          <CardContent className="flex flex-wrap items-start justify-between gap-4 p-6">
+        <Card className="border-white/15 bg-card/65 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+          <CardContent className="relative flex flex-wrap items-start justify-between gap-4 p-6">
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary/25 blur-2xl" />
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{shop.name}</h1>
@@ -127,6 +145,22 @@ function ShopDetail() {
             </div>
           </CardContent>
         </Card>
+        {items && items.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {items.slice(0, 3).map((item, idx) => (
+              <div
+                key={item.id}
+                className={`rounded-2xl border border-white/10 bg-card/55 px-4 py-3 shadow-lg backdrop-blur-lg ${
+                  idx % 2 === 0 ? "sm:-translate-y-2" : "sm:translate-y-2"
+                }`}
+              >
+                <p className="text-[10px] uppercase tracking-wide text-primary/90">Popular</p>
+                <p className="text-sm font-semibold">{item.name}</p>
+                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {shop.description && (
           <p className="mt-4 text-sm text-muted-foreground">{shop.description}</p>
