@@ -157,8 +157,8 @@ function HomePage() {
         <div className="pointer-events-none absolute -left-8 top-10 hidden h-64 w-64 rounded-full bg-primary/20 blur-3xl lg:block" />
         <div className="pointer-events-none absolute right-4 top-10 hidden h-72 w-72 rounded-full bg-primary/15 blur-3xl lg:block" />
 
-        <div className="relative mx-auto max-w-[1320px] px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:pb-20">
-          <div className="grid items-center gap-8 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
+        <div className="relative mx-auto max-w-[1380px] px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-20 lg:pb-24">
+          <div className="grid items-center gap-8 lg:gap-12 xl:gap-16 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
             <div className="hidden lg:block">
               <div className="relative">
                 <div className="absolute left-2 top-0 grid h-28 w-28 place-items-center rounded-full text-7xl shadow-[0_0_50px_0_rgba(255,157,66,0.9)]">🍔</div>
@@ -174,7 +174,7 @@ function HomePage() {
                 <Star className="mr-1.5 h-3 w-3 fill-current" /> Pre order · Skip the queue · Earn rewards
               </Badge>
 
-              <h1 className="text-5xl font-black tracking-tight sm:text-7xl">
+              <h1 className="text-balance text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
                 Your favourite food.
                 <br />
                 <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
@@ -182,27 +182,27 @@ function HomePage() {
                 </span>
               </h1>
 
-              <p className="mx-auto mt-5 max-w-xl text-sm text-muted-foreground sm:text-lg">
+              <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
                 Browse local shops, place your order ahead of time, and walk in to pick it up — no waiting, no stress.
               </p>
 
               <form
-                className="mx-auto mt-9 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/10 bg-card/70 p-1.5 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+                className="mx-auto mt-9 flex w-full max-w-2xl flex-col items-stretch gap-2 rounded-2xl border border-white/10 bg-card/70 p-2 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:flex-row sm:items-center sm:p-1.5"
                 onSubmit={(e) => { e.preventDefault(); setSearch(inputVal); }}
               >
-                <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" />
+                <Search className="ml-3 hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />
                 <Input
                   value={inputVal}
                   onChange={(e) => setInputVal(e.target.value)}
                   placeholder="Search shops, cuisines, cities..."
-                  className="h-12 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
+                  className="h-12 border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
                 />
-                <Button type="submit" size="lg" className="h-11 shrink-0 px-7 font-semibold">
+                <Button type="submit" size="lg" className="h-11 shrink-0 px-7 font-semibold sm:w-auto">
                   Search
                 </Button>
               </form>
 
-              <div className="mt-5 flex items-center justify-center gap-5 text-[11px] text-muted-foreground sm:text-xs">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground sm:text-xs">
                 <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-primary" /> Verified shops</span>
                 <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> Instant confirmation</span>
                 <span className="flex items-center gap-1.5"><Award className="h-3.5 w-3.5 text-primary" /> Loyalty rewards</span>
