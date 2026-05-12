@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr, Field
+from jose import JWTError
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_roles
-from app.core.security import hash_password, verify_password
+from app.core.security import decode_otp_proof_token, hash_password, verify_password
 from app.crud.user import get_user_by_email, get_user_by_phone
 from app.db.session import get_db
 from app.models.user import User
@@ -21,6 +22,14 @@ class ProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, min_length=8, max_length=20)
+    email_verification_token: str | None = Field(default=None, max_length=2048)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def empty_email(cls, v: object) -> object:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class PasswordUpdate(BaseModel):
@@ -47,7 +56,30 @@ async def update_profile(
         existing = await get_user_by_phone(db, payload.phone)
         if existing and existing.id != user.id:
             raise HTTPException(status_code=409, detail="Phone already in use")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+
+    data = payload.model_dump(exclude_unset=True)
+    token = data.pop("email_verification_token", None)
+
+    if "email" in data:
+        new_email = data["email"]
+        if new_email is None:
+            user.email_verified = False
+        elif new_email != user.email:
+            if not token:
+                raise HTTPException(status_code=400, detail="Verify the new email before saving (missing token)")
+            try:
+                proof = decode_otp_proof_token(token)
+            except JWTError as ex:
+                raise HTTPException(status_code=401, detail="Invalid or expired email verification") from ex
+            if (
+                proof.get("vtype") != "email_profile"
+                or str(proof.get("uid") or "") != str(user.id)
+                or str(proof.get("email") or "").lower() != str(new_email).lower()
+            ):
+                raise HTTPException(status_code=400, detail="Email verification mismatch")
+            user.email_verified = True
+
+    for k, v in data.items():
         setattr(user, k, v)
     await db.commit()
     await db.refresh(user)

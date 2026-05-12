@@ -11,11 +11,13 @@ def _normalize_database_url(url: str) -> tuple[str, dict]:
     value = url.strip().strip('"').strip("'")
     connect_args: dict = {}
 
-    if value.startswith("postgresql://") or value.startswith("postgresql+asyncpg://"):
-        # Convert plain postgresql:// to asyncpg driver
-        if value.startswith("postgresql://"):
-            value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
+    # Railway and some hosts use postgres:// — normalize for SQLAlchemy asyncpg
+    if value.startswith("postgres://"):
+        value = value.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif value.startswith("postgresql://") and "asyncpg" not in value:
+        value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+    if value.startswith("postgresql://") or value.startswith("postgresql+asyncpg://"):
         # asyncpg does not accept sslmode as a query param — move it to connect_args
         from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
         parsed = urlparse(value)

@@ -23,6 +23,9 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
+    phone_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -32,4 +35,5 @@ class User(Base):
     )
 
 Index("ix_users_role_created_at", User.role, User.created_at)
+Index("ix_users_created_at", User.created_at)
 

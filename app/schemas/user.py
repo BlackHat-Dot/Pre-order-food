@@ -11,6 +11,8 @@ class UserOut(BaseModel):
     phone: str
     email: EmailStr | None
     is_active: bool
+    phone_verified: bool
+    email_verified: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

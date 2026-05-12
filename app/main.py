@@ -51,6 +51,8 @@ async def _seed_admin(email: str, phone: str, name: str, password: str) -> None:
             email=email,
             password_hash=hash_password(password),
             is_active=True,
+            phone_verified=True,
+            email_verified=True,
         )
         db.add(admin)
         await db.commit()

@@ -9,7 +9,14 @@ interface AuthContextValue {
   role: Role | null;
   refresh: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<UserOut>;
-  register: (body: { name: string; email: string; phone: string; password: string; role?: Role }) => Promise<UserOut>;
+  register: (body: {
+    name: string;
+    email?: string | null;
+    phone: string;
+    password: string;
+    role?: Role;
+    phone_verification_token: string;
+  }) => Promise<UserOut>;
   logout: () => Promise<void>;
 }
 
@@ -57,10 +64,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (body: { name: string; email: string; phone: string; password: string; role?: Role }) => {
+    async (body: {
+      name: string;
+      email?: string | null;
+      phone: string;
+      password: string;
+      role?: Role;
+      phone_verification_token: string;
+    }) => {
       await authApi.register(body);
       // Backend register returns the created user (not tokens). Auto-login to preserve UX.
-      const tokens = await authApi.login({ username: body.phone || body.email, password: body.password });
+      const loginId = body.phone || (typeof body.email === "string" ? body.email.trim() : "");
+      const tokens = await authApi.login({ username: loginId, password: body.password });
       tokenStore.set(tokens.access_token, tokens.refresh_token);
       const me = await authApi.me();
       setUser(me);

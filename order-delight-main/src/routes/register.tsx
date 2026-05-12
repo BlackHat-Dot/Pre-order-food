@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -15,12 +15,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ApiError, type Role } from "@/lib/api";
+import { ApiError, otpApi, type Role } from "@/lib/api";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
   head: () => ({ meta: [{ title: "Create account — PreOrder" }] }),
 });
+
+/** FastAPI wraps dict errors as `{ detail: { ... } }` — unwrap for timers/messages. */
+function unwrapApiPayload(detail: unknown): Record<string, unknown> | null {
+  if (!detail || typeof detail !== "object") return null;
+  const o = detail as Record<string, unknown>;
+  const inner = o.detail;
+  if (inner && typeof inner === "object") return inner as Record<string, unknown>;
+  return o;
+}
 
 function RegisterPage() {
   const { register } = useAuth();
@@ -34,8 +43,110 @@ function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
 
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+
+  const sendGuard = useRef(false);
+  const verifyGuard = useRef(false);
+
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const id = window.setInterval(() => {
+      setSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [secondsLeft]);
+
+  function applyOtpMeta(payload: Record<string, unknown> | null) {
+    if (!payload) return;
+    const secs =
+      typeof payload.resend_in_seconds === "number"
+        ? payload.resend_in_seconds
+        : typeof payload.expires_in_seconds === "number"
+          ? payload.expires_in_seconds
+          : 0;
+    if (secs > 0) setSecondsLeft(Math.ceil(secs));
+  }
+
+  async function sendPhoneOtp() {
+    if (!/^\d{10}$/.test(form.phone.trim())) {
+      toast.error("Enter a valid 10-digit phone number first.");
+      return;
+    }
+    if (sendGuard.current || sendingOtp) return;
+    sendGuard.current = true;
+    setSendingOtp(true);
+    try {
+      const res = await otpApi.sendOtp({
+        channel: "phone",
+        purpose: "signup_phone",
+        phone: form.phone.trim(),
+      });
+      if (!res.ok) {
+        toast.error(res.message || "Could not send OTP");
+        applyOtpMeta(res as unknown as Record<string, unknown>);
+        return;
+      }
+      toast.success("OTP sent — check the API terminal for the code.");
+      applyOtpMeta(res as unknown as Record<string, unknown>);
+      setPhoneVerified(false);
+      setPhoneVerificationToken(null);
+      setOtpCode("");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const inner = unwrapApiPayload(err.detail);
+        toast.error(err.message || "Could not send OTP");
+        applyOtpMeta(inner);
+      } else {
+        toast.error("Network error. Is the API running?");
+      }
+    } finally {
+      setSendingOtp(false);
+      sendGuard.current = false;
+    }
+  }
+
+  async function verifyPhoneOtp() {
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit OTP.");
+      return;
+    }
+    if (verifyGuard.current || verifyingOtp) return;
+    verifyGuard.current = true;
+    setVerifyingOtp(true);
+    try {
+      const res = await otpApi.verifyOtp({
+        channel: "phone",
+        purpose: "signup_phone",
+        phone: form.phone.trim(),
+        code: otpCode,
+      });
+      if (!res.ok || !res.verification_token) {
+        toast.error(res.message || "Invalid OTP");
+        return;
+      }
+      setPhoneVerificationToken(res.verification_token);
+      setPhoneVerified(true);
+      setSecondsLeft(0);
+      toast.success("Phone verified");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message || "Verification failed");
+      } else {
+        toast.error("Network error. Is the API running?");
+      }
+    } finally {
+      setVerifyingOtp(false);
+      verifyGuard.current = false;
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -43,7 +154,7 @@ function RegisterPage() {
     const payload = {
       ...form,
       name: form.name.trim(),
-      email: form.email.trim(),
+      email: form.email.trim() || null,
       phone: form.phone.trim(),
       password: form.password,
     };
@@ -52,10 +163,17 @@ function RegisterPage() {
       toast.error("Phone number must be exactly 10 digits.");
       return;
     }
+    if (!phoneVerified || !phoneVerificationToken) {
+      toast.error("Verify your phone number before creating an account.");
+      return;
+    }
 
     setLoading(true);
     try {
-      const me = await register(payload);
+      const me = await register({
+        ...payload,
+        phone_verification_token: phoneVerificationToken,
+      });
       toast.success(`Welcome, ${me.name.split(" ")[0]}`);
       navigate({ to: landingForRole(me.role) });
     } catch (err) {
@@ -70,6 +188,10 @@ function RegisterPage() {
       setLoading(false);
     }
   }
+
+  const canResend = secondsLeft <= 0 && !sendingOtp;
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const ss = String(secondsLeft % 60).padStart(2, "0");
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -100,27 +222,77 @@ function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email (optional)</Label>
                 <Input
                   id="email"
                   type="email"
-                  required
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
+                  placeholder="you@example.com"
                 />
+                <p className="text-xs text-muted-foreground">You can verify email later in your profile.</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  required
-                  inputMode="numeric"
-                  pattern="[0-9]{10}"
-                  maxLength={10}
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                />
+                <div className="flex items-end justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      value={form.phone}
+                      onChange={(e) => {
+                        set("phone", e.target.value.replace(/\D/g, "").slice(0, 10));
+                        setPhoneVerified(false);
+                        setPhoneVerificationToken(null);
+                        setOtpCode("");
+                        setSecondsLeft(0);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0"
+                    disabled={sendingOtp || !canResend || phoneVerified}
+                    onClick={() => void sendPhoneOtp()}
+                  >
+                    {phoneVerified ? "Verified" : sendingOtp ? "Sending…" : secondsLeft > 0 ? "Wait" : "Verify"}
+                  </Button>
+                </div>
+                {secondsLeft > 0 && !phoneVerified ? (
+                  <p className="text-xs text-muted-foreground">
+                    Resend available in <span className="font-mono">{mm}:{ss}</span>
+                  </p>
+                ) : null}
+                {phoneVerified ? (
+                  <p className="text-xs text-emerald-600">Phone verified — you can finish the form.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div className="space-y-2">
+                      <Label htmlFor="otp">6-digit OTP (from API terminal)</Label>
+                      <Input
+                        id="otp"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="000000"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={verifyingOtp || otpCode.length !== 6 || phoneVerified}
+                      onClick={() => void verifyPhoneOtp()}
+                    >
+                      {verifyingOtp ? "Checking…" : "Submit OTP"}
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -148,7 +320,7 @@ function RegisterPage() {
                   </Label>
                 </RadioGroup>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || !phoneVerified}>
                 {loading ? "Creating…" : "Create account"}
               </Button>
             </form>

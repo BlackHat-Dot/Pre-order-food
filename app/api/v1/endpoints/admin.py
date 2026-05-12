@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.core.deps import require_roles
 from app.core.security import hash_password
@@ -148,6 +149,8 @@ async def create_user_admin(
         role=role,
         password_hash=hash_password(password),
         is_active=True,
+        phone_verified=True,
+        email_verified=bool(email),
     )
     db.add(user)
     await db.commit()
@@ -167,7 +170,7 @@ async def list_shops_admin(
     verified: bool | None = None,
     active: bool | None = None,
 ) -> list[dict]:
-    stmt = select(Shop)
+    stmt = select(Shop).options(joinedload(Shop.owner))
     if search:
         term = f"%{search}%"
         stmt = stmt.where((Shop.name.ilike(term)) | (Shop.city.ilike(term)) | (Shop.category.ilike(term)))
@@ -179,7 +182,7 @@ async def list_shops_admin(
     rows = (await db.execute(stmt)).scalars().all()
     result = []
     for s in rows:
-        owner = await db.get(User, s.owner_id)
+        owner = s.owner
         result.append({
             "id": s.id,
             "name": s.name,

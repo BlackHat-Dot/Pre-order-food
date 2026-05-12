@@ -49,6 +49,10 @@ function extractMessage(detail: unknown, fallback: string): string {
       return loc ? `${loc}: ${first.msg}` : first.msg;
     }
   }
+  if (typeof detail === "object" && detail && "message" in detail) {
+    const m = (detail as { message?: unknown }).message;
+    if (typeof m === "string" && m.trim()) return m;
+  }
   if (typeof detail === "object" && detail && "detail" in detail) {
     return extractMessage((detail as any).detail, fallback);
   }
@@ -211,6 +215,8 @@ export interface UserOut {
   phone: string;
   email?: string | null;
   is_active: boolean;
+  phone_verified: boolean;
+  email_verified: boolean;
   created_at: string;
 }
 
@@ -538,8 +544,14 @@ function parseAddress(address: string | undefined | null): { address_line: strin
 }
 
 export const authApi = {
-  register: (body: { name: string; email: string; phone: string; password: string; role?: Role }) =>
-    apiRequest<UserOut>("/api/v1/auth/register", { method: "POST", body, auth: false }),
+  register: (body: {
+    name: string;
+    email?: string | null;
+    phone: string;
+    password: string;
+    role?: Role;
+    phone_verification_token: string;
+  }) => apiRequest<UserOut>("/api/v1/auth/register", { method: "POST", body, auth: false }),
   // Backend expects OAuth2PasswordRequestForm (application/x-www-form-urlencoded)
   login: (body: { username: string; password: string }) => {
     const form = new URLSearchParams();
@@ -557,9 +569,38 @@ export const authApi = {
   logout: (accessToken?: string | null) => apiRequest<void>("/api/v1/auth/logout", { method: "POST", accessToken }),
 };
 
+export type OtpPurpose = "signup_phone" | "profile_email";
+
+export interface SendOtpResponse {
+  ok: boolean;
+  expires_at?: string;
+  expires_in_seconds?: number;
+  resend_available_at?: string;
+  resend_in_seconds?: number;
+  max_sends_remaining?: number;
+  error?: string;
+  message?: string;
+}
+
+export interface VerifyOtpResponse {
+  ok: boolean;
+  verification_token?: string;
+  token_expires_in_seconds?: number;
+  channel?: string;
+  error?: string;
+  message?: string;
+}
+
+export const otpApi = {
+  sendOtp: (body: { channel: "phone" | "email"; purpose: OtpPurpose; phone?: string; email?: string | null }) =>
+    apiRequest<SendOtpResponse>("/api/v1/send-otp", { method: "POST", body, auth: body.purpose === "profile_email" }),
+  verifyOtp: (body: { channel: "phone" | "email"; purpose: OtpPurpose; code: string; phone?: string; email?: string | null }) =>
+    apiRequest<VerifyOtpResponse>("/api/v1/verify-otp", { method: "POST", body, auth: body.purpose === "profile_email" }),
+};
+
 export const usersApi = {
   me: () => apiRequest<UserOut>("/api/v1/users/me"),
-  updateProfile: (body: Partial<Pick<UserOut, "name" | "phone" | "email">>) =>
+  updateProfile: (body: Partial<Pick<UserOut, "name" | "phone" | "email">> & { email_verification_token?: string | null }) =>
     apiRequest<UserOut>("/api/v1/users/me", { method: "PATCH", body }),
   updatePassword: (body: { current_password: string; new_password: string }) =>
     apiRequest<void>("/api/v1/users/me/password", { method: "PATCH", body }),

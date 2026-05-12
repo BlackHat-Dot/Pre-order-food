@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = DEFAULT_SQLITE_URL
     REDIS_URL: str = "redis://redis:6379/0"
 
+    # OTP: memory (dev) | database (PostgreSQL/SQLite) | redis
+    OTP_STORAGE: str = "memory"
+    OTP_TTL_SECONDS: int = 120
+    OTP_MAX_SENDS_PER_DAY: int = 15
+    OTP_RESEND_COOLDOWN_SECONDS: int = 0  # 0 = resend only after full expiry (2 min)
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def validate_database_url(cls, v: str | None) -> str:
