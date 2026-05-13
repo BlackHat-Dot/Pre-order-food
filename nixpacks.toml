@@ -18,13 +18,10 @@ PYTHONPATH = "/app"
 nixpkgs = ["python312", "nodejs_20", "npm"]
 
 [phases.install]
-# Install dependencies in correct order with verification
+# Install dependencies in correct order
 cmds = [
-  "pip install -r requirements-production.txt",
-  "echo 'Installing root Node.js dependencies...'",
+  "pip install -r requirements.txt",
   "npm ci --omit=dev --prefer-offline --no-audit",
-  "echo 'Verifying concurrently installation...'",
-  "ls -la node_modules/.bin/concurrently || echo 'concurrently not found after npm ci'",
   "cd order-delight-main && npm ci --omit=dev --prefer-offline --no-audit && cd .."
 ]
 

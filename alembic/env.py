@@ -13,19 +13,29 @@ from app.db.base import Base
 import app.models  # noqa: F401
 
 
+def _normalize_database_url(url: str) -> str:
+    normalized = url.strip().strip('"').strip("'")
+    if normalized.startswith("postgres://"):
+        normalized = normalized.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif normalized.startswith("postgresql://") and "asyncpg" not in normalized:
+        normalized = normalized.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return normalized
+
+
+database_url = _normalize_database_url(settings.DATABASE_URL)
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = settings.DATABASE_URL
     context.configure(
-        url=url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -43,7 +53,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_migrations_online() -> None:
     connectable = async_engine_from_config(
-        {"sqlalchemy.url": settings.DATABASE_URL},
+        {"sqlalchemy.url": database_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

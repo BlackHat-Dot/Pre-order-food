@@ -1,7 +1,16 @@
 {
+  "name": "preorder-food-runtime",
+  "private": true,
+  "scripts": {
+    "start": "bash start.sh",
+    "install": "npm ci --omit=dev && cd order-delight-main && npm ci --omit=dev"
+  },
   "dependencies": {
     "concurrently": "^9.0.0",
     "express": "^5.2.1",
     "http-proxy": "^1.18.1"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

@@ -6,30 +6,29 @@ set -e
 
 export NODE_ENV=production
 export PORT=${PORT:-5000}
-# Set PYTHONPATH to ensure app package is discoverable
+export BACKEND_PORT=${BACKEND_PORT:-8000}
 export PYTHONPATH="${PYTHONPATH}:/app"
+
+cd /app
 
 echo "=================================="
 echo "Pre-Order Food: Railway Deployment"
 echo "=================================="
 echo "Frontend port: $PORT"
-echo "Backend port: 8000"
+echo "Backend port: $BACKEND_PORT"
 echo "Working directory: $(pwd)"
 echo "Python path: $PYTHONPATH"
 echo ""
 
-# Run migrations if DATABASE_URL is set
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
     cd /app
-    PYTHONPATH="/app" alembic upgrade head || echo "Migrations skipped or already applied"
+    PYTHONPATH="/app" alembic upgrade head
     echo ""
 fi
 
-# Ensure we're in the correct directory
 cd /app
 
-# Create Node.js server to serve frontend + proxy backend
 echo "Setting up Express proxy server..."
 cat > server.js << 'EOF'
 const express = require('express');
@@ -37,32 +36,28 @@ const path = require('path');
 const httpProxy = require('http-proxy');
 
 const app = express();
-const port = parseInt(process.env.PORT || '5000');
+const port = parseInt(process.env.PORT || '5000', 10);
+const backendPort = parseInt(process.env.BACKEND_PORT || '8000', 10);
 const distPath = path.join(__dirname, 'order-delight-main/dist');
 
-// API proxy to backend
 const apiProxy = httpProxy.createProxyServer({
-  target: 'http://localhost:8000',
+  target: `http://127.0.0.1:${backendPort}`,
   changeOrigin: false,
   ws: false,
 });
 
-// Serve static files from dist
-app.use(express.static(distPath, { 
+app.use(express.static(distPath, {
   maxAge: '1d',
-  etag: false 
+  etag: false,
 }));
 
-// Proxy all /api requests to backend
 app.use('/api', apiProxy);
 app.use('/health', apiProxy);
 
-// Fallback to index.html for SPA routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-// Error handling
 apiProxy.on('error', (err, req, res) => {
   console.error('Proxy error:', err);
   res.status(502).json({ error: 'Backend service unavailable' });
@@ -73,21 +68,12 @@ app.listen(port, '0.0.0.0', () => {
 });
 EOF
 
-# Start backend and frontend server concurrently
-echo "Starting services..."
-cd /app  # ✅ Ensure we're in the correct directory
-
-# Debug: Check if concurrently exists
-echo "Checking concurrently installation..."
-if [ -f "/app/node_modules/.bin/concurrently" ]; then
-    echo "✓ concurrently found at /app/node_modules/.bin/concurrently"
-else
-    echo "✗ concurrently NOT found at /app/node_modules/.bin/concurrently"
-    ls -la /app/node_modules/.bin/ || echo "node_modules/.bin directory not found"
-    exit 1
+if [ ! -f "/app/node_modules/.bin/concurrently" ]; then
+  echo "ERROR: concurrently binary is missing at /app/node_modules/.bin/concurrently"
+  exit 1
 fi
 
 exec /app/node_modules/.bin/concurrently \
-  "cd /app && PYTHONPATH=/app python main.py" \
+  "cd /app && PYTHONPATH=/app BACKEND_PORT=$BACKEND_PORT python main.py" \
   "cd /app && node server.js"
 
