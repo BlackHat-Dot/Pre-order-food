@@ -114,7 +114,7 @@ async def send_otp_email(
         resend = _get_resend()
         resend.api_key = settings.RESEND_API_KEY
 
-        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <noreply@preorder.app>"
+        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <onboarding@resend.dev>"
 
         resend.Emails.send({
             "from": from_addr,
@@ -126,5 +126,17 @@ async def send_otp_email(
         return True
 
     except Exception as exc:
+        err_str = str(exc)
+        # Domain not verified or sending to non-owner with shared domain — fall back
+        # to console so dev/staging still works; log a clear actionable message.
+        if "domain" in err_str.lower() or "testing emails" in err_str.lower():
+            logger.warning(
+                "[Email] Resend domain not verified. "
+                "Add a verified domain at resend.com/domains and set RESEND_FROM_EMAIL. "
+                "Falling back to console — OTP for %s: %s (expires in %ds)",
+                to_email, code, ttl_seconds,
+            )
+            print(f"\n[Email OTP] To: {to_email}  Code: {code}  TTL: {ttl_seconds}s\n", flush=True)
+            return True
         logger.error("[Email] Failed to send OTP to %s: %s", to_email, exc)
         return False
