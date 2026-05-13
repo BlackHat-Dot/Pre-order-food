@@ -6,20 +6,28 @@ set -e
 
 export NODE_ENV=production
 export PORT=${PORT:-5000}
+# Set PYTHONPATH to ensure app package is discoverable
+export PYTHONPATH="${PYTHONPATH}:/app"
 
 echo "=================================="
 echo "Pre-Order Food: Railway Deployment"
 echo "=================================="
 echo "Frontend port: $PORT"
 echo "Backend port: 8000"
+echo "Working directory: $(pwd)"
+echo "Python path: $PYTHONPATH"
 echo ""
 
 # Run migrations if DATABASE_URL is set
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
+    cd /app
     alembic upgrade head || echo "Migrations skipped or already applied"
     echo ""
 fi
+
+# Ensure we're in the correct directory
+cd /app
 
 # Create Node.js server to serve frontend + proxy backend
 echo "Setting up Express proxy server..."
@@ -67,7 +75,7 @@ EOF
 
 # Start backend and frontend server concurrently
 echo "Starting services..."
-exec ./order-delight-main/node_modules/.bin/concurrently \
-  "uvicorn app.main:app --host 127.0.0.1 --port 8000" \
+exec ./node_modules/.bin/concurrently \
+  "cd /app && python main.py" \
   "node server.js"
 

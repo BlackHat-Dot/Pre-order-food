@@ -3,7 +3,7 @@
 
 [providers]
 # Python for FastAPI backend
-python = "3.11"
+python = "3.12"
 # Node.js for React frontend
 nodejs = "20"
 
@@ -11,10 +11,11 @@ nodejs = "20"
 # Build configuration
 NODE_ENV = "production"
 PIP_CACHE_DIR = "/tmp/pip-cache"
+PYTHONPATH = "/app"
 
 [phases.setup]
 # Setup both environments
-nixpkgs = ["python311", "nodejs_20", "npm"]
+nixpkgs = ["python312", "nodejs_20", "npm"]
 
 [phases.install]
 # Install Python dependencies first, then Node dependencies
@@ -30,7 +31,4 @@ cmds = ["cd order-delight-main && npm run build && cd .."]
 
 [start]
 # Start both services concurrently
-cmd = "bash start.sh"
-
-[start]
 cmd = "bash start.sh"
