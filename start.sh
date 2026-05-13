@@ -22,7 +22,7 @@ echo ""
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
     cd /app
-    alembic upgrade head || echo "Migrations skipped or already applied"
+    PYTHONPATH="/app" alembic upgrade head || echo "Migrations skipped or already applied"
     echo ""
 fi
 
@@ -75,7 +75,19 @@ EOF
 
 # Start backend and frontend server concurrently
 echo "Starting services..."
-exec ./node_modules/.bin/concurrently \
-  "cd /app && python main.py" \
-  "node server.js"
+cd /app  # ✅ Ensure we're in the correct directory
+
+# Debug: Check if concurrently exists
+echo "Checking concurrently installation..."
+if [ -f "/app/node_modules/.bin/concurrently" ]; then
+    echo "✓ concurrently found at /app/node_modules/.bin/concurrently"
+else
+    echo "✗ concurrently NOT found at /app/node_modules/.bin/concurrently"
+    ls -la /app/node_modules/.bin/ || echo "node_modules/.bin directory not found"
+    exit 1
+fi
+
+exec /app/node_modules/.bin/concurrently \
+  "cd /app && PYTHONPATH=/app python main.py" \
+  "cd /app && node server.js"
 

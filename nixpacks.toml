@@ -18,10 +18,13 @@ PYTHONPATH = "/app"
 nixpkgs = ["python312", "nodejs_20", "npm"]
 
 [phases.install]
-# Install Python dependencies first, then Node dependencies
+# Install dependencies in correct order with verification
 cmds = [
   "pip install -r requirements-production.txt",
-  "npm ci --omit=dev",
+  "echo 'Installing root Node.js dependencies...'",
+  "npm ci --omit=dev --prefer-offline --no-audit",
+  "echo 'Verifying concurrently installation...'",
+  "ls -la node_modules/.bin/concurrently || echo 'concurrently not found after npm ci'",
   "cd order-delight-main && npm ci --omit=dev --prefer-offline --no-audit && cd .."
 ]
 
@@ -30,5 +33,5 @@ cmds = [
 cmds = ["cd order-delight-main && npm run build && cd .."]
 
 [start]
-# Start both services concurrently
-cmd = "bash start.sh"
+# Start both services concurrently from correct directory
+cmd = "cd /app && bash start.sh"
