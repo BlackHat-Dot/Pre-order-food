@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -94,9 +94,6 @@ function ProfilePage() {
   // Password required when changing a verified email
   const [emailCurrentPwd, setEmailCurrentPwd] = useState("");
 
-  const sendGuard = useRef(false);
-  const verifyGuard = useRef(false);
-
   useEffect(() => {
     setEmailInput(user?.email ?? "");
     setEmailStep("idle");
@@ -107,14 +104,12 @@ function ProfilePage() {
   }, [user?.id, user?.email]);
 
   const savedEmail = (user?.email ?? "").toLowerCase();
-  const currentEmailInput = emailInput.trim().toLowerCase();
-  const emailChanged = currentEmailInput !== savedEmail && emailInput.trim() !== "";
+  const emailChanged = emailInput.trim().toLowerCase() !== savedEmail && emailInput.trim() !== "";
   const emailValid = isValidEmail(emailInput);
-  // Show verify button when: email is valid, different from saved, and not yet verified in this session
-  const showVerifyBtn = emailValid && emailChanged && emailStep === "idle";
   // Require password when changing an already-verified email
   const needsPassword = !!(user?.email && user.email_verified && emailChanged);
-  const canSendOtp = showVerifyBtn && !sendingOtp && cooldownSecs === 0;
+  // Send/Resend button enabled: valid email, changed, not yet verified, not in cooldown, not loading
+  const canSendOtp = emailValid && emailChanged && emailStep !== "verified" && !sendingOtp && cooldownSecs === 0;
 
   // Reset verification state when email input changes
   function handleEmailChange(val: string) {
@@ -128,10 +123,7 @@ function ProfilePage() {
   }
 
   async function sendEmailOtp() {
-    if (!emailValid) { toast.error("Enter a valid email address first."); return; }
-    if (!emailChanged) { toast.error("Email is the same as your current one."); return; }
-    if (sendGuard.current || sendingOtp) return;
-    sendGuard.current = true;
+    if (!canSendOtp) return;
     setSendingOtp(true);
     setOtpError(null);
     try {
@@ -140,36 +132,32 @@ function ProfilePage() {
         purpose: "profile_email",
         email: emailInput.trim(),
       });
-      if (!res.ok) {
-        const secs = (res as Record<string, unknown>).resend_in_seconds;
-        if (typeof secs === "number" && secs > 0) startCooldown(secs);
-        throw new Error((res as Record<string, unknown>).message as string || "Could not send code");
+      if (typeof res.resend_in_seconds === "number" && res.resend_in_seconds > 0) {
+        startCooldown(res.resend_in_seconds);
       }
-      const secs = (res as Record<string, unknown>).resend_in_seconds;
-      if (typeof secs === "number" && secs > 0) startCooldown(secs);
       setEmailStep("sent");
       toast.success("Verification code sent — check your inbox.");
     } catch (err) {
       if (err instanceof ApiError) {
         const detail = err.detail as Record<string, unknown> | null;
-        const secs = detail?.resend_in_seconds ?? detail?.cooldown_seconds;
+        const secs = (detail?.resend_in_seconds ?? detail?.cooldown_seconds) as number | undefined;
         if (typeof secs === "number" && secs > 0) startCooldown(secs);
-        setOtpError(err.message || "Could not send code");
-        toast.error(err.message || "Could not send code");
-      } else if (err instanceof Error) {
-        setOtpError(err.message);
-        toast.error(err.message);
+        const msg = (detail?.message as string) || err.message || "Could not send code";
+        setOtpError(msg);
+        toast.error(msg);
+      } else {
+        const msg = err instanceof Error ? err.message : "Could not send code";
+        setOtpError(msg);
+        toast.error(msg);
       }
     } finally {
       setSendingOtp(false);
-      sendGuard.current = false;
     }
   }
 
   async function verifyEmailOtp() {
     if (emailOtp.length !== 6) { setOtpError("Enter the 6-digit code."); return; }
-    if (verifyGuard.current || verifyingOtp) return;
-    verifyGuard.current = true;
+    if (verifyingOtp) return;
     setVerifyingOtp(true);
     setOtpError(null);
     try {
@@ -179,19 +167,18 @@ function ProfilePage() {
         email: emailInput.trim(),
         code: emailOtp,
       });
-      if (!res.ok || !res.verification_token) {
-        throw new Error((res as Record<string, unknown>).message as string || "Incorrect code");
-      }
+      if (!res.verification_token) throw new Error("Incorrect code. Please try again.");
       setEmailToken(res.verification_token);
       setEmailStep("verified");
       setOtpError(null);
-      toast.success("Email verified — save to apply the change.");
+      toast.success("Email verified — save your profile to apply the change.");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Incorrect code";
+      const msg = err instanceof ApiError
+        ? ((err.detail as Record<string, unknown>)?.message as string) || err.message
+        : err instanceof Error ? err.message : "Incorrect code";
       setOtpError(msg);
     } finally {
       setVerifyingOtp(false);
-      verifyGuard.current = false;
     }
   }
 
@@ -230,13 +217,12 @@ function ProfilePage() {
 
   const canSaveProfile =
     !saveProfile.isPending &&
-    (name !== user?.name ||
-      emailInput.trim() !== (user?.email ?? "") ||
-      emailStep === "verified") &&
-    // If email changed: must be verified
+    // Something must have changed
+    (name.trim() !== (user?.name ?? "").trim() || emailStep === "verified" || (!emailChanged && emailInput.trim() !== (user?.email ?? ""))) &&
+    // If email changed, it must be verified before saving
     (!emailChanged || emailStep === "verified") &&
-    // If password required: must be entered
-    (!needsPassword || !!emailCurrentPwd || emailStep !== "verified");
+    // If password is required (changing verified email), it must be provided
+    (!needsPassword || !emailChanged || !!emailCurrentPwd);
 
   // ── Phone change ───────────────────────────────────────────────────────────
   const [showPhoneForm, setShowPhoneForm] = useState(false);
