@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
 
   const widgetId = (env.VITE_MSG91_WIDGET_ID ?? env.MSG91_WIDGET_ID ?? "").trim() || undefined;
   const tokenAuth = (env.VITE_MSG91_TOKEN_AUTH ?? env.MSG91_TOKEN_AUTH ?? "").trim() || undefined;
+  const port = parseInt(process.env.PORT || "5000", 10);
 
   return {
     define: {
@@ -57,6 +58,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: false,
         },
       },
+    },
+    preview: {
+      host: "0.0.0.0",
+      port: port,
+      strictPort: false,
     },
   };
 });
