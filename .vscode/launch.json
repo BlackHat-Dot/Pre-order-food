@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Uvicorn: app.main (SQLite)",
+      "name": "Uvicorn: app.main (PostgreSQL)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",

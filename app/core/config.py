@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_SQLITE_URL = f"sqlite+aiosqlite:///{(BASE_DIR / 'data' / 'preorder.db').as_posix()}"
+DEFAULT_POSTGRES_URL = "postgresql://username:password@localhost:5432/preorder_db"
 
 
 class Settings(BaseSettings):
@@ -22,25 +19,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    DATABASE_URL: str = DEFAULT_SQLITE_URL
+    DATABASE_URL: str = DEFAULT_POSTGRES_URL
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # OTP: memory (dev) | database (PostgreSQL/SQLite) | redis
-    OTP_STORAGE: str = "memory"
+    # OTP: memory (dev) | database (PostgreSQL) | redis
+    OTP_STORAGE: str = "database"
     OTP_TTL_SECONDS: int = 120
     OTP_MAX_SENDS_PER_DAY: int = 15
     OTP_RESEND_COOLDOWN_SECONDS: int = 0
-
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def validate_database_url(cls, v: str | None) -> str:
-        if not v or not v.strip():
-            return DEFAULT_SQLITE_URL
-        value = v.strip()
-        prefix = "sqlite+aiosqlite:///"
-        if value.startswith(prefix) and value == "sqlite+aiosqlite:///./data/preorder.db":
-            return DEFAULT_SQLITE_URL
-        return value
 
     SENTRY_DSN: str | None = None
 

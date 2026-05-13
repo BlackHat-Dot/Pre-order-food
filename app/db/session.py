@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
@@ -18,8 +16,10 @@ def _normalize_database_url(url: str) -> tuple[str, dict]:
         value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
 
     if value.startswith("postgresql://") or value.startswith("postgresql+asyncpg://"):
-        # asyncpg does not accept sslmode as a query param — move it to connect_args
+        # asyncpg does not accept sslmode as a query param — move it to connect_args.
+        # Default to SSL for remote hosts when sslmode is not explicitly provided.
         from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+
         parsed = urlparse(value)
         qs = parse_qs(parsed.query, keep_blank_values=True)
         sslmode = qs.pop("sslmode", [None])[0]
@@ -33,20 +33,16 @@ def _normalize_database_url(url: str) -> tuple[str, dict]:
                 "verify-full": True,
             }
             connect_args["ssl"] = ssl_map.get(sslmode, False)
+        elif parsed.hostname and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            connect_args["ssl"] = True
+
         new_query = urlencode({k: v[0] for k, v in qs.items()})
         value = urlunparse(parsed._replace(query=new_query))
-
-    elif value.startswith("sqlite"):
-        connect_args = {"check_same_thread": False}
 
     return value, connect_args
 
 
 database_url, connect_args = _normalize_database_url(settings.DATABASE_URL)
-
-if database_url.startswith("sqlite+aiosqlite:///"):
-    sqlite_path = database_url.replace("sqlite+aiosqlite:///", "", 1)
-    Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
 
 engine = create_async_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

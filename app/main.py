@@ -19,7 +19,6 @@ from app.core.security import hash_password
 from app.crud.user import get_user_by_email
 from app.api.v1.router import api_router
 from app.db.base import Base
-from app.db.sqlite_compat import ensure_sqlite_schema_compatibility
 from app.db.session import engine as async_engine
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
@@ -33,7 +32,6 @@ async def create_database_tables() -> None:
     try:
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        await ensure_sqlite_schema_compatibility(async_engine)
         print("Database tables created/verified")
     except Exception as e:
         print(f"Failed to create database tables: {e}")

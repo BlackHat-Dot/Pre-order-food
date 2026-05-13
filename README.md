@@ -2,13 +2,13 @@
 
 Production-grade backend for a pre-order food marketplace:
 - **FastAPI** REST API
-- **SQLite (current default)** + SQLAlchemy ORM + **Alembic migrations**
+- **PostgreSQL** + SQLAlchemy ORM + **Alembic migrations**
 - **Redis** caching
 - **JWT auth** (access+refresh) with **RBAC** (customer, shop_owner, admin)
 - Optional integrations: **S3** uploads, **Twilio** SMS, **Razorpay** payments, **Sentry**
 - Dockerized and deployable
 
-> Current setup uses SQLite for simplicity. PostgreSQL env vars are kept so you can switch back later by only changing `DATABASE_URL`.
+> Current setup uses PostgreSQL for production-grade database operations.
 
 ## Architecture
 - `app/main.py`: FastAPI app + routers + middleware
@@ -26,26 +26,29 @@ Production-grade backend for a pre-order food marketplace:
 
 Use the **project virtualenv** (`venv`). In VS Code: pick interpreter `.\venv\Scripts\python.exe` — this is already set in `.vscode/settings.json`.
 
+### Prerequisites
+- PostgreSQL database running locally or remotely
+- Update `.env` with your PostgreSQL connection string
+
 1. Install dependencies:
 
 ```powershell
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-2. Create SQLite data folder and migrate:
+2. Run database migrations:
 
 ```powershell
-mkdir data -Force
 .\venv\Scripts\python.exe -m alembic upgrade head
 ```
 
-3. Run the API (either **Run and Debug → “Uvicorn: app.main”** from `.vscode/launch.json`, or CLI):
+3. Run the API (either **Run and Debug → "Uvicorn: app.main"** from `.vscode/launch.json`, or CLI):
 
 ```powershell
 .\venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Swagger: `http://127.0.0.1:8000/docs`. Use **SQLite** defaults in `.env` (`DATABASE_URL`). Redis is optional: if Redis is down, caching/rate-limit degrade gracefully.
+Swagger: `http://127.0.0.1:8000/docs`. Configure PostgreSQL connection in `.env` (`DATABASE_URL`). Redis is optional: if Redis is down, caching/rate-limit degrade gracefully.
 
 ## Quickstart (Docker)
 1. Copy env:
