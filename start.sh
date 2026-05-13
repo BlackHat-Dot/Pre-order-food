@@ -1,6 +1,6 @@
 #!/bin/bash
 # Railway Production Startup Script
-# Runs frontend (served from built dist) and backend
+# Runs frontend and backend concurrently (install/build handled by nixpacks)
 
 set -e
 
@@ -12,30 +12,17 @@ echo "Pre-Order Food: Railway Deployment"
 echo "=================================="
 echo "Frontend port: $PORT"
 echo "Backend port: 8000"
-
-# Install Python dependencies
-echo "Installing Python dependencies..."
-python -m pip install -q -r requirements-production.txt 2>/dev/null || pip install -q -r requirements-production.txt
-
-# Install Node dependencies
-echo "Installing Node dependencies..."
-cd order-delight-main
-npm ci --omit=dev --prefer-offline --no-audit
-cd ..
-
-# Build frontend
-echo "Building frontend..."
-cd order-delight-main
-npm run build
-cd ..
+echo ""
 
 # Run migrations if DATABASE_URL is set
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
-    alembic upgrade head || true
+    alembic upgrade head || echo "Migrations skipped or already applied"
+    echo ""
 fi
 
 # Create Node.js server to serve frontend + proxy backend
+echo "Setting up Express proxy server..."
 cat > server.js << 'EOF'
 const express = require('express');
 const path = require('path');
@@ -80,7 +67,7 @@ EOF
 
 # Start backend and frontend server concurrently
 echo "Starting services..."
-exec concurrently \
+exec ./order-delight-main/node_modules/.bin/concurrently \
   "uvicorn app.main:app --host 127.0.0.1 --port 8000" \
   "node server.js"
 

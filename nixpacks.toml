@@ -1,0 +1,36 @@
+# Railway Nixpacks Configuration
+# Ensures both Node.js and Python are installed in the container
+
+[providers]
+# Python for FastAPI backend
+python = "3.11"
+# Node.js for React frontend
+nodejs = "20"
+
+[variables]
+# Build configuration
+NODE_ENV = "production"
+PIP_CACHE_DIR = "/tmp/pip-cache"
+
+[phases.setup]
+# Setup both environments
+nixpkgs = ["python311", "nodejs_20", "npm"]
+
+[phases.install]
+# Install Python dependencies first, then Node dependencies
+cmds = [
+  "pip install -r requirements-production.txt",
+  "npm ci --omit=dev",
+  "cd order-delight-main && npm ci --omit=dev --prefer-offline --no-audit && cd .."
+]
+
+[phases.build]
+# Build frontend
+cmds = ["cd order-delight-main && npm run build && cd .."]
+
+[start]
+# Start both services concurrently
+cmd = "bash start.sh"
+
+[start]
+cmd = "bash start.sh"

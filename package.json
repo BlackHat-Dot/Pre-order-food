@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "concurrently": "^9.0.0",
     "express": "^5.2.1",
     "http-proxy": "^1.18.1"
   }
