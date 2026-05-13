@@ -27,12 +27,12 @@ class ProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     email: EmailStr | None = None
     phone: str | None = Field(default=None)
-    # Required when changing email to a new value
+    # Required when changing email
     email_verification_token: str | None = Field(default=None, max_length=2048)
+    # Required when changing email AND current email is already verified (security gate)
+    current_password: str | None = Field(default=None, max_length=128)
     # Required when changing phone number
     phone_verification_token: str | None = Field(default=None, max_length=2048)
-    # Required when changing phone number (security confirmation)
-    current_password: str | None = Field(default=None, max_length=128)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -76,72 +76,103 @@ async def update_profile(
 
     # ── Email change ──────────────────────────────────────────────────────────
     if "email" in data:
-        new_email = data["email"]
+        new_email: str | None = data["email"]
+
         if new_email is None:
+            # Removing email entirely
+            user.email = None
             user.email_verified = False
-        elif new_email != user.email:
+            data.pop("email")
+
+        elif new_email.lower() != (user.email or "").lower():
+            # Changing to a new email address
+
+            # Security gate: if the user currently has a VERIFIED email, require password
+            if user.email and user.email_verified:
+                if not current_password:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Your current password is required to change a verified email address.",
+                    )
+                if not verify_password(current_password, user.password_hash):
+                    raise HTTPException(status_code=400, detail="Incorrect password.")
+
+            # Require proof token for all email changes
             if not email_token:
-                raise HTTPException(status_code=400, detail="Verify the new email before saving")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Verify your new email address before saving.",
+                )
             try:
                 proof = decode_otp_proof_token(email_token)
             except JWTError as ex:
-                raise HTTPException(status_code=401, detail="Invalid or expired email verification") from ex
+                raise HTTPException(status_code=401, detail="Email verification token is invalid or expired.") from ex
+
             if (
                 proof.get("vtype") != "email_profile"
                 or str(proof.get("uid") or "") != str(user.id)
-                or str(proof.get("email") or "").lower() != str(new_email).lower()
+                or str(proof.get("email") or "").lower() != new_email.lower()
             ):
-                raise HTTPException(status_code=400, detail="Email verification mismatch")
+                raise HTTPException(status_code=400, detail="Email verification token does not match.")
+
+            # Duplicate check
             existing = await get_user_by_email(db, new_email)
             if existing and existing.id != user.id:
-                raise HTTPException(status_code=409, detail="Email already in use")
+                raise HTTPException(status_code=409, detail="This email address is already in use.")
+
+            user.email = new_email
             user.email_verified = True
+            data.pop("email")
+        else:
+            # Email unchanged
+            data.pop("email")
 
     # ── Phone change ──────────────────────────────────────────────────────────
     if "phone" in data:
-        new_phone = data["phone"]
+        new_phone: str | None = data.pop("phone")
+
         if new_phone and new_phone != user.phone:
-            # Require current password to change phone (security gating)
+            # Require current password to change phone
             if not current_password:
                 raise HTTPException(
                     status_code=400,
-                    detail="Current password is required to change your phone number",
+                    detail="Your current password is required to change your phone number.",
                 )
             if not verify_password(current_password, user.password_hash):
-                raise HTTPException(status_code=400, detail="Incorrect password")
+                raise HTTPException(status_code=400, detail="Incorrect password.")
 
             # Require MSG91 proof token
             if not phone_token:
                 raise HTTPException(
                     status_code=400,
-                    detail="Phone verification is required before changing your phone number",
+                    detail="Phone number verification is required before making this change.",
                 )
             try:
                 proof = decode_otp_proof_token(phone_token)
             except JWTError as ex:
-                raise HTTPException(status_code=401, detail="Invalid or expired phone verification") from ex
+                raise HTTPException(status_code=401, detail="Phone verification token is invalid or expired.") from ex
 
             if proof.get("vtype") != "phone_profile":
-                raise HTTPException(status_code=400, detail="Invalid phone verification token type")
+                raise HTTPException(status_code=400, detail="Invalid phone verification token type.")
             if str(proof.get("uid") or "") != str(user.id):
-                raise HTTPException(status_code=400, detail="Phone verification token does not match your account")
+                raise HTTPException(status_code=400, detail="Phone verification token does not match your account.")
 
             try:
                 proof_phone = normalize_e164(str(proof.get("phone") or ""))
                 new_phone_norm = normalize_e164(new_phone)
             except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid phone in verification token")
+                raise HTTPException(status_code=400, detail="Invalid phone number in verification token.")
 
             if proof_phone != new_phone_norm:
-                raise HTTPException(status_code=400, detail="Verified phone does not match the submitted phone number")
+                raise HTTPException(status_code=400, detail="Verified phone does not match the submitted number.")
 
             # Duplicate check
             existing = await get_user_by_phone(db, new_phone_norm)
             if existing and existing.id != user.id:
-                raise HTTPException(status_code=409, detail="This phone number is already in use")
+                raise HTTPException(status_code=409, detail="This phone number is already in use.")
 
             old_phone = user.phone
-            data["phone"] = new_phone_norm
+            user.phone = new_phone_norm
             user.phone_verified = True
 
             # Audit log
@@ -159,12 +190,9 @@ async def update_profile(
                 "[profile] phone changed user_id=%s old=%s new=%s ip=%s",
                 user.id, old_phone, new_phone_norm, client_ip,
             )
-        else:
-            # Phone unchanged — just drop it from the update dict
-            data.pop("phone", None)
 
-    # Apply remaining safe fields
-    safe_fields = {"name", "email", "phone"}
+    # Apply remaining safe fields (name only at this point)
+    safe_fields = {"name"}
     for k, v in data.items():
         if k in safe_fields:
             setattr(user, k, v)
@@ -181,9 +209,9 @@ async def update_password(
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     if not verify_password(payload.current_password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
     if payload.current_password == payload.new_password:
-        raise HTTPException(status_code=400, detail="New password must be different")
+        raise HTTPException(status_code=400, detail="New password must be different from current.")
     user.password_hash = hash_password(payload.new_password)
     await db.commit()
     return {"message": "Password updated"}

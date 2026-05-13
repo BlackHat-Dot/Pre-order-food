@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
 # One lock per phone/email so two tabs cannot create two OTPs at the same time.
 _locks: dict[str, asyncio.Lock] = {}
 
+# Per-target cooldown tracking (separate from daily limits): when was the last OTP issued?
+_last_sent: dict[str, datetime] = {}
+
+# How long to wait before allowing a resend (seconds) — prevents spam bursts
+RESEND_COOLDOWN_SECONDS = 60
+
 
 def _lock_for(key: str) -> asyncio.Lock:
     if key not in _locks:
@@ -104,7 +110,7 @@ class MemoryOtpBackend:
 
 
 class DatabaseOtpBackend:
-    """Stores OTP rows in PostgreSQL/SQLite — survives restarts (good for Railway)."""
+    """Stores OTP rows in PostgreSQL/SQLite — survives restarts."""
 
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
@@ -154,7 +160,7 @@ class DatabaseOtpBackend:
 
 
 class RedisOtpBackend:
-    """Stores OTP inside Redis — fast and easy to scale (needs Redis on Railway)."""
+    """Stores OTP inside Redis."""
 
     def __init__(self, prefix: str = "pof:otp:v1") -> None:
         self._prefix = prefix
@@ -163,10 +169,7 @@ class RedisOtpBackend:
         return f"{self._prefix}:{channel}:{target}"
 
     async def delete_expired(self, now: datetime) -> None:
-        # Redis keys already use TTL; nothing heavy to do here.
-        r = await get_redis()
-        if not r:
-            return
+        pass  # Redis keys use TTL automatically
 
     async def get(self, channel: str, target: str) -> OtpRecord | None:
         r = await get_redis()
@@ -192,14 +195,12 @@ class RedisOtpBackend:
         if not r:
             raise RuntimeError("Redis is not available for OTP_STORAGE=redis")
         ttl = max(1, int(settings.OTP_TTL_SECONDS))
-        payload = json.dumps(
-            {
-                "code_hash": record.code_hash,
-                "expires_at": record.expires_at.isoformat(),
-                "purpose": record.purpose,
-                "resend_count": record.resend_count,
-            }
-        )
+        payload = json.dumps({
+            "code_hash": record.code_hash,
+            "expires_at": record.expires_at.isoformat(),
+            "purpose": record.purpose,
+            "resend_count": record.resend_count,
+        })
         await r.set(self._key(channel, target), payload, ex=ttl)
 
     async def delete(self, channel: str, target: str) -> None:
@@ -220,45 +221,51 @@ def _build_backend(db: AsyncSession | None) -> MemoryOtpBackend | DatabaseOtpBac
 
 
 class OtpVerificationService:
-    """Small helper that ties together storage, limits, and proof tokens."""
+    """Ties together storage, rate limits, email delivery, and proof tokens."""
 
-    def __init__(self, db: AsyncSession | None) -> None:
+    def __init__(self, db: AsyncSession | None, user_name: str | None = None) -> None:
         self._db = db
         self._backend = _build_backend(db)
+        self._user_name = user_name
 
     async def send_otp(self, *, channel: str, target: str, purpose: str) -> dict[str, Any]:
         """
-        Create a brand new OTP.
-        - If an OTP is still valid, we return a friendly "please wait" response (no new OTP).
-        - We also print the OTP to the server logs (instead of SMS) so you can test easily.
+        Create and dispatch a new OTP.
+
+        Returns a dict with ok=True on success, or ok=False with an error key.
+        Email OTPs are delivered via Resend; dev mode logs to console.
         """
         now = datetime.now(timezone.utc)
         ttl = max(1, int(settings.OTP_TTL_SECONDS))
         lock_key = _otp_storage_key(channel, target)
+
         async with _lock_for(lock_key):
             await self._backend.delete_expired(now)
 
             existing = await self._backend.get(channel, target)
             if existing and existing.expires_at > now:
-                wait_seconds = max(0, int((existing.expires_at - now).total_seconds()))
-                remaining_daily = _SendTracker.remaining_sends(lock_key)
-                return {
-                    "ok": False,
-                    "error": "otp_active",
-                    "message": "An OTP is already active. Wait for it to expire before resending.",
-                    "expires_at": existing.expires_at.isoformat(),
-                    "expires_in_seconds": wait_seconds,
-                    "resend_available_at": existing.expires_at.isoformat(),
-                    "resend_in_seconds": wait_seconds,
-                    "max_sends_remaining": remaining_daily,
-                }
+                # OTP already active — enforce per-resend cooldown
+                seconds_since_last = (now - _last_sent.get(lock_key, now - timedelta(seconds=RESEND_COOLDOWN_SECONDS + 1))).total_seconds()
+                cooldown_left = max(0, int(RESEND_COOLDOWN_SECONDS - seconds_since_last))
+                expires_in = max(0, int((existing.expires_at - now).total_seconds()))
+                if cooldown_left > 0:
+                    return {
+                        "ok": False,
+                        "error": "cooldown",
+                        "message": f"Please wait {cooldown_left} seconds before requesting a new code.",
+                        "cooldown_seconds": cooldown_left,
+                        "expires_in_seconds": expires_in,
+                        "resend_in_seconds": cooldown_left,
+                    }
+                # Cooldown elapsed — allow resend by deleting old and issuing new
+                await self._backend.delete(channel, target)
 
             allowed, remaining_daily = _SendTracker.record_send(lock_key)
             if not allowed:
                 return {
                     "ok": False,
                     "error": "rate_limited",
-                    "message": "Too many OTP requests in the last 24 hours. Try again tomorrow.",
+                    "message": "Too many verification requests today. Try again tomorrow.",
                 }
 
             code = f"{random.randint(0, 999999):06d}"
@@ -270,17 +277,35 @@ class OtpVerificationService:
                 resend_count=1,
             )
             await self._backend.upsert(channel, target, record)
+            _last_sent[lock_key] = now
 
-            # Dev-friendly: show OTP in terminal logs (not sent by SMS in this project).
-            logger.warning("[OTP] channel=%s target=%s purpose=%s code=%s (dev only)", channel, target, purpose, code)
-            print(f"\n[OTP] {channel} {target} ({purpose}) code={code} expires in {ttl}s\n", flush=True)
+            # Deliver OTP
+            if channel == "email":
+                from app.services.email import send_otp_email
+                sent = await send_otp_email(
+                    to_email=target,
+                    code=code,
+                    ttl_seconds=ttl,
+                    user_name=self._user_name,
+                )
+                if not sent:
+                    await self._backend.delete(channel, target)
+                    return {
+                        "ok": False,
+                        "error": "delivery_failed",
+                        "message": "Could not send verification email. Please try again.",
+                    }
+            else:
+                # Phone: log only (MSG91 widget handles SMS separately)
+                logger.warning("[OTP] channel=%s target=%s code=%s (dev only)", channel, target, code)
+                print(f"\n[OTP] {channel}:{target} ({purpose}) code={code} expires={ttl}s\n", flush=True)
 
             return {
                 "ok": True,
                 "expires_at": expires_at.isoformat(),
                 "expires_in_seconds": ttl,
-                "resend_available_at": expires_at.isoformat(),
-                "resend_in_seconds": ttl,
+                "resend_available_at": (now + timedelta(seconds=RESEND_COOLDOWN_SECONDS)).isoformat(),
+                "resend_in_seconds": RESEND_COOLDOWN_SECONDS,
                 "max_sends_remaining": remaining_daily,
             }
 
@@ -293,20 +318,21 @@ class OtpVerificationService:
         code: str,
         acting_user_id: str | None = None,
     ) -> dict[str, Any]:
-        """Check the code. If it matches, delete the OTP so it cannot be reused."""
+        """Verify code. On match: delete OTP (single-use) and issue proof JWT."""
         now = datetime.now(timezone.utc)
         lock_key = _otp_storage_key(channel, target)
+
         async with _lock_for(lock_key):
             await self._backend.delete_expired(now)
             existing = await self._backend.get(channel, target)
+
             if not existing or existing.purpose != purpose:
-                return {"ok": False, "error": "invalid_otp", "message": "Invalid or expired OTP."}
+                return {"ok": False, "error": "invalid_otp", "message": "No active verification code found. Request a new one."}
             if existing.expires_at <= now:
                 await self._backend.delete(channel, target)
-                return {"ok": False, "error": "expired_otp", "message": "OTP expired. Request a new code."}
-
+                return {"ok": False, "error": "expired_otp", "message": "Verification code expired. Request a new one."}
             if not hmac.compare_digest(existing.code_hash, _hash_code(channel, target, code)):
-                return {"ok": False, "error": "invalid_otp", "message": "Invalid OTP."}
+                return {"ok": False, "error": "invalid_otp", "message": "Incorrect verification code."}
 
             await self._backend.delete(channel, target)
 

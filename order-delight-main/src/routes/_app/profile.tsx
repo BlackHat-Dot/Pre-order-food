@@ -2,7 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ShieldCheck, Phone, ChevronDown } from "lucide-react";
+import {
+  ShieldCheck,
+  Phone,
+  ChevronDown,
+  Mail,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  X,
+} from "lucide-react";
 import { ApiError, otpApi, usersApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,19 +31,15 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/profile")({ component: ProfilePage });
 
-function unwrapApiPayload(detail: unknown): Record<string, unknown> | null {
-  if (!detail || typeof detail !== "object") return null;
-  const o = detail as Record<string, unknown>;
-  const inner = o.detail;
-  if (inner && typeof inner === "object") return inner as Record<string, unknown>;
-  return o;
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function isValidEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
 }
 
-/** Guess the Country from an E.164 or legacy 10-digit phone stored in DB. */
 function guessCountryFromPhone(phone: string | null | undefined): Country {
   if (!phone) return DEFAULT_COUNTRY;
   const normalized = phone.startsWith("+") ? phone : `+${phone}`;
-  // Try to match dial code prefix (longest match first)
   const sorted = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
   for (const c of sorted) {
     if (normalized.startsWith(c.dialCode)) return c;
@@ -42,189 +47,252 @@ function guessCountryFromPhone(phone: string | null | undefined): Country {
   return DEFAULT_COUNTRY;
 }
 
-function localNumberFromE164(phone: string | null | undefined, dialCode: string): string {
-  if (!phone) return "";
-  const normalized = phone.startsWith("+") ? phone : `+${phone}`;
-  const dialDigits = dialCode.replace(/\D/g, "");
-  if (normalized.startsWith(`+${dialDigits}`)) {
-    return normalized.slice(1 + dialDigits.length);
+function useCountdown(seconds: number): [number, (s: number) => void] {
+  const [left, setLeft] = useState(seconds);
+  const [target, setTarget] = useState(seconds);
+  const id = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function restart(s: number) {
+    setTarget(s);
+    setLeft(s);
   }
-  // Legacy 10-digit — return as-is
-  return phone.replace(/\D/g, "");
+
+  useEffect(() => {
+    if (target <= 0) return;
+    if (id.current) clearInterval(id.current);
+    id.current = setInterval(() => setLeft((l) => Math.max(0, l - 1)), 1000);
+    return () => { if (id.current) clearInterval(id.current!); };
+  }, [target]);
+
+  return [left, restart];
 }
+
+function fmt(sec: number) {
+  const m = String(Math.floor(sec / 60)).padStart(2, "0");
+  const s = String(sec % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 function ProfilePage() {
   const { user, refresh } = useAuth();
-  const [form, setForm] = useState({
-    name: user?.name ?? "",
-    email: user?.email ?? "",
-  });
 
-  // ── Email OTP state ────────────────────────────────────────────────────────
+  // ── Name ───────────────────────────────────────────────────────────────────
+  const [name, setName] = useState(user?.name ?? "");
+  useEffect(() => { setName(user?.name ?? ""); }, [user?.name]);
+
+  // ── Email verification state machine ──────────────────────────────────────
+  const [emailInput, setEmailInput] = useState(user?.email ?? "");
   const [emailOtp, setEmailOtp] = useState("");
-  const [emailSecondsLeft, setEmailSecondsLeft] = useState(0);
-  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
-  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
-  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
-  const sendEmailGuard = useRef(false);
-  const verifyEmailGuard = useRef(false);
+  const [emailToken, setEmailToken] = useState<string | null>(null); // proof JWT after OTP verified
+  const [emailStep, setEmailStep] = useState<"idle" | "sent" | "verified">("idle");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [cooldownSecs, startCooldown] = useCountdown(0);
+  // Password required when changing a verified email
+  const [emailCurrentPwd, setEmailCurrentPwd] = useState("");
 
-  // ── Phone change state ─────────────────────────────────────────────────────
-  const [showPhoneForm, setShowPhoneForm] = useState(false);
-  const currentCountry = guessCountryFromPhone(user?.phone);
-  const [newCountry, setNewCountry] = useState<Country>(DEFAULT_COUNTRY);
-  const [newLocalNumber, setNewLocalNumber] = useState("");
-  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
-  const [verifiedNewPhone, setVerifiedNewPhone] = useState<string | null>(null);
-  const [phoneCurrentPassword, setPhoneCurrentPassword] = useState("");
-
-  // ── Password change state ──────────────────────────────────────────────────
-  const [showPwdForm, setShowPwdForm] = useState(false);
-  const [pwd, setPwd] = useState({ current_password: "", new_password: "" });
+  const sendGuard = useRef(false);
+  const verifyGuard = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
-    setForm({ name: user.name ?? "", email: user.email ?? "" });
+    setEmailInput(user?.email ?? "");
+    setEmailStep("idle");
+    setEmailToken(null);
     setEmailOtp("");
-    setEmailVerificationToken(null);
-    setEmailSecondsLeft(0);
-  }, [user?.id, user?.name, user?.email, user?.phone]);
+    setOtpError(null);
+    setEmailCurrentPwd("");
+  }, [user?.id, user?.email]);
 
-  useEffect(() => {
-    if (emailSecondsLeft <= 0) return;
-    const id = window.setInterval(() => setEmailSecondsLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => window.clearInterval(id);
-  }, [emailSecondsLeft]);
+  const savedEmail = (user?.email ?? "").toLowerCase();
+  const currentEmailInput = emailInput.trim().toLowerCase();
+  const emailChanged = currentEmailInput !== savedEmail && emailInput.trim() !== "";
+  const emailValid = isValidEmail(emailInput);
+  // Show verify button when: email is valid, different from saved, and not yet verified in this session
+  const showVerifyBtn = emailValid && emailChanged && emailStep === "idle";
+  // Require password when changing an already-verified email
+  const needsPassword = !!(user?.email && user.email_verified && emailChanged);
+  const canSendOtp = showVerifyBtn && !sendingOtp && cooldownSecs === 0;
 
-  // ── Save profile (name + email) ────────────────────────────────────────────
-  const requiresEmailProof = !!form.email.trim() && form.email.trim() !== (user?.email ?? "").trim();
-  const canResendEmail = emailSecondsLeft <= 0 && !sendingEmailOtp;
-  const mm = String(Math.floor(emailSecondsLeft / 60)).padStart(2, "0");
-  const ss = String(emailSecondsLeft % 60).padStart(2, "0");
-
-  const updateProfile = useMutation({
-    mutationFn: () => {
-      const emailTrim = form.email.trim();
-      const emailPayload = emailTrim.length ? emailTrim : null;
-      const requiresProof = !!emailPayload && emailTrim !== (user?.email ?? "").trim();
-      return usersApi.updateProfile({
-        name: form.name,
-        email: emailPayload,
-        ...(requiresProof ? { email_verification_token: emailVerificationToken } : {}),
-      });
-    },
-    onSuccess: async () => {
-      toast.success("Profile updated");
-      setEmailVerificationToken(null);
+  // Reset verification state when email input changes
+  function handleEmailChange(val: string) {
+    setEmailInput(val);
+    if (emailStep !== "idle") {
+      setEmailStep("idle");
+      setEmailToken(null);
       setEmailOtp("");
-      setEmailSecondsLeft(0);
-      await refresh();
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update profile"),
-  });
-
-  function applyEmailOtpMeta(payload: Record<string, unknown> | null) {
-    if (!payload) return;
-    const secs =
-      typeof payload.resend_in_seconds === "number"
-        ? payload.resend_in_seconds
-        : typeof payload.expires_in_seconds === "number"
-          ? payload.expires_in_seconds
-          : 0;
-    if (secs > 0) setEmailSecondsLeft(Math.ceil(secs));
+      setOtpError(null);
+    }
   }
 
   async function sendEmailOtp() {
-    const nextEmail = form.email.trim();
-    if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
-      toast.error("Enter a valid email address first.");
-      return;
-    }
-    if (!requiresEmailProof) { toast.error("Email is unchanged."); return; }
-    if (sendEmailGuard.current || sendingEmailOtp) return;
-    sendEmailGuard.current = true;
-    setSendingEmailOtp(true);
+    if (!emailValid) { toast.error("Enter a valid email address first."); return; }
+    if (!emailChanged) { toast.error("Email is the same as your current one."); return; }
+    if (sendGuard.current || sendingOtp) return;
+    sendGuard.current = true;
+    setSendingOtp(true);
+    setOtpError(null);
     try {
-      const res = await otpApi.sendOtp({ channel: "email", purpose: "profile_email", email: nextEmail });
-      if (!res.ok) { toast.error(res.message || "Could not send OTP"); applyEmailOtpMeta(res as unknown as Record<string, unknown>); return; }
-      toast.success("Email verification code sent — check your inbox.");
-      applyEmailOtpMeta(res as unknown as Record<string, unknown>);
-      setEmailVerificationToken(null);
-      setEmailOtp("");
+      const res = await otpApi.sendOtp({
+        channel: "email",
+        purpose: "profile_email",
+        email: emailInput.trim(),
+      });
+      if (!res.ok) {
+        const secs = (res as Record<string, unknown>).resend_in_seconds;
+        if (typeof secs === "number" && secs > 0) startCooldown(secs);
+        throw new Error((res as Record<string, unknown>).message as string || "Could not send code");
+      }
+      const secs = (res as Record<string, unknown>).resend_in_seconds;
+      if (typeof secs === "number" && secs > 0) startCooldown(secs);
+      setEmailStep("sent");
+      toast.success("Verification code sent — check your inbox.");
     } catch (err) {
-      if (err instanceof ApiError) { const inner = unwrapApiPayload(err.detail); toast.error(err.message || "Could not send OTP"); applyEmailOtpMeta(inner); }
-      else { toast.error("Network error. Is the API running?"); }
-    } finally { setSendingEmailOtp(false); sendEmailGuard.current = false; }
+      if (err instanceof ApiError) {
+        const detail = err.detail as Record<string, unknown> | null;
+        const secs = detail?.resend_in_seconds ?? detail?.cooldown_seconds;
+        if (typeof secs === "number" && secs > 0) startCooldown(secs);
+        setOtpError(err.message || "Could not send code");
+        toast.error(err.message || "Could not send code");
+      } else if (err instanceof Error) {
+        setOtpError(err.message);
+        toast.error(err.message);
+      }
+    } finally {
+      setSendingOtp(false);
+      sendGuard.current = false;
+    }
   }
 
   async function verifyEmailOtp() {
-    const nextEmail = form.email.trim();
-    if (!/^\d{6}$/.test(emailOtp)) { toast.error("Enter the 6-digit OTP."); return; }
-    if (verifyEmailGuard.current || verifyingEmailOtp) return;
-    verifyEmailGuard.current = true;
-    setVerifyingEmailOtp(true);
+    if (emailOtp.length !== 6) { setOtpError("Enter the 6-digit code."); return; }
+    if (verifyGuard.current || verifyingOtp) return;
+    verifyGuard.current = true;
+    setVerifyingOtp(true);
+    setOtpError(null);
     try {
-      const res = await otpApi.verifyOtp({ channel: "email", purpose: "profile_email", email: nextEmail, code: emailOtp });
-      if (!res.ok || !res.verification_token) { toast.error(res.message || "Invalid OTP"); return; }
-      setEmailVerificationToken(res.verification_token);
-      setEmailSecondsLeft(0);
-      toast.success("Email verified — save your profile to apply the change.");
+      const res = await otpApi.verifyOtp({
+        channel: "email",
+        purpose: "profile_email",
+        email: emailInput.trim(),
+        code: emailOtp,
+      });
+      if (!res.ok || !res.verification_token) {
+        throw new Error((res as Record<string, unknown>).message as string || "Incorrect code");
+      }
+      setEmailToken(res.verification_token);
+      setEmailStep("verified");
+      setOtpError(null);
+      toast.success("Email verified — save to apply the change.");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Verification failed");
-    } finally { setVerifyingEmailOtp(false); verifyEmailGuard.current = false; }
+      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Incorrect code";
+      setOtpError(msg);
+    } finally {
+      setVerifyingOtp(false);
+      verifyGuard.current = false;
+    }
   }
 
+  // ── Save profile (name + email) ────────────────────────────────────────────
+  const saveProfile = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = { name };
+
+      const emailTrimmed = emailInput.trim() || null;
+      const emailLower = (emailTrimmed ?? "").toLowerCase();
+
+      if (emailTrimmed && emailLower !== savedEmail) {
+        if (!emailToken) throw new ApiError(400, "Verify your email before saving.");
+        if (needsPassword && !emailCurrentPwd) throw new ApiError(400, "Enter your current password to change a verified email.");
+        body.email = emailTrimmed;
+        body.email_verification_token = emailToken;
+        if (emailCurrentPwd) body.current_password = emailCurrentPwd;
+      } else if (!emailTrimmed && savedEmail) {
+        // Removing email
+        body.email = null;
+      }
+
+      return usersApi.updateProfile(body as Parameters<typeof usersApi.updateProfile>[0]);
+    },
+    onSuccess: async () => {
+      toast.success("Profile saved.");
+      setEmailStep("idle");
+      setEmailToken(null);
+      setEmailOtp("");
+      setEmailCurrentPwd("");
+      setOtpError(null);
+      await refresh();
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to save profile"),
+  });
+
+  const canSaveProfile =
+    !saveProfile.isPending &&
+    (name !== user?.name ||
+      emailInput.trim() !== (user?.email ?? "") ||
+      emailStep === "verified") &&
+    // If email changed: must be verified
+    (!emailChanged || emailStep === "verified") &&
+    // If password required: must be entered
+    (!needsPassword || !!emailCurrentPwd || emailStep !== "verified");
+
   // ── Phone change ───────────────────────────────────────────────────────────
+  const [showPhoneForm, setShowPhoneForm] = useState(false);
+  const [newCountry, setNewCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [newLocalNumber, setNewLocalNumber] = useState("");
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
+  const [verifiedNewPhone, setVerifiedNewPhone] = useState<string | null>(null);
+  const [phonePwd, setPhonePwd] = useState("");
+
   const newFullPhone = buildE164(newCountry.dialCode, newLocalNumber);
   const newPhoneReady = isPhoneValid(newCountry, newLocalNumber);
-  const newPhoneVerified = !!phoneVerificationToken && !!verifiedNewPhone;
+  const newPhoneVerified = !!phoneToken && !!verifiedNewPhone;
 
   function resetPhoneForm() {
     setNewLocalNumber("");
     setNewCountry(DEFAULT_COUNTRY);
-    setPhoneVerificationToken(null);
+    setPhoneToken(null);
     setVerifiedNewPhone(null);
-    setPhoneCurrentPassword("");
+    setPhonePwd("");
     setShowPhoneForm(false);
   }
 
-  const updatePhone = useMutation({
+  const savePhone = useMutation({
     mutationFn: () => {
-      if (!verifiedNewPhone || !phoneVerificationToken) {
-        throw new ApiError(400, "Verify your new phone number first.");
-      }
-      if (!phoneCurrentPassword) {
-        throw new ApiError(400, "Enter your current password to confirm the phone change.");
-      }
+      if (!verifiedNewPhone || !phoneToken) throw new ApiError(400, "Verify your new phone number first.");
+      if (!phonePwd) throw new ApiError(400, "Enter your current password to confirm the change.");
       return usersApi.updateProfile({
         phone: verifiedNewPhone,
-        phone_verification_token: phoneVerificationToken,
-        current_password: phoneCurrentPassword,
+        phone_verification_token: phoneToken,
+        current_password: phonePwd,
       });
     },
     onSuccess: async () => {
-      toast.success("Phone number updated successfully.");
+      toast.success("Phone number updated.");
       resetPhoneForm();
       await refresh();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update phone number"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update phone"),
   });
 
   // ── Password change ────────────────────────────────────────────────────────
-  const updatePwd = useMutation({
+  const [showPwdForm, setShowPwdForm] = useState(false);
+  const [pwd, setPwd] = useState({ current_password: "", new_password: "" });
+
+  const savePwd = useMutation({
     mutationFn: () => {
-      if (!pwd.current_password || !pwd.new_password) throw new ApiError(400, "Please fill in both password fields.");
+      if (!pwd.current_password || !pwd.new_password) throw new ApiError(400, "Fill in both password fields.");
       return usersApi.updatePassword(pwd);
     },
     onSuccess: () => {
-      toast.success("Password updated");
+      toast.success("Password updated.");
       setPwd({ current_password: "", new_password: "" });
       setShowPwdForm(false);
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update password"),
   });
-
-  const emailVerifiedUi = user?.email_verified && !requiresEmailProof && !!form.email.trim();
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -234,97 +302,194 @@ function ProfilePage() {
         <p className="text-sm text-muted-foreground">Manage your account details.</p>
       </div>
 
-      {/* ── Personal info ─────────────────────────────────────────────────── */}
+      {/* ── Personal info ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle>Personal info</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+
           {/* Name */}
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label htmlFor="profile-name">Full name</Label>
             <Input
+              id="profile-name"
               autoComplete="name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0 flex-1 space-y-2">
-                <Label>Email</Label>
+          {/* ── Email section ─────────────────────────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="profile-email" className="flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                Email address
+              </Label>
+              {user?.email_verified && !emailChanged && (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                  <ShieldCheck className="h-3 w-3" /> Verified
+                </span>
+              )}
+              {user?.email && !user.email_verified && !emailChanged && (
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                  Not verified
+                </span>
+              )}
+            </div>
+
+            {/* Email input */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
                 <Input
+                  id="profile-email"
                   type="email"
                   autoComplete="email"
-                  value={form.email}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, email: e.target.value }));
-                    setEmailVerificationToken(null);
-                    setEmailOtp("");
-                    setEmailSecondsLeft(0);
-                  }}
+                  placeholder="you@example.com"
+                  value={emailInput}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  className={cn(
+                    emailInput && !emailValid && "border-destructive focus-visible:ring-destructive",
+                    emailStep === "verified" && "border-emerald-500 focus-visible:ring-emerald-500",
+                  )}
+                />
+                {emailStep === "verified" && (
+                  <CheckCircle2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
+                )}
+              </div>
+
+              {/* Send OTP / Resend button */}
+              {emailChanged && emailValid && emailStep !== "verified" && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!canSendOtp}
+                  onClick={() => void sendEmailOtp()}
+                  className="shrink-0"
+                >
+                  {sendingOtp ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending…</>
+                  ) : cooldownSecs > 0 ? (
+                    `Resend in ${fmt(cooldownSecs)}`
+                  ) : emailStep === "sent" ? (
+                    "Resend code"
+                  ) : (
+                    "Send code"
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Inline validation */}
+            {emailInput && !emailValid && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                Enter a valid email address
+              </p>
+            )}
+
+            {/* Password gate for verified email change */}
+            {emailStep !== "verified" && needsPassword && emailChanged && emailValid && (
+              <div className="space-y-1.5">
+                <Label htmlFor="email-pwd" className="text-xs text-muted-foreground">
+                  Current password required to change your verified email
+                </Label>
+                <Input
+                  id="email-pwd"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Your current password"
+                  value={emailCurrentPwd}
+                  onChange={(e) => setEmailCurrentPwd(e.target.value)}
                 />
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full shrink-0 sm:w-auto"
-                disabled={sendingEmailOtp || !canResendEmail || !requiresEmailProof || !!emailVerificationToken || !form.email.trim()}
-                onClick={() => void sendEmailOtp()}
-              >
-                {emailVerificationToken ? "Verified" : sendingEmailOtp ? "Sending…" : emailSecondsLeft > 0 ? "Wait" : "Verify email"}
-              </Button>
-            </div>
-            {user?.email ? (
-              <p className="text-xs text-muted-foreground">
-                Email status: <span className="font-medium">{user.email_verified ? "verified" : "not verified"}</span>
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Add an email to make your account safer.</p>
             )}
-            {emailSecondsLeft > 0 && !emailVerificationToken && requiresEmailProof && (
-              <p className="text-xs text-muted-foreground">
-                Resend available in <span className="font-mono">{mm}:{ss}</span>
-              </p>
-            )}
-            {requiresEmailProof && !emailVerificationToken && (
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="email-otp">6-digit verification code</Label>
+
+            {/* OTP entry — shown after sending */}
+            {emailStep === "sent" && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <p className="text-sm font-medium">Enter the 6-digit code sent to <span className="text-primary">{emailInput.trim()}</span></p>
+                <div className="flex gap-2">
                   <Input
-                    id="email-otp"
+                    autoFocus
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     maxLength={6}
-                    value={emailOtp}
-                    onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="000000"
+                    value={emailOtp}
+                    onChange={(e) => {
+                      setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
+                      setOtpError(null);
+                    }}
+                    className={cn("font-mono tracking-widest", otpError && "border-destructive")}
                   />
+                  <Button
+                    type="button"
+                    disabled={verifyingOtp || emailOtp.length !== 6}
+                    onClick={() => void verifyEmailOtp()}
+                  >
+                    {verifyingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => { setEmailStep("idle"); setEmailOtp(""); setOtpError(null); }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  disabled={verifyingEmailOtp || emailOtp.length !== 6 || !!emailVerificationToken}
-                  onClick={() => void verifyEmailOtp()}
-                >
-                  {verifyingEmailOtp ? "Checking…" : "Submit code"}
-                </Button>
+                {otpError && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3 shrink-0" /> {otpError}
+                  </p>
+                )}
               </div>
             )}
-            {emailVerifiedUi && (
-              <p className="text-xs text-emerald-600">Email matches your verified address.</p>
+
+            {/* Verified banner */}
+            {emailStep === "verified" && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-700">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                Email verified — save your profile to apply the change.
+                {needsPassword && (
+                  <div className="mt-2 w-full space-y-1.5">
+                    <Label htmlFor="email-pwd-post" className="text-xs text-muted-foreground">
+                      Current password to confirm
+                    </Label>
+                    <Input
+                      id="email-pwd-post"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Your current password"
+                      value={emailCurrentPwd}
+                      onChange={(e) => setEmailCurrentPwd(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!user?.email && !emailInput && (
+              <p className="text-xs text-muted-foreground">
+                Adding an email lets you recover your account and receive order updates.
+              </p>
             )}
           </div>
 
+          {/* Save button */}
           <Button
-            onClick={() => updateProfile.mutate()}
-            disabled={updateProfile.isPending || (requiresEmailProof && !emailVerificationToken)}
+            onClick={() => saveProfile.mutate()}
+            disabled={!canSaveProfile}
           >
-            {updateProfile.isPending ? "Saving…" : "Save changes"}
+            {saveProfile.isPending ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
+            ) : "Save changes"}
           </Button>
-          {requiresEmailProof && !emailVerificationToken && (
-            <p className="text-xs text-muted-foreground">Verify your new email before saving.</p>
+
+          {emailChanged && emailStep === "idle" && emailValid && (
+            <p className="text-xs text-muted-foreground">Send a verification code to confirm your new email before saving.</p>
           )}
         </CardContent>
       </Card>
@@ -338,78 +503,57 @@ function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Current phone */}
+          {/* Current phone display */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
             <div>
-              <p className="text-sm font-medium">{user?.phone || "—"}</p>
+              <p className="text-sm font-medium font-mono">{user?.phone || "—"}</p>
               <p className="text-xs text-muted-foreground">Current phone number</p>
             </div>
             {user?.phone_verified ? (
               <div className="flex items-center gap-1 text-xs font-medium text-emerald-600">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Verified
+                <ShieldCheck className="h-3.5 w-3.5" />Verified
               </div>
             ) : (
               <span className="text-xs text-amber-600">Not verified</span>
             )}
           </div>
 
-          {/* Toggle change form */}
           {!showPhoneForm ? (
-            <Button
-              variant="outline"
-              onClick={() => setShowPhoneForm(true)}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={() => setShowPhoneForm(true)} className="gap-2">
               <ChevronDown className="h-4 w-4" />
               Change phone number
             </Button>
           ) : (
             <div className="space-y-4 rounded-lg border border-border p-4">
-              <p className="text-sm font-medium text-foreground">New phone number</p>
+              <p className="text-sm font-medium">New phone number</p>
               <p className="text-xs text-muted-foreground">
-                We'll verify your new number via OTP. You'll also need to confirm with your current password.
+                We'll send a verification code to confirm your new number. Your current password is also required.
               </p>
 
-              {/* New phone input */}
               <div className="space-y-2">
                 <Label>New number</Label>
                 <div className="relative">
                   <CountryPhoneInput
                     country={newCountry}
                     localNumber={newLocalNumber}
-                    onCountryChange={(c) => {
-                      setNewCountry(c);
-                      setPhoneVerificationToken(null);
-                      setVerifiedNewPhone(null);
-                    }}
-                    onLocalNumberChange={(n) => {
-                      setNewLocalNumber(n);
-                      setPhoneVerificationToken(null);
-                      setVerifiedNewPhone(null);
-                    }}
+                    onCountryChange={(c) => { setNewCountry(c); setPhoneToken(null); setVerifiedNewPhone(null); }}
+                    onLocalNumberChange={(n) => { setNewLocalNumber(n); setPhoneToken(null); setVerifiedNewPhone(null); }}
                     disabled={newPhoneVerified}
                   />
                 </div>
               </div>
 
-              {/* MSG91 widget */}
               <div className="space-y-2">
                 <Label>Verification</Label>
                 <Msg91Widget
                   phone={newFullPhone}
                   purpose="profile_phone"
-                  onVerified={(token, phone) => {
-                    setPhoneVerificationToken(token);
-                    setVerifiedNewPhone(phone);
-                    toast.success("New phone verified!");
-                  }}
+                  onVerified={(token, phone) => { setPhoneToken(token); setVerifiedNewPhone(phone); toast.success("New phone verified!"); }}
                   disabled={!newPhoneReady}
                   isVerified={newPhoneVerified}
                 />
               </div>
 
-              {/* Current password */}
               {newPhoneVerified && (
                 <div className="space-y-2">
                   <Label htmlFor="phone-pwd">Current password</Label>
@@ -417,34 +561,22 @@ function ProfilePage() {
                     id="phone-pwd"
                     type="password"
                     autoComplete="current-password"
-                    placeholder="Confirm with your password"
-                    value={phoneCurrentPassword}
-                    onChange={(e) => setPhoneCurrentPassword(e.target.value)}
+                    placeholder="Confirm with your current password"
+                    value={phonePwd}
+                    onChange={(e) => setPhonePwd(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Required to confirm sensitive account changes.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Required to confirm sensitive account changes.</p>
                 </div>
               )}
 
               <div className="flex flex-wrap gap-2">
                 <Button
-                  onClick={() => updatePhone.mutate()}
-                  disabled={
-                    updatePhone.isPending ||
-                    !newPhoneVerified ||
-                    !phoneCurrentPassword
-                  }
+                  onClick={() => savePhone.mutate()}
+                  disabled={savePhone.isPending || !newPhoneVerified || !phonePwd}
                 >
-                  {updatePhone.isPending ? "Saving…" : "Save new phone"}
+                  {savePhone.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Save new phone"}
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={resetPhoneForm}
-                  disabled={updatePhone.isPending}
-                >
-                  Cancel
-                </Button>
+                <Button variant="ghost" onClick={resetPhoneForm} disabled={savePhone.isPending}>Cancel</Button>
               </div>
             </div>
           )}
@@ -458,47 +590,26 @@ function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {!showPwdForm ? (
-            <Button variant="outline" onClick={() => setShowPwdForm(true)}>
-              Change password
-            </Button>
+            <Button variant="outline" onClick={() => setShowPwdForm(true)}>Change password</Button>
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="current-password">Current password</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={pwd.current_password}
-                  onChange={(e) => setPwd((p) => ({ ...p, current_password: e.target.value }))}
-                />
+                <Label htmlFor="curr-pwd">Current password</Label>
+                <Input id="curr-pwd" type="password" autoComplete="current-password" value={pwd.current_password} onChange={(e) => setPwd((p) => ({ ...p, current_password: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-password">New password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={pwd.new_password}
-                  onChange={(e) => setPwd((p) => ({ ...p, new_password: e.target.value }))}
-                />
+                <Label htmlFor="new-pwd">New password</Label>
+                <Input id="new-pwd" type="password" autoComplete="new-password" value={pwd.new_password} onChange={(e) => setPwd((p) => ({ ...p, new_password: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
-                  onClick={() => updatePwd.mutate()}
-                  disabled={updatePwd.isPending || !pwd.current_password || !pwd.new_password}
+                  onClick={() => savePwd.mutate()}
+                  disabled={savePwd.isPending || !pwd.current_password || !pwd.new_password}
                 >
-                  {updatePwd.isPending ? "Updating…" : "Update password"}
+                  {savePwd.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating…</> : "Update password"}
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowPwdForm(false);
-                    setPwd({ current_password: "", new_password: "" });
-                  }}
-                >
-                  Cancel
-                </Button>
+                <Button variant="ghost" onClick={() => { setShowPwdForm(false); setPwd({ current_password: "", new_password: "" }); }}>Cancel</Button>
               </div>
             </>
           )}

@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     # When not set, the system operates in DEV TRUST MODE (DO NOT use in production).
     MSG91_AUTH_KEY: str | None = None
 
+    # ── Resend Email Service ───────────────────────────────────────────────────
+    # RESEND_API_KEY: From https://resend.com/api-keys
+    # When not set, OTP codes are logged to console (dev mode only).
+    RESEND_API_KEY: str | None = None
+    # From address shown in delivered emails (must be a verified Resend domain).
+    RESEND_FROM_EMAIL: str | None = None
+
     # ── Admin bootstrap ───────────────────────────────────────────────────────
     ENABLE_ADMIN_SEED: bool = False
     DEFAULT_ADMIN_EMAIL: str | None = None
