@@ -64,8 +64,10 @@ Registration and phone changes require live phone verification via the MSG91 OTP
 | Variable | Where | Purpose |
 | :--- | :--- | :--- |
 | `MSG91_AUTH_KEY` | Backend secret (Replit Secrets) | Server-side verification of widget tokens. Get from MSG91 dashboard → API Keys. |
-| `VITE_MSG91_WIDGET_ID` | Frontend `.env` / build env | Widget ID from MSG91 dashboard → OTP Widget. |
-| `VITE_MSG91_TOKEN_AUTH` | Frontend `.env` / build env | Token Auth from MSG91 dashboard → OTP Widget. |
+| `MSG91_WIDGET_ID` | Frontend `.env` / build env | Widget ID from MSG91 dashboard → OTP Widget. |
+| `MSG91_TOKEN_AUTH` | Frontend `.env` / build env | Token Auth from MSG91 dashboard → OTP Widget. |
+| `VITE_MSG91_WIDGET_ID` | Frontend `.env` / build env | Alternate Vite-prefixed name for `MSG91_WIDGET_ID`. |
+| `VITE_MSG91_TOKEN_AUTH` | Frontend `.env` / build env | Alternate Vite-prefixed name for `MSG91_TOKEN_AUTH`. |
 
 ### Dev/test mode (no credentials set)
 

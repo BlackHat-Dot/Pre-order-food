@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
 const WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID as string | undefined;
 const TOKEN_AUTH = import.meta.env.VITE_MSG91_TOKEN_AUTH as string | undefined;
+const WIDGET_CALL_TIMEOUT_MS = 30000;
 
 // Extend window with MSG91 types
 declare global {
@@ -135,12 +136,24 @@ export function Msg91Widget({
 
       // Launch the MSG91 widget
       await new Promise<void>((resolve, reject) => {
+        let timedOut = false;
+        const timeout = window.setTimeout(() => {
+          timedOut = true;
+          reject(
+            new Error(
+              "Phone verification timed out. Check your MSG91 widget credentials and browser console for errors."
+            ),
+          );
+        }, WIDGET_CALL_TIMEOUT_MS);
+
         window.initSendOTP!({
           widgetId: WIDGET_ID!,
           tokenAuth: TOKEN_AUTH!,
           identifier: phone,
           exposeMethods: true,
           success: async (data) => {
+            if (timedOut) return;
+            window.clearTimeout(timeout);
             const accessToken = data.access_token ?? data.message ?? "";
             if (!accessToken) {
               reject(new Error("No access token returned by verification service."));
@@ -150,6 +163,8 @@ export function Msg91Widget({
             resolve();
           },
           failure: (err) => {
+            if (timedOut) return;
+            window.clearTimeout(timeout);
             const msg =
               typeof err === "string"
                 ? err

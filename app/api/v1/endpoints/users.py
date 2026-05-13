@@ -125,6 +125,19 @@ async def update_profile(
             data.pop("email")
         else:
             # Email unchanged
+            if email_token and not user.email_verified:
+                try:
+                    proof = decode_otp_proof_token(email_token)
+                except JWTError as ex:
+                    raise HTTPException(status_code=401, detail="Email verification token is invalid or expired.") from ex
+
+                if (
+                    proof.get("vtype") != "email_profile"
+                    or str(proof.get("uid") or "") != str(user.id)
+                    or str(proof.get("email") or "").lower() != new_email.lower()
+                ):
+                    raise HTTPException(status_code=400, detail="Email verification token does not match.")
+                user.email_verified = True
             data.pop("email")
 
     # ── Phone change ──────────────────────────────────────────────────────────

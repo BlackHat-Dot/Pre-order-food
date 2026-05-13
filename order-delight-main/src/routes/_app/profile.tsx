@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -93,6 +93,7 @@ function ProfilePage() {
   const [cooldownSecs, startCooldown] = useCountdown(0);
   // Password required when changing a verified email
   const [emailCurrentPwd, setEmailCurrentPwd] = useState("");
+  const [editingEmail, setEditingEmail] = useState(!user?.email);
 
   useEffect(() => {
     setEmailInput(user?.email ?? "");
@@ -101,15 +102,33 @@ function ProfilePage() {
     setEmailOtp("");
     setOtpError(null);
     setEmailCurrentPwd("");
+    setEditingEmail(!user?.email);
   }, [user?.id, user?.email]);
 
   const savedEmail = (user?.email ?? "").toLowerCase();
   const emailChanged = emailInput.trim().toLowerCase() !== savedEmail && emailInput.trim() !== "";
   const emailValid = isValidEmail(emailInput);
+  const hasSavedEmail = Boolean(savedEmail);
+  const emailUnverified = hasSavedEmail && !user?.email_verified;
   // Require password when changing an already-verified email
   const needsPassword = !!(user?.email && user.email_verified && emailChanged);
-  // Send/Resend button enabled: valid email, changed, not yet verified, not in cooldown, not loading
-  const canSendOtp = emailValid && emailChanged && emailStep !== "verified" && !sendingOtp && cooldownSecs === 0;
+  // Send/Resend button enabled: valid email, new or unverified current email, not in cooldown, not loading
+  const canSendOtp =
+    emailValid &&
+    emailStep !== "verified" &&
+    !sendingOtp &&
+    cooldownSecs === 0 &&
+    (emailChanged || emailUnverified || !hasSavedEmail || editingEmail);
+
+  const sendEmailButtonText = sendingOtp
+    ? (<> <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending…</>)
+    : cooldownSecs > 0
+      ? `Resend in ${fmt(cooldownSecs)}`
+      : emailStep === "sent"
+        ? "Resend code"
+        : !emailChanged && emailUnverified && !editingEmail
+          ? "Verify current email"
+          : "Send code";
 
   // Reset verification state when email input changes
   function handleEmailChange(val: string) {
@@ -120,6 +139,16 @@ function ProfilePage() {
       setEmailOtp("");
       setOtpError(null);
     }
+  }
+
+  function cancelEditingEmail() {
+    setEditingEmail(false);
+    setEmailInput(user?.email ?? "");
+    setEmailStep("idle");
+    setEmailToken(null);
+    setEmailOtp("");
+    setOtpError(null);
+    setEmailCurrentPwd("");
   }
 
   async function sendEmailOtp() {
@@ -196,6 +225,10 @@ function ProfilePage() {
         body.email = emailTrimmed;
         body.email_verification_token = emailToken;
         if (emailCurrentPwd) body.current_password = emailCurrentPwd;
+      } else if (emailTrimmed && emailLower === savedEmail && emailToken) {
+        // Verifying the existing email without changing it.
+        body.email = emailTrimmed;
+        body.email_verification_token = emailToken;
       } else if (!emailTrimmed && savedEmail) {
         // Removing email
         body.email = null;
@@ -210,6 +243,8 @@ function ProfilePage() {
       setEmailOtp("");
       setEmailCurrentPwd("");
       setOtpError(null);
+      setEditingEmail(false);
+      startCooldown(0);
       await refresh();
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to save profile"),
@@ -313,12 +348,17 @@ function ProfilePage() {
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                 Email address
               </Label>
-              {user?.email_verified && !emailChanged && (
+              {emailStep === "verified" && !emailChanged && (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                  <ShieldCheck className="h-3 w-3" /> Verified (save to apply)
+                </span>
+              )}
+              {user?.email_verified && !emailChanged && emailStep !== "verified" && (
                 <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
                   <ShieldCheck className="h-3 w-3" /> Verified
                 </span>
               )}
-              {user?.email && !user.email_verified && !emailChanged && (
+              {user?.email && !user.email_verified && !emailChanged && emailStep !== "verified" && (
                 <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                   Not verified
                 </span>
@@ -326,7 +366,7 @@ function ProfilePage() {
             </div>
 
             {/* Email input */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-end">
               <div className="relative flex-1">
                 <Input
                   id="profile-email"
@@ -339,14 +379,14 @@ function ProfilePage() {
                     emailInput && !emailValid && "border-destructive focus-visible:ring-destructive",
                     emailStep === "verified" && "border-emerald-500 focus-visible:ring-emerald-500",
                   )}
+                  readOnly={!editingEmail && !!user?.email}
                 />
                 {emailStep === "verified" && (
                   <CheckCircle2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
                 )}
               </div>
 
-              {/* Send OTP / Resend button */}
-              {emailChanged && emailValid && emailStep !== "verified" && (
+              {emailStep !== "verified" && (emailChanged || emailUnverified || !hasSavedEmail || editingEmail) && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -354,15 +394,30 @@ function ProfilePage() {
                   onClick={() => void sendEmailOtp()}
                   className="shrink-0"
                 >
-                  {sendingOtp ? (
-                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending…</>
-                  ) : cooldownSecs > 0 ? (
-                    `Resend in ${fmt(cooldownSecs)}`
-                  ) : emailStep === "sent" ? (
-                    "Resend code"
-                  ) : (
-                    "Send code"
-                  )}
+                  {sendEmailButtonText}
+                </Button>
+              )}
+
+              {user?.email && !editingEmail && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setEditingEmail(true)}
+                >
+                  Edit email
+                </Button>
+              )}
+
+              {user?.email && editingEmail && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={cancelEditingEmail}
+                >
+                  <X className="h-4 w-4" />
                 </Button>
               )}
             </div>
