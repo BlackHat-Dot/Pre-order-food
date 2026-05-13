@@ -7,6 +7,7 @@ Create Date: 2026-05-06
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "0002_loyalty_shop_specific"
@@ -15,42 +16,89 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(connection, table_name: str) -> bool:
+    inspector = inspect(connection)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(connection, table_name: str, column_name: str) -> bool:
+    inspector = inspect(connection)
+    if table_name not in inspector.get_table_names():
+        return False
+    return column_name in [col["name"] for col in inspector.get_columns(table_name)]
+
+
+def _index_exists(connection, table_name: str, index_name: str) -> bool:
+    inspector = inspect(connection)
+    if table_name not in inspector.get_table_names():
+        return False
+    return any(idx["name"] == index_name for idx in inspector.get_indexes(table_name))
+
+
 def upgrade() -> None:
-    try:
-        op.add_column("shops", sa.Column("loyalty_discount_per_point", sa.Float(), nullable=False, server_default="0.1"))
-    except Exception:
-        pass
+    connection = op.get_bind()
 
-    try:
-        op.add_column("orders", sa.Column("loyalty_points_used", sa.Integer(), nullable=False, server_default="0"))
-    except Exception:
-        pass
-    try:
-        op.add_column("orders", sa.Column("loyalty_discount_amount", sa.Float(), nullable=False, server_default="0"))
-    except Exception:
-        pass
-    try:
-        op.add_column("orders", sa.Column("loyalty_points_earned", sa.Integer(), nullable=False, server_default="0"))
-    except Exception:
-        pass
-
-    # Recreate loyalty_accounts table to drop old unique(customer_id) on SQLite.
-    op.execute(
-        """
-        CREATE TABLE loyalty_accounts_new (
-            id VARCHAR(36) NOT NULL PRIMARY KEY,
-            customer_id VARCHAR(36) NOT NULL,
-            shop_id VARCHAR(36) NOT NULL,
-            points_balance INTEGER NOT NULL DEFAULT 0,
-            tier VARCHAR(20) NOT NULL DEFAULT 'bronze',
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            CONSTRAINT fk_loyalty_accounts_customer_id FOREIGN KEY(customer_id) REFERENCES users (id) ON DELETE CASCADE,
-            CONSTRAINT fk_loyalty_accounts_shop_id FOREIGN KEY(shop_id) REFERENCES shops (id) ON DELETE CASCADE,
-            CONSTRAINT uq_loyalty_accounts_customer_shop UNIQUE (customer_id, shop_id)
+    if _table_exists(connection, "shops") and not _column_exists(connection, "shops", "loyalty_discount_per_point"):
+        op.add_column(
+            "shops",
+            sa.Column("loyalty_discount_per_point", sa.Float(), nullable=False, server_default="0.1"),
         )
-        """
+
+    if _table_exists(connection, "orders"):
+        if not _column_exists(connection, "orders", "loyalty_points_used"):
+            op.add_column(
+                "orders",
+                sa.Column("loyalty_points_used", sa.Integer(), nullable=False, server_default="0"),
+            )
+        if not _column_exists(connection, "orders", "loyalty_discount_amount"):
+            op.add_column(
+                "orders",
+                sa.Column("loyalty_discount_amount", sa.Float(), nullable=False, server_default="0"),
+            )
+        if not _column_exists(connection, "orders", "loyalty_points_earned"):
+            op.add_column(
+                "orders",
+                sa.Column("loyalty_points_earned", sa.Integer(), nullable=False, server_default="0"),
+            )
+
+    if not _table_exists(connection, "loyalty_accounts"):
+        op.create_table(
+            "loyalty_accounts",
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("customer_id", sa.String(length=36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("shop_id", sa.String(length=36), sa.ForeignKey("shops.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("points_balance", sa.Integer(), nullable=False, server_default=sa.text("0")),
+            sa.Column("tier", sa.String(length=20), nullable=False, server_default=sa.text("'bronze'")),
+            sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.UniqueConstraint("customer_id", "shop_id", name="uq_loyalty_accounts_customer_shop"),
+        )
+        if not _index_exists(connection, "loyalty_accounts", "ix_loyalty_accounts_customer_shop"):
+            op.create_index("ix_loyalty_accounts_customer_shop", "loyalty_accounts", ["customer_id", "shop_id"])
+        return
+
+    if _column_exists(connection, "loyalty_accounts", "shop_id"):
+        if not _index_exists(connection, "loyalty_accounts", "ix_loyalty_accounts_customer_shop"):
+            op.create_index("ix_loyalty_accounts_customer_shop", "loyalty_accounts", ["customer_id", "shop_id"])
+        return
+
+    if _table_exists(connection, "loyalty_accounts_new"):
+        op.drop_table("loyalty_accounts_new")
+
+    op.create_table(
+        "loyalty_accounts_new",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("customer_id", sa.String(length=36), nullable=False),
+        sa.Column("shop_id", sa.String(length=36), nullable=False),
+        sa.Column("points_balance", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("tier", sa.String(length=20), nullable=False, server_default=sa.text("'bronze'")),
+        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.ForeignKeyConstraint(["customer_id"], ["users.id"], ondelete="CASCADE", name="fk_loyalty_accounts_customer_id"),
+        sa.ForeignKeyConstraint(["shop_id"], ["shops.id"], ondelete="CASCADE", name="fk_loyalty_accounts_shop_id"),
+        sa.UniqueConstraint("customer_id", "shop_id", name="uq_loyalty_accounts_customer_shop"),
     )
+
     op.execute(
         """
         INSERT INTO loyalty_accounts_new (id, customer_id, shop_id, points_balance, tier, created_at, updated_at)
@@ -80,38 +128,53 @@ def upgrade() -> None:
         FROM loyalty_accounts la
         """
     )
-    op.execute("DROP TABLE loyalty_accounts")
+
+    op.drop_table("loyalty_accounts")
     op.execute("ALTER TABLE loyalty_accounts_new RENAME TO loyalty_accounts")
-    op.create_index("ix_loyalty_accounts_customer_shop", "loyalty_accounts", ["customer_id", "shop_id"])
+
+    if not _index_exists(connection, "loyalty_accounts", "ix_loyalty_accounts_customer_shop"):
+        op.create_index("ix_loyalty_accounts_customer_shop", "loyalty_accounts", ["customer_id", "shop_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_loyalty_accounts_customer_shop", table_name="loyalty_accounts")
-    op.execute(
-        """
-        CREATE TABLE loyalty_accounts_old (
-            id VARCHAR(36) NOT NULL PRIMARY KEY,
-            customer_id VARCHAR(36) NOT NULL UNIQUE,
-            points_balance INTEGER NOT NULL DEFAULT 0,
-            tier VARCHAR(20) NOT NULL DEFAULT 'bronze',
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            FOREIGN KEY(customer_id) REFERENCES users (id) ON DELETE CASCADE
-        )
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO loyalty_accounts_old (id, customer_id, points_balance, tier, created_at, updated_at)
-        SELECT id, customer_id, points_balance, tier, created_at, updated_at
-        FROM loyalty_accounts
-        """
-    )
-    op.execute("DROP TABLE loyalty_accounts")
-    op.execute("ALTER TABLE loyalty_accounts_old RENAME TO loyalty_accounts")
+    connection = op.get_bind()
 
-    op.drop_column("orders", "loyalty_points_earned")
-    op.drop_column("orders", "loyalty_discount_amount")
-    op.drop_column("orders", "loyalty_points_used")
-    op.drop_column("shops", "loyalty_discount_per_point")
+    if _table_exists(connection, "loyalty_accounts") and _index_exists(connection, "loyalty_accounts", "ix_loyalty_accounts_customer_shop"):
+        op.drop_index("ix_loyalty_accounts_customer_shop", table_name="loyalty_accounts")
+
+    if _table_exists(connection, "loyalty_accounts_old"):
+        op.drop_table("loyalty_accounts_old")
+
+    if _table_exists(connection, "loyalty_accounts"):
+        op.create_table(
+            "loyalty_accounts_old",
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("customer_id", sa.String(length=36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
+            sa.Column("points_balance", sa.Integer(), nullable=False, server_default=sa.text("0")),
+            sa.Column("tier", sa.String(length=20), nullable=False, server_default=sa.text("'bronze'")),
+            sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+            sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        )
+
+        op.execute(
+            """
+            INSERT INTO loyalty_accounts_old (id, customer_id, points_balance, tier, created_at, updated_at)
+            SELECT id, customer_id, points_balance, tier, created_at, updated_at
+            FROM loyalty_accounts
+            """
+        )
+
+        op.drop_table("loyalty_accounts")
+        op.execute("ALTER TABLE loyalty_accounts_old RENAME TO loyalty_accounts")
+
+    if _table_exists(connection, "orders"):
+        if _column_exists(connection, "orders", "loyalty_points_earned"):
+            op.drop_column("orders", "loyalty_points_earned")
+        if _column_exists(connection, "orders", "loyalty_discount_amount"):
+            op.drop_column("orders", "loyalty_discount_amount")
+        if _column_exists(connection, "orders", "loyalty_points_used"):
+            op.drop_column("orders", "loyalty_points_used")
+
+    if _table_exists(connection, "shops") and _column_exists(connection, "shops", "loyalty_discount_per_point"):
+        op.drop_column("shops", "loyalty_discount_per_point")
 
