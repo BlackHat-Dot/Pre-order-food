@@ -619,3 +619,9 @@ export const adminApi = {
   loyalty: (userId: string, body: { delta: number; reason: string }) =>
     apiRequest<LoyaltyAccountOut>(`/api/v1/admin/loyalty/${userId}`, { method: "POST", body }),
 };
+
+// ── Health ─────────────────────────────────────────────────────────────────────
+
+export const healthApi = {
+  check: () => apiRequest<{ status: string }>("/health"),
+};
