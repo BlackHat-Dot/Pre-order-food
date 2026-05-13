@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     OTP_STORAGE: str = "memory"
     OTP_TTL_SECONDS: int = 120
     OTP_MAX_SENDS_PER_DAY: int = 15
-    OTP_RESEND_COOLDOWN_SECONDS: int = 0  # 0 = resend only after full expiry (2 min)
+    OTP_RESEND_COOLDOWN_SECONDS: int = 0
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -38,8 +38,6 @@ class Settings(BaseSettings):
             return DEFAULT_SQLITE_URL
         value = v.strip()
         prefix = "sqlite+aiosqlite:///"
-        # Convert relative sqlite paths to absolute project path so running uvicorn
-        # from any working directory still points to the same database file.
         if value.startswith(prefix) and value == "sqlite+aiosqlite:///./data/preorder.db":
             return DEFAULT_SQLITE_URL
         return value
@@ -59,6 +57,13 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str | None = None
     RAZORPAY_KEY_SECRET: str | None = None
 
+    # ── MSG91 Phone Verification ──────────────────────────────────────────────
+    # MSG91_AUTH_KEY: Server-side auth key used to verify widget access tokens.
+    # Obtain from https://control.msg91.com/signin → API Keys.
+    # When not set, the system operates in DEV TRUST MODE (DO NOT use in production).
+    MSG91_AUTH_KEY: str | None = None
+
+    # ── Admin bootstrap ───────────────────────────────────────────────────────
     ENABLE_ADMIN_SEED: bool = False
     DEFAULT_ADMIN_EMAIL: str | None = None
     DEFAULT_ADMIN_PHONE: str | None = None
@@ -86,4 +91,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

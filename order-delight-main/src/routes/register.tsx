@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -15,155 +15,79 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ApiError, otpApi, type Role } from "@/lib/api";
+import { ApiError, type Role } from "@/lib/api";
+import {
+  CountryPhoneInput,
+  Msg91Widget,
+  DEFAULT_COUNTRY,
+  buildE164,
+  isPhoneValid,
+  type Country,
+} from "@/components/phone";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
   head: () => ({ meta: [{ title: "Create account — PreOrder" }] }),
 });
 
-/** FastAPI wraps dict errors as `{ detail: { ... } }` — unwrap for timers/messages. */
-function unwrapApiPayload(detail: unknown): Record<string, unknown> | null {
-  if (!detail || typeof detail !== "object") return null;
-  const o = detail as Record<string, unknown>;
-  const inner = o.detail;
-  if (inner && typeof inner === "object") return inner as Record<string, unknown>;
-  return o;
-}
-
 function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+
   const [form, setForm] = useState({
     name: "",
     email: "",
-    phone: "",
     password: "",
     role: "customer" as Role,
   });
-  const [loading, setLoading] = useState(false);
 
-  const [otpCode, setOtpCode] = useState("");
+  // Phone state
+  const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [localNumber, setLocalNumber] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
 
-  const sendGuard = useRef(false);
-  const verifyGuard = useRef(false);
+  const [loading, setLoading] = useState(false);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const id = window.setInterval(() => {
-      setSecondsLeft((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [secondsLeft]);
-
-  function applyOtpMeta(payload: Record<string, unknown> | null) {
-    if (!payload) return;
-    const secs =
-      typeof payload.resend_in_seconds === "number"
-        ? payload.resend_in_seconds
-        : typeof payload.expires_in_seconds === "number"
-          ? payload.expires_in_seconds
-          : 0;
-    if (secs > 0) setSecondsLeft(Math.ceil(secs));
+  function handleCountryChange(c: Country) {
+    setCountry(c);
+    resetPhoneVerification();
   }
 
-  async function sendPhoneOtp() {
-    if (!/^\d{10}$/.test(form.phone.trim())) {
-      toast.error("Enter a valid 10-digit phone number first.");
-      return;
-    }
-    if (sendGuard.current || sendingOtp) return;
-    sendGuard.current = true;
-    setSendingOtp(true);
-    try {
-      const res = await otpApi.sendOtp({
-        channel: "phone",
-        purpose: "signup_phone",
-        phone: form.phone.trim(),
-      });
-      if (!res.ok) {
-        toast.error(res.message || "Could not send OTP");
-        applyOtpMeta(res as unknown as Record<string, unknown>);
-        return;
-      }
-      toast.success("OTP sent — check the API terminal for the code.");
-      applyOtpMeta(res as unknown as Record<string, unknown>);
-      setPhoneVerified(false);
-      setPhoneVerificationToken(null);
-      setOtpCode("");
-    } catch (err) {
-      if (err instanceof ApiError) {
-        const inner = unwrapApiPayload(err.detail);
-        toast.error(err.message || "Could not send OTP");
-        applyOtpMeta(inner);
-      } else {
-        toast.error("Network error. Is the API running?");
-      }
-    } finally {
-      setSendingOtp(false);
-      sendGuard.current = false;
-    }
+  function handleLocalNumberChange(n: string) {
+    setLocalNumber(n);
+    resetPhoneVerification();
   }
 
-  async function verifyPhoneOtp() {
-    if (!/^\d{6}$/.test(otpCode)) {
-      toast.error("Enter the 6-digit OTP.");
-      return;
-    }
-    if (verifyGuard.current || verifyingOtp) return;
-    verifyGuard.current = true;
-    setVerifyingOtp(true);
-    try {
-      const res = await otpApi.verifyOtp({
-        channel: "phone",
-        purpose: "signup_phone",
-        phone: form.phone.trim(),
-        code: otpCode,
-      });
-      if (!res.ok || !res.verification_token) {
-        toast.error(res.message || "Invalid OTP");
-        return;
-      }
-      setPhoneVerificationToken(res.verification_token);
-      setPhoneVerified(true);
-      setSecondsLeft(0);
-      toast.success("Phone verified");
-    } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(err.message || "Verification failed");
-      } else {
-        toast.error("Network error. Is the API running?");
-      }
-    } finally {
-      setVerifyingOtp(false);
-      verifyGuard.current = false;
-    }
+  function resetPhoneVerification() {
+    setPhoneVerified(false);
+    setPhoneVerificationToken(null);
+    setVerifiedPhone(null);
   }
+
+  function handlePhoneVerified(token: string, phone: string) {
+    setPhoneVerificationToken(token);
+    setVerifiedPhone(phone);
+    setPhoneVerified(true);
+    toast.success("Phone number verified successfully!");
+  }
+
+  const fullPhone = buildE164(country.dialCode, localNumber);
+  const phoneReady = isPhoneValid(country, localNumber);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = {
-      ...form,
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim(),
-      password: form.password,
-    };
 
-    if (!/^\d{10}$/.test(payload.phone)) {
-      toast.error("Phone number must be exactly 10 digits.");
+    if (!phoneReady) {
+      toast.error("Enter a valid phone number.");
       return;
     }
-    if (!phoneVerified || !phoneVerificationToken) {
+    if (!phoneVerified || !phoneVerificationToken || !verifiedPhone) {
       toast.error("Verify your phone number before creating an account.");
       return;
     }
@@ -171,10 +95,14 @@ function RegisterPage() {
     setLoading(true);
     try {
       const me = await register({
-        ...payload,
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: verifiedPhone,
+        password: form.password,
+        role: form.role,
         phone_verification_token: phoneVerificationToken,
       });
-      toast.success(`Welcome, ${me.name.split(" ")[0]}`);
+      toast.success(`Welcome, ${me.name.split(" ")[0]}!`);
       navigate({ to: landingForRole(me.role) });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -182,16 +110,12 @@ function RegisterPage() {
       } else if (err instanceof Error && err.message) {
         toast.error(err.message);
       } else {
-        toast.error("Sign up failed");
+        toast.error("Sign up failed. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   }
-
-  const canResend = secondsLeft <= 0 && !sendingOtp;
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const ss = String(secondsLeft % 60).padStart(2, "0");
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -205,6 +129,7 @@ function RegisterPage() {
           </span>
           PreOrder
         </Link>
+
         <Card className="border-border/60 shadow-[var(--shadow-elegant)]">
           <CardHeader>
             <CardTitle>Create account</CardTitle>
@@ -212,88 +137,75 @@ function RegisterPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
+              {/* Full name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
                 <Input
                   id="name"
                   required
+                  autoComplete="name"
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                 />
               </div>
+
+              {/* Email (optional) */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email (optional)</Label>
+                <Label htmlFor="email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
                   placeholder="you@example.com"
                 />
                 <p className="text-xs text-muted-foreground">You can verify email later in your profile.</p>
               </div>
+
+              {/* Phone + MSG91 verification */}
               <div className="space-y-2">
-                <div className="flex items-end justify-between gap-2">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      required
-                      inputMode="numeric"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
-                      value={form.phone}
-                      onChange={(e) => {
-                        set("phone", e.target.value.replace(/\D/g, "").slice(0, 10));
-                        setPhoneVerified(false);
-                        setPhoneVerificationToken(null);
-                        setOtpCode("");
-                        setSecondsLeft(0);
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="shrink-0"
-                    disabled={sendingOtp || !canResend || phoneVerified}
-                    onClick={() => void sendPhoneOtp()}
-                  >
-                    {phoneVerified ? "Verified" : sendingOtp ? "Sending…" : secondsLeft > 0 ? "Wait" : "Verify"}
-                  </Button>
+                <Label>Phone number</Label>
+                <div className="relative">
+                  <CountryPhoneInput
+                    country={country}
+                    localNumber={localNumber}
+                    onCountryChange={handleCountryChange}
+                    onLocalNumberChange={handleLocalNumberChange}
+                    disabled={phoneVerified}
+                  />
                 </div>
-                {secondsLeft > 0 && !phoneVerified ? (
-                  <p className="text-xs text-muted-foreground">
-                    Resend available in <span className="font-mono">{mm}:{ss}</span>
-                  </p>
-                ) : null}
+
                 {phoneVerified ? (
-                  <p className="text-xs text-emerald-600">Phone verified — you can finish the form.</p>
+                  <Msg91Widget
+                    phone={fullPhone}
+                    purpose="signup_phone"
+                    onVerified={handlePhoneVerified}
+                    isVerified={true}
+                  />
                 ) : (
-                  <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <div className="space-y-2">
-                      <Label htmlFor="otp">6-digit OTP (from API terminal)</Label>
-                      <Input
-                        id="otp"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="000000"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      disabled={verifyingOtp || otpCode.length !== 6 || phoneVerified}
-                      onClick={() => void verifyPhoneOtp()}
-                    >
-                      {verifyingOtp ? "Checking…" : "Submit OTP"}
-                    </Button>
-                  </div>
+                  <Msg91Widget
+                    phone={fullPhone}
+                    purpose="signup_phone"
+                    onVerified={handlePhoneVerified}
+                    disabled={!phoneReady}
+                    isVerified={false}
+                  />
+                )}
+
+                {!phoneReady && localNumber.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Enter a valid {country.name} phone number to continue.
+                  </p>
+                )}
+                {!phoneVerified && phoneReady && (
+                  <p className="text-xs text-muted-foreground">
+                    We'll send a one-time code to verify your number.
+                  </p>
                 )}
               </div>
+
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -301,10 +213,14 @@ function RegisterPage() {
                   type="password"
                   required
                   minLength={8}
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={(e) => set("password", e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
               </div>
+
+              {/* Role */}
               <div className="space-y-2">
                 <Label>I'm a…</Label>
                 <RadioGroup
@@ -320,10 +236,22 @@ function RegisterPage() {
                   </Label>
                 </RadioGroup>
               </div>
-              <Button type="submit" className="w-full" disabled={loading || !phoneVerified}>
-                {loading ? "Creating…" : "Create account"}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || !phoneVerified}
+              >
+                {loading ? "Creating account…" : "Create account"}
               </Button>
+
+              {!phoneVerified && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Verify your phone number above to continue.
+                </p>
+              )}
             </form>
+
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Have an account?{" "}
               <Link to="/login" className="text-primary hover:underline">

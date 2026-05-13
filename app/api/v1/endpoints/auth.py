@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -11,50 +13,86 @@ from app.core.deps import get_current_user
 from app.core.security import create_access_token, create_refresh_token, decode_otp_proof_token, hash_password, verify_password
 from app.crud.user import get_user_by_phone, get_user_by_email
 from app.db.session import get_db
+from app.models.phone_audit import PhoneAuditLog
 from app.models.user import User
 from app.schemas.auth import RefreshTokenRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserOut
 from app.utils.ids import new_id
+from app.utils.phone import normalize_e164
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
-async def register(payload: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]) -> UserOut:
+async def register(
+    payload: RegisterRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> UserOut:
     if payload.role == "admin":
         raise HTTPException(status_code=403, detail="Admin registration is restricted")
 
-    # Server-side proof that the phone OTP flow succeeded (cannot be skipped from the browser alone).
+    # Server-side proof that MSG91 OTP flow completed successfully.
+    # This cannot be skipped or forged from the browser alone.
     try:
         proof = decode_otp_proof_token(payload.phone_verification_token)
     except JWTError as ex:
-        raise HTTPException(status_code=401, detail="Invalid or expired phone verification") from ex
-    if proof.get("vtype") != "phone_signup" or proof.get("phone") != payload.phone:
-        raise HTTPException(status_code=400, detail="Phone verification mismatch")
+        raise HTTPException(status_code=401, detail="Invalid or expired phone verification token") from ex
 
-    existing = await get_user_by_phone(db, payload.phone)
+    if proof.get("vtype") != "phone_signup":
+        raise HTTPException(status_code=400, detail="Invalid verification token type")
+
+    # The proof token phone and the submitted phone must match exactly
+    proof_phone = str(proof.get("phone") or "")
+    try:
+        submitted_phone = normalize_e164(payload.phone)
+        proof_phone_norm = normalize_e164(proof_phone)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid phone format in verification token")
+
+    if submitted_phone != proof_phone_norm:
+        raise HTTPException(status_code=400, detail="Phone number does not match verification")
+
+    # Reject duplicate phone
+    existing = await get_user_by_phone(db, submitted_phone)
     if existing:
-        raise HTTPException(status_code=409, detail="Phone already registered")
+        raise HTTPException(status_code=409, detail="This phone number is already registered")
 
     if payload.email:
-        existing = await get_user_by_email(db, payload.email)
-        if existing:
-            raise HTTPException(status_code=409, detail="email already registered")
+        existing_email = await get_user_by_email(db, payload.email)
+        if existing_email:
+            raise HTTPException(status_code=409, detail="Email already registered")
 
+    user_id = new_id()
     user = User(
-        id=new_id(),
+        id=user_id,
         role=payload.role,
         name=payload.name,
-        phone=payload.phone,
+        phone=submitted_phone,
         email=payload.email,
         password_hash=hash_password(payload.password),
         phone_verified=True,
         email_verified=False,
     )
     db.add(user)
+
+    # Audit log for phone registration
+    client_ip = (request.client.host if request.client else None) or "unknown"
+    audit = PhoneAuditLog(
+        id=new_id(),
+        user_id=user_id,
+        action="registered",
+        old_phone=None,
+        new_phone=submitted_phone,
+        ip_address=client_ip,
+    )
+    db.add(audit)
+
     await db.commit()
     await db.refresh(user)
+    logger.info("[register] new user id=%s phone=%s role=%s ip=%s", user_id, submitted_phone, payload.role, client_ip)
     return UserOut.model_validate(user)
 
 
@@ -71,16 +109,19 @@ async def login(
         username = str(form.get("username") or form.get("email") or form.get("phone") or "").strip()
         password = str(form.get("password") or "").strip()
     else:
-        payload = await request.json()
-        if not isinstance(payload, dict):
+        try:
+            body_json = await request.json()
+        except Exception:
+            body_json = {}
+        if not isinstance(body_json, dict):
             raise HTTPException(status_code=400, detail="Invalid login payload")
-        username = str(payload.get("username") or payload.get("email") or payload.get("phone") or "").strip()
-        password = str(payload.get("password") or "").strip()
+        username = str(body_json.get("username") or body_json.get("email") or body_json.get("phone") or "").strip()
+        password = str(body_json.get("password") or "").strip()
 
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username/email/phone and password are required")
 
-    # Backward compatibility: accept email or phone
+    # Accept email or phone (handles both old 10-digit and new E.164 formats)
     user = await get_user_by_phone(db, username)
     if not user and "@" in username:
         user = await get_user_by_email(db, username)
@@ -89,7 +130,7 @@ async def login(
     if not user.phone_verified:
         raise HTTPException(status_code=403, detail="Phone not verified")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Inactive user")
+        raise HTTPException(status_code=403, detail="Account is inactive")
 
     return TokenResponse(
         access_token=create_access_token(user.id, user.role),
@@ -128,4 +169,3 @@ async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout() -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

@@ -591,6 +591,13 @@ export interface VerifyOtpResponse {
   message?: string;
 }
 
+export interface Msg91VerifyResponse {
+  ok: boolean;
+  verification_token: string;
+  token_expires_in_seconds: number;
+  phone: string;
+}
+
 export const otpApi = {
   sendOtp: (body: { channel: "phone" | "email"; purpose: OtpPurpose; phone?: string; email?: string | null }) =>
     apiRequest<SendOtpResponse>("/api/v1/send-otp", { method: "POST", body, auth: body.purpose === "profile_email" }),
@@ -598,10 +605,29 @@ export const otpApi = {
     apiRequest<VerifyOtpResponse>("/api/v1/verify-otp", { method: "POST", body, auth: body.purpose === "profile_email" }),
 };
 
+/** MSG91 widget token exchange — must always go through the backend. */
+export const msg91Api = {
+  verify: (body: {
+    access_token: string;
+    phone: string;
+    purpose: "signup_phone" | "profile_phone";
+  }) =>
+    apiRequest<Msg91VerifyResponse>("/api/v1/verify-msg91", {
+      method: "POST",
+      body,
+      auth: body.purpose === "profile_phone",
+    }),
+};
+
 export const usersApi = {
   me: () => apiRequest<UserOut>("/api/v1/users/me"),
-  updateProfile: (body: Partial<Pick<UserOut, "name" | "phone" | "email">> & { email_verification_token?: string | null }) =>
-    apiRequest<UserOut>("/api/v1/users/me", { method: "PATCH", body }),
+  updateProfile: (
+    body: Partial<Pick<UserOut, "name" | "phone" | "email">> & {
+      email_verification_token?: string | null;
+      phone_verification_token?: string | null;
+      current_password?: string | null;
+    },
+  ) => apiRequest<UserOut>("/api/v1/users/me", { method: "PATCH", body }),
   updatePassword: (body: { current_password: string; new_password: string }) =>
     apiRequest<void>("/api/v1/users/me/password", { method: "PATCH", body }),
   get: (id: string) => apiRequest<UserOut>(`/api/v1/users/${id}`),

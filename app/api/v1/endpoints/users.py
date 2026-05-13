@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import JWTError
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +12,13 @@ from app.core.deps import get_current_user, require_roles
 from app.core.security import decode_otp_proof_token, hash_password, verify_password
 from app.crud.user import get_user_by_email, get_user_by_phone
 from app.db.session import get_db
+from app.models.phone_audit import PhoneAuditLog
 from app.models.user import User
 from app.schemas.user import UserOut
+from app.utils.ids import new_id
+from app.utils.phone import normalize_e164
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -21,8 +26,13 @@ router = APIRouter(prefix="/users", tags=["Users"])
 class ProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     email: EmailStr | None = None
-    phone: str | None = Field(default=None, min_length=8, max_length=20)
+    phone: str | None = Field(default=None)
+    # Required when changing email to a new value
     email_verification_token: str | None = Field(default=None, max_length=2048)
+    # Required when changing phone number
+    phone_verification_token: str | None = Field(default=None, max_length=2048)
+    # Required when changing phone number (security confirmation)
+    current_password: str | None = Field(default=None, max_length=128)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -30,6 +40,16 @@ class ProfileUpdate(BaseModel):
         if isinstance(v, str) and not v.strip():
             return None
         return v
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalise_phone(cls, v: object) -> object:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return normalize_e164(str(v))
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
 
 
 class PasswordUpdate(BaseModel):
@@ -45,30 +65,25 @@ async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
 @router.patch("/me", response_model=UserOut)
 async def update_profile(
     payload: ProfileUpdate,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> UserOut:
-    if payload.email and payload.email != user.email:
-        existing = await get_user_by_email(db, payload.email)
-        if existing and existing.id != user.id:
-            raise HTTPException(status_code=409, detail="Email already in use")
-    if payload.phone and payload.phone != user.phone:
-        existing = await get_user_by_phone(db, payload.phone)
-        if existing and existing.id != user.id:
-            raise HTTPException(status_code=409, detail="Phone already in use")
-
     data = payload.model_dump(exclude_unset=True)
-    token = data.pop("email_verification_token", None)
+    email_token = data.pop("email_verification_token", None)
+    phone_token = data.pop("phone_verification_token", None)
+    current_password = data.pop("current_password", None)
 
+    # ── Email change ──────────────────────────────────────────────────────────
     if "email" in data:
         new_email = data["email"]
         if new_email is None:
             user.email_verified = False
         elif new_email != user.email:
-            if not token:
-                raise HTTPException(status_code=400, detail="Verify the new email before saving (missing token)")
+            if not email_token:
+                raise HTTPException(status_code=400, detail="Verify the new email before saving")
             try:
-                proof = decode_otp_proof_token(token)
+                proof = decode_otp_proof_token(email_token)
             except JWTError as ex:
                 raise HTTPException(status_code=401, detail="Invalid or expired email verification") from ex
             if (
@@ -77,10 +92,83 @@ async def update_profile(
                 or str(proof.get("email") or "").lower() != str(new_email).lower()
             ):
                 raise HTTPException(status_code=400, detail="Email verification mismatch")
+            existing = await get_user_by_email(db, new_email)
+            if existing and existing.id != user.id:
+                raise HTTPException(status_code=409, detail="Email already in use")
             user.email_verified = True
 
+    # ── Phone change ──────────────────────────────────────────────────────────
+    if "phone" in data:
+        new_phone = data["phone"]
+        if new_phone and new_phone != user.phone:
+            # Require current password to change phone (security gating)
+            if not current_password:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Current password is required to change your phone number",
+                )
+            if not verify_password(current_password, user.password_hash):
+                raise HTTPException(status_code=400, detail="Incorrect password")
+
+            # Require MSG91 proof token
+            if not phone_token:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Phone verification is required before changing your phone number",
+                )
+            try:
+                proof = decode_otp_proof_token(phone_token)
+            except JWTError as ex:
+                raise HTTPException(status_code=401, detail="Invalid or expired phone verification") from ex
+
+            if proof.get("vtype") != "phone_profile":
+                raise HTTPException(status_code=400, detail="Invalid phone verification token type")
+            if str(proof.get("uid") or "") != str(user.id):
+                raise HTTPException(status_code=400, detail="Phone verification token does not match your account")
+
+            try:
+                proof_phone = normalize_e164(str(proof.get("phone") or ""))
+                new_phone_norm = normalize_e164(new_phone)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid phone in verification token")
+
+            if proof_phone != new_phone_norm:
+                raise HTTPException(status_code=400, detail="Verified phone does not match the submitted phone number")
+
+            # Duplicate check
+            existing = await get_user_by_phone(db, new_phone_norm)
+            if existing and existing.id != user.id:
+                raise HTTPException(status_code=409, detail="This phone number is already in use")
+
+            old_phone = user.phone
+            data["phone"] = new_phone_norm
+            user.phone_verified = True
+
+            # Audit log
+            client_ip = (request.client.host if request.client else None) or "unknown"
+            audit = PhoneAuditLog(
+                id=new_id(),
+                user_id=user.id,
+                action="changed",
+                old_phone=old_phone,
+                new_phone=new_phone_norm,
+                ip_address=client_ip,
+            )
+            db.add(audit)
+            logger.info(
+                "[profile] phone changed user_id=%s old=%s new=%s ip=%s",
+                user.id, old_phone, new_phone_norm, client_ip,
+            )
+        else:
+            # Phone unchanged — just drop it from the update dict
+            data.pop("phone", None)
+
+    # Apply remaining safe fields
+    safe_fields = {"name", "email", "phone"}
     for k, v in data.items():
-        setattr(user, k, v)
+        if k in safe_fields:
+            setattr(user, k, v)
+
     await db.commit()
     await db.refresh(user)
     return UserOut.model_validate(user)
@@ -102,9 +190,12 @@ async def update_password(
 
 
 @router.get("/{user_id}", response_model=UserOut)
-async def get_user(user_id: str, db: Annotated[AsyncSession, Depends(get_db)], _: Annotated[User, Depends(require_roles("admin"))]) -> UserOut:
+async def get_user(
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_roles("admin"))],
+) -> UserOut:
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
     return UserOut.model_validate(user)
-

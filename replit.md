@@ -36,6 +36,7 @@ Both accounts are seeded on backend startup (`app/main.py`).
   - `order-delight-main/src/routes/` — File-based routing
   - `order-delight-main/src/lib/api.ts` — API client (all backend calls + interfaces)
   - `order-delight-main/src/components/` — UI components (shadcn/ui)
+  - `order-delight-main/src/components/phone/` — CountryPhoneInput + Msg91Widget components
 
 ## Architecture decisions
 
@@ -44,6 +45,46 @@ Both accounts are seeded on backend startup (`app/main.py`).
 - Frontend uses `VITE_API_BASE_URL` env var to point to backend (defaults to `http://127.0.0.1:8000`)
 - Default admin seeded on startup: `admin@preorder.local` / `Admin@1234` — personal super admin: `superadmin@preorder.local` / `SuperAdmin@2024`
 - Frontend workflow runs on port 5000 (webview); backend runs on port 8000 (console)
+
+## Phone Verification — MSG91 OTP Widget
+
+Registration and phone changes require live phone verification via the MSG91 OTP Widget SDK.
+
+### How it works
+
+1. User enters phone with country selector (default India +91, 12 countries supported)
+2. Frontend loads MSG91 Widget SDK → user completes OTP
+3. MSG91 returns an `access_token` to our callback
+4. Frontend POSTs `access_token + phone` to `POST /api/v1/verify-msg91` (backend)
+5. Backend verifies with MSG91 API using `MSG91_AUTH_KEY` → issues a short-lived proof JWT (15 min TTL)
+6. Proof JWT is sent with `POST /auth/register` or `PATCH /users/me` — **cannot be bypassed via API**
+
+### Environment variables required
+
+| Variable | Where | Purpose |
+| :--- | :--- | :--- |
+| `MSG91_AUTH_KEY` | Backend secret (Replit Secrets) | Server-side verification of widget tokens. Get from MSG91 dashboard → API Keys. |
+| `VITE_MSG91_WIDGET_ID` | Frontend `.env` / build env | Widget ID from MSG91 dashboard → OTP Widget. |
+| `VITE_MSG91_TOKEN_AUTH` | Frontend `.env` / build env | Token Auth from MSG91 dashboard → OTP Widget. |
+
+### Dev/test mode (no credentials set)
+
+When `MSG91_AUTH_KEY` is **not** set, the backend operates in **DEV TRUST MODE** — it skips real MSG91 verification and trusts any phone. The frontend shows a "Verify Phone (Dev Mode)" button that calls the backend directly. **Never use this in production.**
+
+### Rate limiting
+
+`POST /api/v1/verify-msg91` is limited to **10 requests per IP per 60 seconds** (in-memory, no Redis required).
+
+### Audit log
+
+Every phone registration and phone change is recorded in the `phone_audit_logs` table:
+- `action`: `registered` or `changed`
+- `old_phone` / `new_phone`: E.164 format
+- `ip_address`, `created_at`
+
+### Phone storage format
+
+New users: E.164 with `+` prefix (`+919876543210`). Legacy 10-digit users are handled transparently via backward-compat lookup in `app/crud/user.py`.
 
 ## Product
 
@@ -69,6 +110,7 @@ _None yet_
 - asyncpg rejects `sslmode` as a query param; handled in `app/db/session.py`
 - The `@lovable.dev/vite-tanstack-config` package defaults to port 8080 — overridden via `vite.server` config in `order-delight-main/vite.config.ts`
 - recharts is loaded; Vite optimizes it on first import
+- `MSG91_AUTH_KEY` must be set in production — without it the backend is in dev trust mode (no real OTP enforcement)
 
 ## Pointers
 
