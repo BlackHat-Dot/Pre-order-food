@@ -29,12 +29,14 @@ logger = logging.getLogger(__name__)
 
 
 async def create_database_tables() -> None:
+    """Create database tables on startup. Logs detailed errors for debugging."""
     try:
+        logger.info(f"Attempting to create/verify database tables. DB URL: {settings.DATABASE_URL[:50]}...")
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        print("Database tables created/verified")
+        logger.info("Database tables created/verified successfully")
     except Exception as e:
-        print(f"Failed to create database tables: {e}")
+        logger.error(f"Failed to create database tables: {type(e).__name__}: {e}", exc_info=True)
         raise
 
 
@@ -83,8 +85,26 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def on_startup() -> None:
-        await create_database_tables()
-        await ensure_default_admin()
+        """App startup: create tables (dev only) and seed default admin."""
+        # In production (Railway, etc.), alembic migrations handle table creation.
+        # Only run table creation in local/dev environments.
+        if settings.ENV.lower() in {"local", "dev", "development", "test"}:
+            try:
+                await create_database_tables()
+            except Exception as e:
+                logger.error(f"Database table creation failed during startup: {e}", exc_info=True)
+                if settings.ENV.lower() in {"production", "prod"}:
+                    logger.warning("Continuing app startup despite table creation failure (alembic should have migrated)")
+                else:
+                    raise
+        
+        # Seed default admin if configured
+        try:
+            await ensure_default_admin()
+        except Exception as e:
+            logger.error(f"Admin seeding failed: {e}", exc_info=True)
+            if settings.ENV.lower() not in {"production", "prod"}:
+                raise
 
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(

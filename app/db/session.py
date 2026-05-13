@@ -44,7 +44,14 @@ def _normalize_database_url(url: str) -> tuple[str, dict]:
 
 database_url, connect_args = _normalize_database_url(settings.DATABASE_URL)
 
-engine = create_async_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
+engine = create_async_engine(
+    database_url,
+    pool_pre_ping=True,
+    connect_args=connect_args,
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=3600,  # Recycle connections every hour
+)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
