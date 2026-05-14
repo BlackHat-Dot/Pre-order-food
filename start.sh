@@ -79,8 +79,13 @@ const apiProxy = httpProxy.createProxyServer({
 
 app.use(express.static(distPath));
 
-app.use('/api', apiProxy);
-app.use('/health', apiProxy);
+app.use('/api', (req, res) => {
+  apiProxy.web(req, res);
+});
+
+app.use('/health', (req, res) => {
+  apiProxy.web(req, res);
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
