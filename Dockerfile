@@ -10,18 +10,17 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY requirements-production.txt .
+COPY . .
+
 RUN python -m venv /opt/venv
+
 RUN /opt/venv/bin/pip install --upgrade pip
+
 RUN /opt/venv/bin/pip install -r requirements-production.txt
 
-COPY package*.json ./
 RUN npm install
 
-COPY order-delight-main/package*.json ./order-delight-main/
 RUN cd order-delight-main && npm install
-
-COPY . .
 
 RUN cd order-delight-main && npm run build
 
