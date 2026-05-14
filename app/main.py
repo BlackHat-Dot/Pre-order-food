@@ -123,8 +123,13 @@ def create_app() -> FastAPI:
             content["detail"] = str(exc)
         return JSONResponse(status_code=500, content=content)
 
-    frontend_dir = Path(__file__).resolve().parents[1] / "frontend"
-    if frontend_dir.exists():
+    candidate_frontends = [
+        Path(__file__).resolve().parents[1] / "frontend",
+        Path(__file__).resolve().parents[1] / "order-delight-main" / "dist",
+    ]
+    frontend_dir = next((path for path in candidate_frontends if path.exists()), None)
+
+    if frontend_dir is not None:
         app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
 
         @app.get("/", include_in_schema=False)

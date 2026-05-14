@@ -93,6 +93,7 @@ pytest -q
    - Add other optional vars: `JWT_SECRET_KEY`, `SENTRY_DSN`, etc.
 4. **Deploy**:
    - Push to Git → Railway auto-deploys using `Dockerfile`
+   - If using Railway Python buildpack instead of Docker, the included `Procfile` now runs `alembic upgrade head` before the app starts.
    - Monitor logs at Railway dashboard
 5. **Test**:
    - Visit `https://<your-railway-domain>/health`

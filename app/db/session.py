@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
+from collections.abc import AsyncGenerator
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,37 +41,41 @@ def _normalize_database_url(url: str) -> tuple[str, dict]:
 
         # Handle sslmode parameter
         if sslmode:
-            ssl_mode_map = {
-                "disable": False,
-                "allow": False,
-                "prefer": False,
-                "require": True,
-                "verify-ca": "verify-ca",
-                "verify-full": "verify-full",
-            }
-            ssl_setting = ssl_mode_map.get(sslmode, True)
-            
-            if ssl_setting is True or ssl_setting == "verify-full":
-                # Standard SSL with certificate verification
-                connect_args["ssl"] = True
-            elif ssl_setting == "verify-ca":
-                # Verify CA only
-                connect_args["ssl"] = "verify-ca"
-            elif ssl_setting is False:
-                # No SSL
+            sslmode = sslmode.lower()
+            if sslmode == "disable":
                 connect_args["ssl"] = False
+            else:
+                ssl_context = ssl.create_default_context()
+                if sslmode in {"require", "allow", "prefer"}:
+                    # Require a secure connection, but do not verify self-signed certs.
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    connect_args["ssl"] = ssl_context
+                    logger.info(
+                        "Using SSL without certificate verification because sslmode=%s", sslmode
+                    )
+                elif sslmode == "verify-ca":
+                    ssl_context.verify_mode = ssl.CERT_REQUIRED
+                    connect_args["ssl"] = ssl_context
+                    logger.info("Using SSL with CA verification because sslmode=verify-ca")
+                elif sslmode == "verify-full":
+                    connect_args["ssl"] = ssl_context
+                    logger.info("Using SSL with full certificate validation because sslmode=verify-full")
+                else:
+                    # Fallback to a permissive SSL session for unknown modes.
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    connect_args["ssl"] = ssl_context
+                    logger.warning("Unknown sslmode=%s, using SSL with certificate verification disabled", sslmode)
         else:
             # Default SSL behavior based on host
             if parsed.hostname and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-                # For remote hosts (e.g., Railway), use SSL but don't verify certs (self-signed)
-                # This is safe for Railway's private/internal connections
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
                 connect_args["ssl"] = ssl_context
                 logger.info(f"Using SSL without certificate verification for remote host: {parsed.hostname}")
             else:
-                # Local connections don't need SSL
                 connect_args["ssl"] = False
 
         # Remove sslmode from query string
@@ -99,7 +105,7 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting database session in FastAPI routes."""
     async with AsyncSessionLocal() as session:
         yield session
