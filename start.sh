@@ -29,26 +29,30 @@ echo ""
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
     cd /app
-    PYTHONPATH="/app" python -m alembic upgrade head
+
+    PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
     migration_status=$?
-    
+
     if [ $migration_status -ne 0 ]; then
         echo "⚠ Migration failed with status $migration_status"
-        echo "  Attempting migration reset on stale database records..."
-        PYTHONPATH="/app" python -m /opt/venv/bin/alembic upgrade head
-        echo ""
-        echo "Retrying database migrations after reset..."
+        echo "Attempting migration reset..."
+
+        PYTHONPATH="/app" python reset_migrations.py
+
+        echo "Retrying migrations..."
+
         PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
         migration_status=$?
-        
+
         if [ $migration_status -ne 0 ]; then
-            echo "✗ Migration failed after reset. Continuing with startup."
+            echo "✗ Migration failed after retry"
         else
-            echo "✓ Migration succeeded after reset."
+            echo "✓ Migration succeeded after retry"
         fi
     else
         echo "✓ Migrations completed successfully"
     fi
+
     echo ""
 fi
 
