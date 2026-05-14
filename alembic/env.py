@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -8,22 +10,16 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# Ensure the project root is available to Alembic when importing app modules.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.insert(0, project_root)
+
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import _normalize_database_url
 import app.models  # noqa: F401
 
-
-def _normalize_database_url(url: str) -> str:
-    normalized = url.strip().strip('"').strip("'")
-    if normalized.startswith("postgres://"):
-        normalized = normalized.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif normalized.startswith("postgresql://") and "asyncpg" not in normalized:
-        normalized = normalized.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return normalized
-
-
-database_url = _normalize_database_url(settings.DATABASE_URL)
 config = context.config
 database_url, connect_args = _normalize_database_url(settings.DATABASE_URL)
 config.set_main_option("sqlalchemy.url", database_url)
@@ -36,7 +32,6 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = database_url
     context.configure(
         url=database_url,
         target_metadata=target_metadata,

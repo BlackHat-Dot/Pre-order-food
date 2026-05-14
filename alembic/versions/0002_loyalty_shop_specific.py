@@ -102,7 +102,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_loyalty_accounts_customer_shop", table_name="loyalty_accounts")
+    connection = op.get_bind()
+
+    if _table_exists(connection, "loyalty_accounts") and _index_exists(connection, "loyalty_accounts", "ix_loyalty_accounts_customer_shop"):
+        op.drop_index("ix_loyalty_accounts_customer_shop", table_name="loyalty_accounts")
+
     op.create_table(
         "loyalty_accounts_old",
         sa.Column("id", sa.String(length=36), primary_key=True, nullable=False),
@@ -121,17 +125,6 @@ def downgrade() -> None:
         """
     )
     op.execute("DROP TABLE loyalty_accounts")
-    op.execute("ALTER TABLE loyalty_accounts_old RENAME TO loyalty_accounts")
-
-    op.execute(
-            """
-            INSERT INTO loyalty_accounts_old (id, customer_id, points_balance, tier, created_at, updated_at)
-            SELECT id, customer_id, points_balance, tier, created_at, updated_at
-            FROM loyalty_accounts
-            """
-        )
-
-    op.drop_table("loyalty_accounts")
     op.execute("ALTER TABLE loyalty_accounts_old RENAME TO loyalty_accounts")
 
     if _table_exists(connection, "orders"):

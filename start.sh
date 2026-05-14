@@ -69,7 +69,13 @@ app.listen(port, '0.0.0.0', () => {
 EOF
 
 if [ ! -f "/app/node_modules/.bin/concurrently" ]; then
-  echo "ERROR: concurrently binary is missing at /app/node_modules/.bin/concurrently"
+  echo "WARNING: concurrently binary not found in /app/node_modules/.bin. Installing root Node dependencies..."
+  cd /app
+  npm ci --omit=dev --prefer-offline --no-audit
+fi
+
+if [ ! -f "/app/node_modules/.bin/concurrently" ]; then
+  echo "ERROR: concurrently binary is missing at /app/node_modules/.bin/concurrently after install"
   exit 1
 fi
 

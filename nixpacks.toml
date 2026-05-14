@@ -18,9 +18,9 @@ PYTHONPATH = "/app"
 nixpkgs = ["python312", "nodejs_20", "npm"]
 
 [phases.install]
-# Install dependencies in correct order
+# Install production dependencies in correct order
 cmds = [
-  "pip install -r requirements.txt",
+  "pip install -r requirements-production.txt",
   "npm ci --omit=dev --prefer-offline --no-audit",
   "cd order-delight-main && npm ci --omit=dev --prefer-offline --no-audit && cd .."
 ]
