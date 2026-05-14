@@ -1,15 +1,11 @@
-[variables]
-NIXPACKS_PYTHON_VERSION = "3.12"
-
 [phases.setup]
-nixPkgs = ["python312", "nodejs_20"]
+nixPkgs = ["python312Packages.pip", "python312", "nodejs_20"]
 
 [phases.install]
 cmds = [
-  "python -m pip install --upgrade pip",
-  "python -m pip install -r requirements-production.txt",
-  "npm ci --omit=dev",
-  "cd order-delight-main && npm ci --omit=dev"
+  "pip install -r requirements-production.txt",
+  "npm install",
+  "cd order-delight-main && npm install"
 ]
 
 [phases.build]
