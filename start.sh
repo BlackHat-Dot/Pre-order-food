@@ -1,12 +1,4 @@
 #!/bin/bash
-# Railway Production Startup Script
-# Runs frontend and backend concurrently (install/build handled by nixpacks)
-
-which node
-which npm
-node -v
-npm -v
-
 
 set -e
 
@@ -20,6 +12,15 @@ cd /app
 echo "=================================="
 echo "Pre-Order Food: Railway Deployment"
 echo "=================================="
+
+echo "Node:"
+which node
+node -v
+
+echo "NPM:"
+which npm
+npm -v
+
 echo "Frontend port: $PORT"
 echo "Backend port: $BACKEND_PORT"
 echo "Working directory: $(pwd)"
@@ -28,24 +29,25 @@ echo ""
 
 if [ -n "$DATABASE_URL" ]; then
     echo "Running database migrations..."
-    cd /app
 
     PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
     migration_status=$?
 
     if [ $migration_status -ne 0 ]; then
         echo "⚠ Migration failed with status $migration_status"
-        echo "Attempting migration reset..."
 
-        PYTHONPATH="/app" python reset_migrations.py
+        if [ -f "/app/reset_migrations.py" ]; then
+            echo "Attempting migration reset..."
+            PYTHONPATH="/app" python reset_migrations.py
 
-        echo "Retrying migrations..."
-
-        PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
-        migration_status=$?
+            echo "Retrying migrations..."
+            PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
+            migration_status=$?
+        fi
 
         if [ $migration_status -ne 0 ]; then
             echo "✗ Migration failed after retry"
+            exit 1
         else
             echo "✓ Migration succeeded after retry"
         fi
@@ -56,29 +58,26 @@ if [ -n "$DATABASE_URL" ]; then
     echo ""
 fi
 
-cd /app
-
 echo "Setting up Express proxy server..."
-cat > server.js << 'EOF'
+
+cat > /app/server.js << 'EOF'
 const express = require('express');
 const path = require('path');
 const httpProxy = require('http-proxy');
 
 const app = express();
+
 const port = parseInt(process.env.PORT || '5000', 10);
 const backendPort = parseInt(process.env.BACKEND_PORT || '8000', 10);
+
 const distPath = path.join(__dirname, 'order-delight-main/dist');
 
 const apiProxy = httpProxy.createProxyServer({
   target: `http://127.0.0.1:${backendPort}`,
-  changeOrigin: false,
-  ws: false,
+  changeOrigin: true,
 });
 
-app.use(express.static(distPath, {
-  maxAge: '1d',
-  etag: false,
-}));
+app.use(express.static(distPath));
 
 app.use('/api', apiProxy);
 app.use('/health', apiProxy);
@@ -89,26 +88,30 @@ app.get('*', (req, res) => {
 
 apiProxy.on('error', (err, req, res) => {
   console.error('Proxy error:', err);
-  res.status(502).json({ error: 'Backend service unavailable' });
+
+  if (!res.headersSent) {
+    res.status(502).json({
+      error: 'Backend unavailable'
+    });
+  }
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`✓ Frontend server running on http://0.0.0.0:${port}`);
+  console.log(`✓ Frontend server running on port ${port}`);
 });
 EOF
 
-if [ ! -f "/app/node_modules/.bin/concurrently" ]; then
-  echo "WARNING: concurrently binary not found in /app/node_modules/.bin. Installing root Node dependencies..."
-  cd /app
-  npm ci --omit=dev --prefer-offline --no-audit
+echo "Checking concurrently..."
+
+if [ ! -d "/app/node_modules" ]; then
+    echo "Installing Node dependencies..."
+    npm install --ignore-scripts
 fi
 
-if [ ! -f "/app/node_modules/.bin/concurrently" ]; then
-  echo "ERROR: concurrently binary is missing at /app/node_modules/.bin/concurrently after install"
-  exit 1
-fi
+chmod +x /app/node_modules/.bin/concurrently || true
 
-exec /app/node_modules/.bin/concurrently \
+echo "Starting backend and frontend..."
+
+exec npx concurrently \
   "cd /app && PYTHONPATH=/app BACKEND_PORT=$BACKEND_PORT python main.py" \
   "cd /app && node server.js"
-
