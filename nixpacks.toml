@@ -3,7 +3,7 @@ nixPkgs = ["python312Packages.pip", "python312", "nodejs_20"]
 
 [phases.install]
 cmds = [
-  "pip install -r requirements-production.txt",
+  "python -m venv /opt/venv && . /opt/venv/bin/activate && pip install -r requirements-production.txt",
   "npm install",
   "cd order-delight-main && npm install"
 ]
@@ -14,4 +14,4 @@ cmds = [
 ]
 
 [start]
-cmd = "bash start.sh"
+cmd = "source /opt/venv/bin/activate && bash start.sh"
