@@ -1,5 +1,11 @@
 [phases.setup]
-nixPkgs = ["python312Packages.pip", "python312", "nodejs_20"]
+nixPkgs = [
+  "python312",
+  "python312Packages.pip",
+  "python312Packages.greenlet",
+  "nodejs_20",
+  "gcc.cc.lib"
+]
 
 [phases.install]
 cmds = [
