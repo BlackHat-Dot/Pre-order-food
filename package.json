@@ -1,9 +1,15 @@
 {
   "name": "preorder-food-runtime",
   "private": true,
+  "version": "1.0.0",
+  "description": "Railway runtime for FastAPI + React/Vite application",
   "scripts": {
-    "start": "bash start.sh",
-    "install": "npm ci --omit=dev && cd order-delight-main && npm ci --omit=dev"
+    "frontend": "cd order-delight-main && npm run dev -- --host 0.0.0.0 --port $PORT",
+    "backend": "uvicorn app.main:app --host 0.0.0.0 --port 8000",
+    "start": "concurrently \"npm run frontend\" \"npm run backend\"",
+    "install:frontend": "cd order-delight-main && npm install",
+    "install:root": "npm install",
+    "postinstall": "npm run install:frontend"
   },
   "dependencies": {
     "concurrently": "^8.2.2",
