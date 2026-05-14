@@ -35,10 +35,10 @@ if [ -n "$DATABASE_URL" ]; then
     if [ $migration_status -ne 0 ]; then
         echo "⚠ Migration failed with status $migration_status"
         echo "  Attempting migration reset on stale database records..."
-        PYTHONPATH="/app" python -m python -m alembic upgrade head
+        PYTHONPATH="/app" python -m /opt/venv/bin/alembic upgrade head
         echo ""
         echo "Retrying database migrations after reset..."
-        PYTHONPATH="/app" python -m alembic upgrade head
+        PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
         migration_status=$?
         
         if [ $migration_status -ne 0 ]; then
