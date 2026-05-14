@@ -2,6 +2,12 @@
 # Railway Production Startup Script
 # Runs frontend and backend concurrently (install/build handled by nixpacks)
 
+which node
+which npm
+node -v
+npm -v
+
+
 set -e
 
 export NODE_ENV=production
