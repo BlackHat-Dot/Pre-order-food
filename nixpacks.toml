@@ -2,14 +2,14 @@
 nixPkgs = [
   "python312",
   "python312Packages.pip",
-  "python312Packages.greenlet",
   "nodejs_20",
-  "gcc.cc.lib"
+  "stdenv.cc.cc.lib"
 ]
 
 [phases.install]
 cmds = [
-  "python -m venv /opt/venv && . /opt/venv/bin/activate && pip install -r requirements-production.txt",
+  "python -m venv /opt/venv",
+  ". /opt/venv/bin/activate && pip install -r requirements-production.txt",
   "npm install",
   "cd order-delight-main && npm install"
 ]
