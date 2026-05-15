@@ -12,7 +12,7 @@ from app.utils.phone import normalize_e164
 
 logger = logging.getLogger(__name__)
 
-MSG91_VERIFY_URL = "https://api.msg91.com/api/v5/widget/verifyAccessToken"
+MSG91_VERIFY_URL = "https://control.msg91.com/api/v5/widget/verifyOtp"
 
 # In-memory rate limiter: identifier -> list of request timestamps
 _rate_store: dict[str, list[float]] = defaultdict(list)
@@ -35,7 +35,7 @@ def check_msg91_rate_limit(identifier: str) -> bool:
         return True
 
 
-async def verify_msg91_token(access_token: str, phone: str) -> str:
+async def verify_msg91_token(reqId: str, otp: str, phone: str) -> str:
     """
     Verify a MSG91 widget access_token against the MSG91 API.
 
@@ -59,11 +59,12 @@ async def verify_msg91_token(access_token: str, phone: str) -> str:
             resp = await client.post(
                 MSG91_VERIFY_URL,
                 json={
-                "access_token": access_token,
-                "authkey": settings.MSG91_AUTH_KEY,
-                },
-            )
-            print("MSG91 RESPONSE:", resp.status_code, resp.text)
+                    "req_id": reqId,
+                    "otp": otp,
+                    "authkey": settings.MSG91_AUTH_KEY,
+        },
+        )
+        print("MSG91 RESPONSE:", resp.status_code, resp.text)
     
     except httpx.TimeoutException as exc:
         logger.error("[MSG91] API timeout: %s", exc)
@@ -83,21 +84,11 @@ async def verify_msg91_token(access_token: str, phone: str) -> str:
         logger.warning("[MSG91] Verification rejected: %s", data)
         raise ValueError(str(msg))
 
-    inner = data.get("data") or {}
-    mobile: str = str(inner.get("mobileNumber", "")).strip()
-    if not mobile:
-        raise ValueError("Phone number not returned by verification service.")
+    status = str(data.get("message", "")).lower()
 
-    # MSG91 returns mobileNumber without '+', e.g. "919876543210"
-    verified_e164 = normalize_e164(mobile)
+    if "verified" not in status:
+        raise ValueError(data.get("message") or "OTP verification failed.")
 
-    # Ensure the verified phone matches what was submitted
-    if verified_e164 != normalized:
-        logger.warning(
-            "[MSG91] Phone mismatch: verified=%s submitted=%s",
-            verified_e164,
-            normalized,
-        )
-        raise ValueError("Verified phone does not match the submitted phone number.")
+    verified_e164 = normalized
 
     return verified_e164

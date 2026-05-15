@@ -425,7 +425,12 @@ export interface Msg91VerifyResponse {
 
 /** Exchange a MSG91 widget access_token for our server-issued proof JWT. */
 export const msg91Api = {
-  verify: (body: { access_token: string; phone: string; purpose: "signup_phone" | "profile_phone" }) =>
+  verify: (body: {
+    reqId: string;
+    otp: string;
+    phone: string;
+    purpose: "signup_phone" | "profile_phone";
+  }) =>
     apiRequest<Msg91VerifyResponse>("/api/v1/verify-msg91", {
       method: "POST",
       body,

@@ -89,9 +89,20 @@ export function Msg91Widget({
   const isDev = !WIDGET_ID || !TOKEN_AUTH;
 
   const exchangeToken = useCallback(
-    async (accessToken: string) => {
+    async ({
+    reqId,
+    otp,
+    }: {
+        reqId: string;
+        otp: string;
+    }) => {
       try {
-        const res = await msg91Api.verify({ access_token: accessToken, phone, purpose });
+        const res = await msg91Api.verify({
+          reqId,
+          otp,
+          phone,
+          purpose,
+        });
         if (!res.ok || !res.verification_token) {
           throw new Error("Verification service returned an invalid response.");
         }
@@ -121,7 +132,10 @@ export function Msg91Widget({
       if (isDev) {
         // Dev mode: skip real MSG91 widget, call backend directly with empty token.
         // This only works when MSG91_AUTH_KEY is also unset on the backend.
-        await exchangeToken("dev-mode-bypass");
+        await exchangeToken({
+  reqId: "dev",
+  otp: "000000",
+});
         return;
       }
 
@@ -146,18 +160,20 @@ export function Msg91Widget({
     console.log("MSG91 RAW SUCCESS:", data);
 
     try {
-      const accessToken =
-        data?.access_token ||
-        data?.token ||
-        "";
+      const reqId = (data as any)?.reqId;
+const otp = (data as any)?.otp;
 
-      console.log("ACCESS TOKEN:", accessToken);
+console.log("REQ ID:", reqId);
+console.log("OTP:", otp);
 
-      if (!accessToken) {
-        throw new Error("No access token returned by verification service.");
-      }
+if (!reqId || !otp) {
+  throw new Error("Invalid OTP verification response.");
+}
 
-      await exchangeToken(accessToken);
+await exchangeToken({
+  reqId,
+  otp,
+});
 
       setLoading(false);
       guardRef.current = false;
