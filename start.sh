@@ -76,5 +76,5 @@ fi
 chmod +x /app/node_modules/.bin/concurrently || true
 
 exec node ./node_modules/concurrently/dist/bin/concurrently.js \
-  "cd /app/order-delight-main && PORT=$PORT npm start" \
+  "cd /app/order-delight-main && npm start" \
   "cd /app && PYTHONPATH=/app uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT"
