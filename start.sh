@@ -93,7 +93,7 @@ app.use('/health', (req, res) => {
 });
 
 app.use((req, res) => {
-  res.redirect('/');
+  res.status(404).send('Not Found');
 });
 
 apiProxy.on('error', (err, req, res) => {
