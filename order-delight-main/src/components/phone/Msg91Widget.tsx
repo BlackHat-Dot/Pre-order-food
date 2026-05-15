@@ -136,43 +136,47 @@ export function Msg91Widget({
 
       // Launch the MSG91 widget
       await new Promise<void>((resolve, reject) => {
-        let timedOut = false;
-        const timeout = window.setTimeout(() => {
-          timedOut = true;
-          reject(
-            new Error(
-              "Phone verification timed out. Check your MSG91 widget credentials and browser console for errors."
-            ),
-          );
-        }, WIDGET_CALL_TIMEOUT_MS);
+    const timeout = window.setTimeout(() => {
+    console.warn("MSG91 verification taking longer than expected...");
+  }, WIDGET_CALL_TIMEOUT_MS);
 
-        window.initSendOTP!({
-          widgetId: WIDGET_ID!,
-          tokenAuth: TOKEN_AUTH!,
-          identifier: phone,
-          exposeMethods: true,
-          success: async (data) => {
-            if (timedOut) return;
-            window.clearTimeout(timeout);
-            const accessToken = data.access_token ?? data.message ?? "";
-            if (!accessToken) {
-              reject(new Error("No access token returned by verification service."));
-              return;
-            }
-            await exchangeToken(accessToken);
-            resolve();
-          },
-          failure: (err) => {
-            if (timedOut) return;
-            window.clearTimeout(timeout);
-            const msg =
-              typeof err === "string"
-                ? err
-                : (err as { message?: string })?.message ?? "Phone verification was cancelled or failed.";
-            reject(new Error(msg));
-          },
-        });
-      });
+    window.initSendOTP!({
+    widgetId: WIDGET_ID!,
+    tokenAuth: TOKEN_AUTH!,
+    identifier: phone,
+    exposeMethods: true,
+
+    success: async (data) => {
+      window.clearTimeout(timeout);
+
+      try {
+        const accessToken = data.access_token ?? data.message ?? "";
+
+        if (!accessToken) {
+          reject(new Error("No access token returned by verification service."));
+          return;
+        }
+
+        await exchangeToken(accessToken);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    },
+
+    failure: (err) => {
+      window.clearTimeout(timeout);
+
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as { message?: string })?.message ??
+            "Phone verification was cancelled or failed.";
+
+      reject(new Error(msg));
+    },
+  });
+});
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Phone verification failed. Please try again.";
