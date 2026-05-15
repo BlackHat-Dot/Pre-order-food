@@ -67,6 +67,11 @@ const httpProxy = require('http-proxy');
 
 const app = express();
 
+app.use(
+  '/assets',
+  express.static(path.join(process.cwd(), 'order-delight-main/dist/client/assets'))
+);
+
 const port = parseInt(process.env.PORT || '5000', 10);
 const backendPort = parseInt(process.env.BACKEND_PORT || '8000', 10);
 
