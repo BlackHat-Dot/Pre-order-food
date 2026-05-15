@@ -56,13 +56,15 @@ async def verify_msg91_token(access_token: str, phone: str) -> str:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
+            resp = await client.post(
                 MSG91_VERIFY_URL,
-                params={
-                    "access_token": access_token,
-                    "authkey": settings.MSG91_AUTH_KEY,
+                json={
+                "access_token": access_token,
+                "authkey": settings.MSG91_AUTH_KEY,
                 },
             )
+            print("MSG91 RESPONSE:", resp.status_code, resp.text)
+    
     except httpx.TimeoutException as exc:
         logger.error("[MSG91] API timeout: %s", exc)
         raise ValueError("Phone verification service timed out. Please try again.") from exc
