@@ -84,3 +84,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+print("MSG91_AUTH_KEY:", repr(settings.MSG91_AUTH_KEY))
+print("ENV:", repr(settings.ENV))
