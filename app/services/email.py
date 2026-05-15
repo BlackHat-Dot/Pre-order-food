@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 # Lazily imported so the server starts even when resend is not installed
 _resend = None
 
-
 def _get_resend():
     global _resend
     if _resend is None:
