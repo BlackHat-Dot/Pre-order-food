@@ -11,6 +11,7 @@ export interface Country {
   maxDigits: number;
 }
 
+
 export const COUNTRIES: Country[] = [
   { code: "IN", name: "India", dialCode: "+91", flag: "🇮🇳", minDigits: 10, maxDigits: 10 },
   { code: "US", name: "United States", dialCode: "+1", flag: "🇺🇸", minDigits: 10, maxDigits: 10 },
@@ -26,7 +27,9 @@ export const COUNTRIES: Country[] = [
   { code: "ZA", name: "South Africa", dialCode: "+27", flag: "🇿🇦", minDigits: 9, maxDigits: 9 },
 ];
 
+
 export const DEFAULT_COUNTRY = COUNTRIES[0]; // India
+
 
 export function buildE164(dialCode: string, localNumber: string): string {
   const digits = localNumber.replace(/\D/g, "");

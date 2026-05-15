@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
 const WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID as string | undefined;
 const TOKEN_AUTH = import.meta.env.VITE_MSG91_TOKEN_AUTH as string | undefined;
-const WIDGET_CALL_TIMEOUT_MS = 30000;
 
 // Extend window with MSG91 types
 declare global {
@@ -34,8 +33,11 @@ declare global {
       widgetId: string;
       tokenAuth: string;
       identifier: string;
-      exposeMethods?: boolean;
-      success: (data: { access_token?: string; message?: string }) => void;
+      success: (data: {
+    access_token?: string;
+    token?: string;
+    message?: string;
+}) => void;
       failure: (error: unknown) => void;
     }) => void;
   }
@@ -135,56 +137,66 @@ export function Msg91Widget({
       }
 
       // Launch the MSG91 widget
-      await new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-    console.warn("MSG91 verification taking longer than expected...");
-  }, WIDGET_CALL_TIMEOUT_MS);
+     window.initSendOTP!({
+  widgetId: WIDGET_ID!,
+  tokenAuth: TOKEN_AUTH!,
+  identifier: phone.replace("+", ""),
 
-    window.initSendOTP!({
-    widgetId: WIDGET_ID!,
-    tokenAuth: TOKEN_AUTH!,
-    identifier: phone,
-    exposeMethods: true,
+  success: async (data) => {
+    console.log("MSG91 success:", data);
 
-    success: async (data) => {
-      window.clearTimeout(timeout);
+    try {
+      const accessToken =
+        data?.access_token ||
+        data?.token ||
+        data?.message ||
+        "";
 
-      try {
-        const accessToken = data.access_token ?? data.message ?? "";
-
-        if (!accessToken) {
-          reject(new Error("No access token returned by verification service."));
-          return;
-        }
-
-        await exchangeToken(accessToken);
-        resolve();
-      } catch (err) {
-        reject(err);
+      if (!accessToken) {
+        throw new Error("No access token returned by verification service.");
       }
-    },
 
-    failure: (err) => {
-      window.clearTimeout(timeout);
+      await exchangeToken(accessToken);
 
+      setLoading(false);
+      guardRef.current = false;
+    } catch (err) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as { message?: string })?.message ??
-            "Phone verification was cancelled or failed.";
+        err instanceof Error
+          ? err.message
+          : "Verification failed.";
 
-      reject(new Error(msg));
-    },
-  });
+      setError(msg);
+      toast.error(msg);
+
+      setLoading(false);
+      guardRef.current = false;
+    }
+  },
+
+  failure: (err) => {
+    console.error("MSG91 failure:", err);
+
+    const msg =
+      typeof err === "string"
+        ? err
+        : (err as { message?: string })?.message ||
+          "Phone verification failed.";
+
+    setError(msg);
+    toast.error(msg);
+
+    setLoading(false);
+    guardRef.current = false;
+  },
 });
+
+
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Phone verification failed. Please try again.";
       setError(msg);
       toast.error(msg);
-    } finally {
-      setLoading(false);
-      guardRef.current = false;
     }
   }, [guardRef, loading, isVerified, disabled, isDev, exchangeToken, phone]);
 
