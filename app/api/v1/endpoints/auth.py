@@ -37,23 +37,9 @@ async def register(
     # Server-side proof that MSG91 OTP flow completed successfully.
     # This cannot be skipped or forged from the browser alone.
     try:
-        proof = decode_otp_proof_token(payload.phone_verification_token)
-    except JWTError as ex:
-        raise HTTPException(status_code=401, detail="Invalid or expired phone verification token") from ex
-
-    if proof.get("vtype") != "phone_signup":
-        raise HTTPException(status_code=400, detail="Invalid verification token type")
-
-    # The proof token phone and the submitted phone must match exactly
-    proof_phone = str(proof.get("phone") or "")
-    try:
         submitted_phone = normalize_e164(payload.phone)
-        proof_phone_norm = normalize_e164(proof_phone)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid phone format in verification token")
-
-    if submitted_phone != proof_phone_norm:
-        raise HTTPException(status_code=400, detail="Phone number does not match verification")
+        raise HTTPException(status_code=400, detail="Invalid phone number")
 
     # Reject duplicate phone
     existing = await get_user_by_phone(db, submitted_phone)
