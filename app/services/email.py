@@ -116,6 +116,9 @@ async def send_otp_email(
 
         from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <onboarding@resend.dev>"
 
+        print("RESEND_API_KEY:", repr(settings.RESEND_API_KEY))
+        print("RESEND_FROM_EMAIL:", repr(settings.RESEND_FROM_EMAIL))
+
         resend.Emails.send({
             "from": from_addr,
             "to": [to_email],
