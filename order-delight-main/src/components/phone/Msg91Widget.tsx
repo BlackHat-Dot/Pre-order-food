@@ -143,14 +143,15 @@ export function Msg91Widget({
   identifier: phone.replace("+", ""),
 
   success: async (data) => {
-    console.log("MSG91 success:", data);
+    console.log("MSG91 RAW SUCCESS:", data);
 
     try {
       const accessToken =
         data?.access_token ||
         data?.token ||
-        data?.message ||
         "";
+
+      console.log("ACCESS TOKEN:", accessToken);
 
       if (!accessToken) {
         throw new Error("No access token returned by verification service.");
