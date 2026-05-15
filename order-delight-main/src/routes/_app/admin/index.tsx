@@ -83,7 +83,7 @@ function AdminOverview() {
 
   const { data: overview, isLoading: ovLoading } = useQuery({
     queryKey: ["admin", "analytics", "overview"],
-    queryFn: adminApi.analytics,
+    queryFn: adminApi.analytics(30),
     refetchInterval: 60_000,
   });
   const { data: trends, isLoading: trLoading } = useQuery({
