@@ -92,7 +92,7 @@ app.use('/health', (req, res) => {
   apiProxy.web(req, res);
 });
 
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
