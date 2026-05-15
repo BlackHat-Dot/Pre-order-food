@@ -98,7 +98,7 @@ export function Msg91Widget({
       if (isDev) {
         // Dev mode: skip real MSG91 widget, call backend directly with empty token.
         // This only works when MSG91_AUTH_KEY is also unset on the backend.
-        onVerified("verified", phone);
+        onVerified(`msg91_verified_${Date.now()}_${phone}`, phone);;
 
         setLoading(false);
         guardRef.current = false;
@@ -131,7 +131,7 @@ export function Msg91Widget({
     throw new Error("Phone verification failed.");
   }
 
-  onVerified("verified", phone);
+  onVerified(`msg91_verified_${Date.now()}_${phone}`, phone);
 
   setError(null);
   toast.success("Phone verified successfully.");
