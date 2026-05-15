@@ -93,7 +93,7 @@ app.use('/health', (req, res) => {
 });
 
 app.use((req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  res.redirect('/');
 });
 
 apiProxy.on('error', (err, req, res) => {
