@@ -19,7 +19,6 @@ import { useCallback, useRef, useState } from "react";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { msg91Api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
@@ -88,39 +87,6 @@ export function Msg91Widget({
 
   const isDev = !WIDGET_ID || !TOKEN_AUTH;
 
-  const exchangeToken = useCallback(
-    async ({
-    reqId,
-    otp,
-    }: {
-        reqId: string;
-        otp: string;
-    }) => {
-      try {
-        const res = await msg91Api.verify({
-          reqId,
-          otp,
-          phone,
-          purpose,
-        });
-        if (!res.ok || !res.verification_token) {
-          throw new Error("Verification service returned an invalid response.");
-        }
-        onVerified(res.verification_token, res.phone);
-        setError(null);
-      } catch (err) {
-        const msg =
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Verification failed. Please try again.";
-        setError(msg);
-        toast.error(msg);
-      }
-    },
-    [phone, purpose, onVerified],
-  );
 
   const handleClick = useCallback(async () => {
     if (guardRef.current || loading || isVerified || disabled) return;
@@ -132,10 +98,11 @@ export function Msg91Widget({
       if (isDev) {
         // Dev mode: skip real MSG91 widget, call backend directly with empty token.
         // This only works when MSG91_AUTH_KEY is also unset on the backend.
-        await exchangeToken({
-  reqId: "dev",
-  otp: "000000",
-});
+        onVerified("verified", phone);
+
+        setLoading(false);
+        guardRef.current = false;
+
         return;
       }
 
@@ -160,35 +127,29 @@ export function Msg91Widget({
     console.log("MSG91 RAW SUCCESS:", data);
 
     try {
-      const reqId = (data as any)?.reqId;
-const otp = (data as any)?.otp;
+  if ((data as any)?.type !== "success") {
+    throw new Error("Phone verification failed.");
+  }
 
-console.log("REQ ID:", reqId);
-console.log("OTP:", otp);
+  onVerified("verified", phone);
 
-if (!reqId || !otp) {
-  throw new Error("Invalid OTP verification response.");
+  setError(null);
+  toast.success("Phone verified successfully.");
+
+  setLoading(false);
+  guardRef.current = false;
+} catch (err) {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : "Verification failed.";
+
+  setError(msg);
+  toast.error(msg);
+
+  setLoading(false);
+  guardRef.current = false;
 }
-
-await exchangeToken({
-  reqId,
-  otp,
-});
-
-      setLoading(false);
-      guardRef.current = false;
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Verification failed.";
-
-      setError(msg);
-      toast.error(msg);
-
-      setLoading(false);
-      guardRef.current = false;
-    }
   },
 
   failure: (err) => {
@@ -215,7 +176,7 @@ await exchangeToken({
       setError(msg);
       toast.error(msg);
     }
-  }, [guardRef, loading, isVerified, disabled, isDev, exchangeToken, phone]);
+  }, [guardRef, loading, isVerified, disabled, isDev, phone, onVerified]);
 
   if (isVerified) {
     return (
