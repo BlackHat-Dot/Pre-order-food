@@ -58,70 +58,23 @@ if [ -n "$DATABASE_URL" ]; then
     echo ""
 fi
 
-echo "Setting up Express proxy server..."
-
-cat > /app/server.js << 'EOF'
-const express = require('express');
-const path = require('path');
-const httpProxy = require('http-proxy');
-
-const app = express();
-
-app.use(
-  '/assets',
-  express.static(path.join(process.cwd(), 'order-delight-main/dist/client/assets'))
-);
-
-const port = parseInt(process.env.PORT || '5000', 10);
-const backendPort = parseInt(process.env.BACKEND_PORT || '8000', 10);
-
-const distPath = path.join(__dirname, 'order-delight-main/dist');
-
-const apiProxy = httpProxy.createProxyServer({
-  target: `http://127.0.0.1:${backendPort}`,
-  changeOrigin: true,
-});
-
-app.use(express.static(distPath));
-
-app.use('/api', (req, res) => {
-  apiProxy.web(req, res);
-});
-
-app.use('/health', (req, res) => {
-  apiProxy.web(req, res);
-});
-
-app.use((req, res) => {
-  res.status(404).send('Not Found');
-});
-
-apiProxy.on('error', (err, req, res) => {
-  console.error('Proxy error:', err);
-
-  if (!res.headersSent) {
-    res.status(502).json({
-      error: 'Backend unavailable'
-    });
-  }
-});
-
-app.listen(port, '0.0.0.0', () => {
-  console.log(`✓ Frontend server running on port ${port}`);
-});
-EOF
-
-echo "Checking concurrently..."
+echo "Starting runtime processes..."
+echo "Starting backend and frontend SSR services..."
 
 if [ ! -d "/app/node_modules" ]; then
-    echo "Installing Node dependencies..."
+    echo "Installing root Node dependencies..."
     npm install --ignore-scripts
+fi
+
+if [ ! -d "/app/order-delight-main/node_modules" ]; then
+    echo "Installing frontend dependencies..."
+    cd /app/order-delight-main
+    npm install
+    cd /app
 fi
 
 chmod +x /app/node_modules/.bin/concurrently || true
 
-echo "Starting backend and frontend..."
-
-exec npx concurrently \
-  "cd /app && PYTHONPATH=/app BACKEND_PORT=$BACKEND_PORT python main.py" \
-  "cd /app && node server.js"
+exec node ./node_modules/concurrently/dist/bin/concurrently.js \
+  "cd /app/order-delight-main && PORT=$PORT npm start" \
+  "cd /app && PYTHONPATH=/app uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT"
