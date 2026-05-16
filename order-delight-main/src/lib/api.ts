@@ -554,7 +554,8 @@ export const ordersApi = {
     items: CartItem[];
     notes?: string | null;
     scheduled_at?: string | null;
-    loyalty_points_to_use?: number;
+    redeem_loyalty_points?: number; // <-- FIXED NAMING
+    payment_method: string;         // <-- ADDED PAYMENT METHOD
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),
