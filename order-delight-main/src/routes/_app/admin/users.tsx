@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Search, UserPlus, ShieldCheck, Users, ChevronLeft, ChevronRight } from "lucide-react";
-import { adminApi, ApiError, type UserOut } from "@/lib/api";
+import { adminApi, ApiError, type UserOut, type Role } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", role: "customer" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", role: "customer" as Role });
   const create = useMutation({
     mutationFn: () => adminApi.createUser({ ...form, email: form.email || undefined }),
     onSuccess: () => {
@@ -145,7 +145,7 @@ function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
 function AdminUsers() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
-  const [role, setRole] = useState<string>("all");
+  const [role, setRole] = useState<Role | "all">("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
@@ -162,7 +162,7 @@ function AdminUsers() {
 
   const { data: counts } = useQuery({
     queryKey: ["admin", "users", "count"],
-    queryFn: adminApi.countUsers,
+    queryFn: () => adminApi.countUsers(),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });

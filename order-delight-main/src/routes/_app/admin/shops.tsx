@@ -113,7 +113,7 @@ function AdminShops() {
 
   const { data: counts } = useQuery({
     queryKey: ["admin", "shops", "count"],
-    queryFn: adminApi.countShops,
+    queryFn: () => adminApi.countShops(),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "shops"] });

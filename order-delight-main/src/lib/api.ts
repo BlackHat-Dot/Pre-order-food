@@ -586,20 +586,91 @@ export const reviewsApi = {
 export const loyaltyApi = {
   me: () => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me"),
   transactions: () => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions"),
+  adjust: (customerId: string, body: { shop_id: string; points: number }) =>
+    apiRequest<LoyaltyAccountOut>(`/api/v1/loyalty/admin/adjust/${customerId}`, {
+      method: "POST",
+      query: { shop_id: body.shop_id, points: body.points },
+    }),
 };
 
 // ── Admin API ──────────────────────────────────────────────────────────────────
 
 export interface AdminAnalytics {
-  total_revenue: number;
-  total_orders: number;
-  total_users: number;
-  total_shops: number;
-  revenue_by_day: { date: string; revenue: number; orders: number }[];
-  top_shops: { shop_id: string; name: string; revenue: number; orders: number }[];
-  orders_by_status: { status: string; count: number }[];
-  revenue_by_category: { category: string; revenue: number }[];
-  new_signups_by_day: { date: string; signups: number }[];
+  daily_orders: { date: string; orders: number; revenue: number }[];
+  daily_signups: { date: string; signups: number }[];
+  order_by_status: Record<string, number>;
+}
+
+export interface AdminShopOut {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  state: string;
+  phone: string;
+  is_verified: boolean;
+  is_active: boolean;
+  is_open: boolean;
+  is_accepting_orders: boolean;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  owner_name: string;
+  owner_email: string | null;
+  owner_id: string;
+}
+
+export interface AdminShopCounts {
+  total: number;
+  verified: number;
+  active: number;
+  open_now: number;
+}
+
+export interface AdminOrderOut {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  shop_id: string;
+  shop_name: string;
+  status: string;
+  total_price: number;
+  payment_method: string;
+  payment_status: string;
+  created_at: string;
+}
+
+export interface AdminUserCounts {
+  total: number;
+  active: number;
+  by_role: Record<string, number>;
+}
+
+export interface AdminCategoryRevenue {
+  category: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface AdminTopShop {
+  shop_id: string;
+  shop_name: string;
+  category: string;
+  city: string;
+  is_verified: boolean;
+  revenue: number;
+  order_count: number;
+}
+
+export interface AdminRecentOrder {
+  id: string;
+  customer_id?: string;
+  customer_name?: string;
+  shop_id?: string;
+  shop_name?: string;
+  status: string;
+  total: number;
+  created_at?: string;
 }
 
 export interface AdminUserOut extends UserOut {
@@ -609,16 +680,54 @@ export interface AdminUserOut extends UserOut {
 export const adminApi = {
   analytics: (days?: number) =>
     apiRequest<AdminAnalytics>("/api/v1/admin/analytics/trends", { query: days ? { days } : undefined }),
+  trends: (days?: number) =>
+    apiRequest<AdminAnalytics>("/api/v1/admin/analytics/trends", { query: days ? { days } : undefined }),
+  topShops: (limit = 10) =>
+    apiRequest<AdminTopShop[]>("/api/v1/admin/analytics/top-shops", { query: { limit } }),
+  recentOrders: (limit = 10) =>
+    apiRequest<AdminRecentOrder[]>("/api/v1/admin/analytics/recent-orders", { query: { limit } }),
+  revenueByCategory: () =>
+    apiRequest<AdminCategoryRevenue[]>("/api/v1/admin/analytics/revenue-by-category"),
   users: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
     apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
+  listUsers: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
+    apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
+  countUsers: () =>
+    apiRequest<AdminUserCounts>("/api/v1/admin/users/count"),
+  setUserActive: (userId: string, body: { is_active: boolean }) =>
+    apiRequest<{ updated: boolean; user_id: string; is_active: boolean }>(
+      `/api/v1/admin/users/${userId}/active`,
+      { method: "PATCH", query: { is_active: body.is_active } },
+    ),
+  changeUserRole: (userId: string, body: { role: string }) =>
+    apiRequest<{ updated: boolean; user_id: string; role: string }>(
+      `/api/v1/admin/users/${userId}/role`,
+      { method: "PATCH", query: { role: body.role } },
+    ),
   updateUser: (userId: string, body: { role?: string; is_active?: boolean }) =>
     apiRequest<AdminUserOut>(`/api/v1/admin/users/${userId}`, { method: "PATCH", body }),
   createUser: (body: { name: string; phone: string; email?: string; password: string; role: string }) =>
     apiRequest<AdminUserOut>("/api/v1/admin/users", { method: "POST", body }),
-  shops: (params: { search?: string; is_verified?: boolean; page?: number; page_size?: number } = {}) =>
-    apiRequest<ShopOut[]>("/api/v1/admin/shops", { query: params }),
+  shops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
+    apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
+  listShops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
+    apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
+  countShops: () =>
+    apiRequest<AdminShopCounts>("/api/v1/admin/shops/count"),
+  verifyShop: (shopId: string, body: { is_verified: boolean }) =>
+    apiRequest<{ updated: boolean; shop_id: string; is_verified: boolean }>(
+      `/api/v1/admin/shops/${shopId}/verify`,
+      { method: "PATCH", query: { verified: body.is_verified } },
+    ),
+  setShopActive: (shopId: string, body: { is_active: boolean }) =>
+    apiRequest<{ updated: boolean; shop_id: string; is_active: boolean }>(
+      `/api/v1/admin/shops/${shopId}/active`,
+      { method: "PATCH", query: { is_active: body.is_active } },
+    ),
   updateShop: (shopId: string, body: { is_verified?: boolean; is_active?: boolean }) =>
     apiRequest<ShopOut>(`/api/v1/admin/shops/${shopId}`, { method: "PATCH", body }),
+  listOrders: (params: { status?: string; page?: number; page_size?: number } = {}) =>
+    apiRequest<AdminOrderOut[]>("/api/v1/admin/orders", { query: params }),
   orders: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/admin/orders", { query: params }),
   loyalty: (userId: string, body: { delta: number; reason: string }) =>
