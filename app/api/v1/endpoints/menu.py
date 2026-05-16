@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +59,7 @@ async def list_items(
     available: bool | None = True,
 ) -> list[MenuItemOut]:
     key = f"menu:{shop_id}:{page}:{page_size}:{category}:{dietary_type}:{available}"
+    logging.debug("Menu list request for shop %s page=%s page_size=%s category=%s available=%s", shop_id, page, page_size, category, available)
     cached = await cache_get_json(key)
     if cached:
         return [MenuItemOut.model_validate(x) for x in cached]

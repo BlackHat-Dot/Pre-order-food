@@ -24,6 +24,10 @@ class Review(Base):
     shop = relationship("Shop")
     order = relationship("Order")
 
+    @property
+    def customer_name(self) -> str | None:
+        return self.customer.name if self.customer else None
+
 
 Index("ix_reviews_shop_id_created_at", Review.shop_id, Review.created_at)
 
