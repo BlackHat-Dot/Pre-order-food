@@ -268,6 +268,8 @@ function ItemDialog({
     description: init?.description ?? "",
     price: init?.price != null ? String(init.price) : "",
     category: init?.category ?? "",
+    dietary_type: init?.dietary_type ?? "veg",
+    prep_time_minutes: init?.prep_time_minutes != null ? String(init.prep_time_minutes) : "15",
     image_url: init?.image_url ?? "",
     is_available: init?.is_available ?? true,
   });
@@ -278,6 +280,8 @@ function ItemDialog({
       description: init?.description ?? "",
       price: init?.price != null ? String(init.price) : "",
       category: init?.category ?? "",
+      dietary_type: init?.dietary_type ?? "veg",
+      prep_time_minutes: init?.prep_time_minutes != null ? String(init.prep_time_minutes) : "15",
       image_url: init?.image_url ?? "",
       is_available: init?.is_available ?? true,
     });
@@ -287,16 +291,33 @@ function ItemDialog({
     mutationFn: () => {
       try {
         const parsedPrice = Number.parseFloat(form.price);
-        console.log("[Menu Item Create/Update]", { isEdit, name: form.name, price: form.price, parsedPrice });
+        const parsedPrepTime = Number.parseInt(form.prep_time_minutes, 10);
+        console.log("[Menu Item Create/Update]", { 
+          isEdit, 
+          name: form.name, 
+          price: form.price, 
+          parsedPrice,
+          dietary_type: form.dietary_type,
+          prep_time_minutes: parsedPrepTime,
+        });
+        
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
           throw new ApiError(400, "Price must be greater than 0");
         }
         if (!form.name.trim()) {
           throw new ApiError(400, "Item name is required");
         }
+        if (Number.isNaN(parsedPrepTime) || parsedPrepTime < 1 || parsedPrepTime > 180) {
+          throw new ApiError(400, "Prep time must be between 1 and 180 minutes");
+        }
+        if (!["veg", "non_veg", "vegan"].includes(form.dietary_type)) {
+          throw new ApiError(400, "Invalid dietary type");
+        }
+        
         const payload = {
           ...form,
           price: parsedPrice,
+          prep_time_minutes: parsedPrepTime,
         };
         console.log("[Menu Item Payload]", payload);
         return isEdit
@@ -358,6 +379,31 @@ function ItemDialog({
               <Input
                 value={form.category ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Dietary Type</Label>
+              <Select value={form.dietary_type} onValueChange={(v) => setForm((f) => ({ ...f, dietary_type: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="veg">Vegetarian</SelectItem>
+                  <SelectItem value="non_veg">Non-Vegetarian</SelectItem>
+                  <SelectItem value="vegan">Vegan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Prep Time (min)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="180"
+                value={form.prep_time_minutes}
+                onChange={(e) => setForm((f) => ({ ...f, prep_time_minutes: e.target.value }))}
               />
             </div>
           </div>
