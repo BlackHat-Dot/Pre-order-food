@@ -569,8 +569,8 @@ export const ordersApi = {
 // ── Payments API ───────────────────────────────────────────────────────────────
 
 export const paymentsApi = {
-  create: (body: { order_id: string; provider?: string }) =>
-    apiRequest<PaymentOut>("/api/v1/payments", { method: "POST", body }),
+  create: (body: { order_id: string }) =>
+    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }), // <-- ADDED /create
   get: (id: string) => apiRequest<PaymentOut>(`/api/v1/payments/${id}`),
   confirm: (id: string, body: { status: string }) =>
     apiRequest<PaymentOut>(`/api/v1/payments/${id}/confirm`, { method: "PATCH", body }),
