@@ -551,11 +551,11 @@ export const menuApi = {
 export const ordersApi = {
   create: (body: {
     shop_id: string;
-    items: CartItem[];
-    notes?: string | null;
-    scheduled_at?: string | null;
-    redeem_loyalty_points?: number; // <-- FIXED NAMING
-    payment_method: string;         // <-- ADDED PAYMENT METHOD
+    items: { item_id: string; variant_id?: string; quantity: number }[];
+    instructions?: string | null;    // <-- Changed from notes
+    scheduled_at?: string | null;    // <-- Backend expects this
+    redeem_loyalty_points?: number;
+    payment_method: string;
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),

@@ -74,15 +74,15 @@ function CheckoutPage() {
           item_id: l.item_id,
           variant_id: l.variant_id ?? undefined,
           quantity: l.quantity,
-          notes: l.notes,
         })),
-        notes: notes || undefined,
-        pickup_time: pickup || undefined,
+        instructions: notes || undefined,    // <-- Map notes to instructions
+        scheduled_at: pickup || undefined,   // <-- Map pickup to scheduled_at
         redeem_loyalty_points: appliedRedeemPoints,
         payment_method: "online",
       });
       return order;
     },
+    
     onSuccess: async (order) => {
       try {
         const pay = await paymentsApi.create({ order_id: order.id });
