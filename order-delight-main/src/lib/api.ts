@@ -551,29 +551,29 @@ export const menuApi = {
 export const ordersApi = {
   create: (body: {
     shop_id: string;
-    items: { item_id: string; variant_id?: string; quantity: number }[];
-    instructions?: string | null;    // <-- Changed from notes
-    scheduled_at?: string | null;    // <-- Backend expects this
+    items: { item_id: string; variant_id?: string; quantity: number; notes?: string }[];
+    instructions?: string | null;
+    scheduled_at?: string | null;
     redeem_loyalty_points?: number;
     payment_method: string;
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),
+    apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }), // Added /customer/me path
   get: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}`),
   updateStatus: (id: string, status: OrderStatus) =>
     apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status } }),
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>(`/api/v1/shops/${shopId}/orders`, { query: params }),
+    apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }), // Changed to match python backend
 };
 
 // ── Payments API ───────────────────────────────────────────────────────────────
 
 export const paymentsApi = {
-  create: (body: { order_id: string }) =>
-    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }), // <-- ADDED /create
-  get: (id: string) => apiRequest<PaymentOut>(`/api/v1/payments/${id}`),
-  confirm: (id: string, body: { status: string }) =>
-    apiRequest<PaymentOut>(`/api/v1/payments/${id}/confirm`, { method: "PATCH", body }),
+  create: (body: { order_id: string; provider?: string }) =>
+    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }), // Added /create
+  get: (id: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${id}`), // Changed to return array and updated path
+  verify: (body: { order_id: string; provider_order_id: string; provider_payment_id: string; signature: string }) =>
+    apiRequest<PaymentOut>("/api/v1/payments/verify", { method: "POST", body }), // Renamed confirm to verify, added missing fields
 };
 
 // ── Reviews API ────────────────────────────────────────────────────────────────
@@ -587,13 +587,8 @@ export const reviewsApi = {
 // ── Loyalty API ────────────────────────────────────────────────────────────────
 
 export const loyaltyApi = {
-  me: () => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me"),
-  transactions: () => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions"),
-  adjust: (customerId: string, body: { shop_id: string; points: number }) =>
-    apiRequest<LoyaltyAccountOut>(`/api/v1/loyalty/admin/adjust/${customerId}`, {
-      method: "POST",
-      query: { shop_id: body.shop_id, points: body.points },
-    }),
+  me: (shop_id: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: { shop_id } }), // Added shop_id param
+  transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }), // Added shop_id param
 };
 
 // ── Admin API ──────────────────────────────────────────────────────────────────
