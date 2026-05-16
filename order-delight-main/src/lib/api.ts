@@ -529,19 +529,29 @@ export const shopsApi = {
 
 export const menuApi = {
   list: (shopId: string) =>
-    apiRequest<MenuItemOut[]>(`/api/v1/shops/${shopId}/menu`, { auth: false }),
-  create: (shopId: string, body: Partial<MenuItemOut>) =>
-    apiRequest<MenuItemOut>(`/api/v1/shops/${shopId}/menu`, { method: "POST", body }),
-  update: (shopId: string, itemId: string, body: Partial<MenuItemOut>) =>
-    apiRequest<MenuItemOut>(`/api/v1/shops/${shopId}/menu/${itemId}`, { method: "PATCH", body }),
+    apiRequest<MenuItemOut[]>(`/api/v1/menu/shops/${shopId}/items`, { auth: false }),
+  create: (shopId: string, body: Partial<MenuItemOut>) => {
+    console.log("[menuApi.create] shopId:", shopId, "body:", body);
+    return apiRequest<MenuItemOut>(`/api/v1/menu/shops/${shopId}/items`, { method: "POST", body });
+  },
+  update: (shopId: string, itemId: string, body: Partial<MenuItemOut>) => {
+    console.log("[menuApi.update] itemId:", itemId, "body:", body);
+    return apiRequest<MenuItemOut>(`/api/v1/menu/items/${itemId}`, { method: "PATCH", body });
+  },
   delete: (shopId: string, itemId: string) =>
-    apiRequest<void>(`/api/v1/shops/${shopId}/menu/${itemId}`, { method: "DELETE" }),
-  addVariant: (shopId: string, itemId: string, body: Partial<MenuItemVariantOut>) =>
-    apiRequest<MenuItemVariantOut>(`/api/v1/shops/${shopId}/menu/${itemId}/variants`, { method: "POST", body }),
-  updateVariant: (shopId: string, itemId: string, variantId: string, body: Partial<MenuItemVariantOut>) =>
-    apiRequest<MenuItemVariantOut>(`/api/v1/shops/${shopId}/menu/${itemId}/variants/${variantId}`, { method: "PATCH", body }),
-  deleteVariant: (shopId: string, itemId: string, variantId: string) =>
-    apiRequest<void>(`/api/v1/shops/${shopId}/menu/${itemId}/variants/${variantId}`, { method: "DELETE" }),
+    apiRequest<void>(`/api/v1/menu/items/${itemId}`, { method: "DELETE" }),
+  listVariants: (itemId: string) =>
+    apiRequest<MenuItemVariantOut[]>(`/api/v1/menu/items/${itemId}/variants`, { auth: false }),
+  addVariant: (shopId: string, itemId: string, body: Partial<MenuItemVariantOut>) => {
+    console.log("[menuApi.addVariant] itemId:", itemId, "body:", body);
+    return apiRequest<MenuItemVariantOut>(`/api/v1/menu/items/${itemId}/variants`, { method: "POST", body });
+  },
+  updateVariant: (variantId: string, body: Partial<MenuItemVariantOut>) => {
+    console.log("[menuApi.updateVariant] variantId:", variantId, "body:", body);
+    return apiRequest<MenuItemVariantOut>(`/api/v1/menu/variants/${variantId}`, { method: "PATCH", body });
+  },
+  deleteVariant: (variantId: string) =>
+    apiRequest<void>(`/api/v1/menu/variants/${variantId}`, { method: "DELETE" }),
 };
 
 // ── Orders API ─────────────────────────────────────────────────────────────────

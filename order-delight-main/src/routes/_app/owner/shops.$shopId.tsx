@@ -315,7 +315,10 @@ function ItemDialog({
     },
     onError: (e) => {
       console.error("[Menu Item Save Error]", e);
-      toast.error(e instanceof ApiError ? e.message : "Failed");
+      const errorMsg = e instanceof ApiError 
+        ? e.message 
+        : (e instanceof Error ? e.message : "Failed");
+      toast.error(errorMsg);
     },
   });
 
@@ -388,15 +391,11 @@ function ItemDialog({
 
 function VariantsDialog({ item, onClose }: { item: MenuItemOut | null; onClose: () => void }) {
   const qc = useQueryClient();
-  const shopId = Route.useParams().shopId;
   const { data: variants } = useQuery({
     queryKey: ["item", item?.id, "variants"],
     queryFn: () => {
       if (!item) return Promise.resolve([]);
-      return menuApi.list(shopId).then(items => {
-        const found = items.find(i => i.id === item.id);
-        return found?.variants ?? [];
-      });
+      return menuApi.listVariants(item.id);
     },
     enabled: !!item,
   });
@@ -414,7 +413,7 @@ function VariantsDialog({ item, onClose }: { item: MenuItemOut | null; onClose: 
         if (!name.trim()) {
           throw new ApiError(400, "Variant name is required");
         }
-        return menuApi.addVariant(shopId, item!.id, { name, price: parsedPrice, is_available: true });
+        return menuApi.addVariant("", item!.id, { name, price: parsedPrice, is_available: true });
       } catch (err) {
         console.error("[Variant Create Error]", err);
         throw err;
@@ -433,7 +432,7 @@ function VariantsDialog({ item, onClose }: { item: MenuItemOut | null; onClose: 
     },
   });
   const remove = useMutation({
-    mutationFn: (id: string) => menuApi.deleteVariant(shopId, item!.id, id),
+    mutationFn: (variantId: string) => menuApi.deleteVariant(variantId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["item", item!.id, "variants"] });
       toast.success("Variant deleted");
