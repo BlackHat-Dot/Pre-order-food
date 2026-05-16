@@ -30,12 +30,14 @@ function OrderDetail() {
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
-    queryFn: () => ordersApi.get(orderId),
+    queryFn: () => ordersApi.get(orderId!),
+    enabled: !!orderId,
     refetchInterval: 15_000,
   });
   const { data: payments } = useQuery({
     queryKey: ["order", orderId, "payments"],
-    queryFn: () => paymentsApi.list(orderId),
+    queryFn: () => paymentsApi.get(orderId!),
+    enabled: !!orderId,
   });
 
   const cancel = useMutation({
@@ -48,12 +50,15 @@ function OrderDetail() {
   });
 
   const submitReview = useMutation({
-    mutationFn: () => reviewsApi.create({ order_id: order!.id, rating, comment: comment || undefined }),
+    mutationFn: () => {
+      if (!order) throw new ApiError(400, "No order available");
+      return reviewsApi.create({ order_id: order.id, rating, comment: comment || undefined });
+    },
     onSuccess: () => {
       toast.success("Review submitted");
       setReviewOpen(false);
       setComment("");
-      qc.invalidateQueries({ queryKey: ["shop", order!.shop_id, "reviews"] });
+      if (order) qc.invalidateQueries({ queryKey: ["shop", order.shop_id, "reviews"] });
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Failed"),
   });
@@ -62,7 +67,7 @@ function OrderDetail() {
   if (!order) return null;
 
   const canCancel = order.status === "pending" || order.status === "confirmed";
-  const canReview = order.status === "completed" || order.status === "ready" || order.payment_status === "paid";
+  const canReview = order.status === "delivered" || order.status === "ready" || order.payment?.status === "paid";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -75,7 +80,7 @@ function OrderDetail() {
           <div className="flex items-start justify-between">
             <div>
               <p className="font-mono text-xs text-muted-foreground">#{order.id.slice(0, 8)}</p>
-              <h1 className="text-2xl font-bold">{formatCurrency(order.total)}</h1>
+              <h1 className="text-2xl font-bold">{formatCurrency(order.total_amount)}</h1>
               <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
             </div>
             <StatusBadge status={order.status} />
@@ -111,7 +116,7 @@ function OrderDetail() {
             {payments.map((p) => (
               <div key={p.id} className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {p.method ?? "Payment"} · {p.status}
+                  {p.provider ?? "Payment"} · {p.status}
                 </span>
                 <span className="font-medium">{formatCurrency(p.amount)}</span>
               </div>

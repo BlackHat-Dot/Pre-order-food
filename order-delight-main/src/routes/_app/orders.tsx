@@ -15,7 +15,7 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "pending", label: "Pending" },
   { value: "preparing", label: "Preparing" },
   { value: "ready", label: "Ready" },
-  { value: "completed", label: "Completed" },
+  { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -24,7 +24,7 @@ function OrdersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["my-orders", status],
     queryFn: () =>
-      ordersApi.myOrders({ page: 1, page_size: 50, status: status === "all" ? undefined : status }),
+      ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }), // <-- Changed from myOrders to list
   });
 
   return (
@@ -70,7 +70,7 @@ function OrdersPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-base font-semibold">{formatCurrency(o.total)}</p>
+                    <p className="text-base font-semibold">{formatCurrency(o.total_amount)}</p>
                   </div>
                 </CardContent>
               </Card>

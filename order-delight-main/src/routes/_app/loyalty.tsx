@@ -24,7 +24,7 @@ function LoyaltyPage() {
   });
   const { data: txns } = useQuery({
     queryKey: ["loyalty", "txns", shopId],
-    queryFn: () => loyaltyApi.myTransactions(shopId),
+    queryFn: () => loyaltyApi.transactions(shopId),
     enabled: !!shopId,
   });
 
@@ -54,14 +54,9 @@ function LoyaltyPage() {
             />
             <p className="text-sm text-muted-foreground">Loyalty balance</p>
             <p className="mt-1 text-4xl font-bold">
-              {account?.points ?? 0}{" "}
+              {account?.points_balance ?? 0}{" "}
               <span className="text-base font-medium text-muted-foreground">pts</span>
             </p>
-            {account?.tier && (
-              <p className="mt-1 text-xs uppercase tracking-wider text-primary">
-                {account.tier} tier
-              </p>
-            )}
           </div>
           <Sparkles className="h-12 w-12 text-primary" />
         </CardContent>
@@ -101,9 +96,9 @@ function LoyaltyPage() {
                 className="flex items-center justify-between border-b border-border/60 py-2 text-sm last:border-0"
               >
                 <div>
-                  <p className="font-medium capitalize">{t.type}</p>
+                  <p className="font-medium capitalize">{t.action}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t.reason ?? ""} · {formatDate(t.created_at)}
+                    {t.order_id ? `Order ${t.order_id}` : "Loyalty"} · {formatDate(t.created_at)}
                   </p>
                 </div>
                 <span

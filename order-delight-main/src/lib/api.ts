@@ -239,6 +239,7 @@ export interface MenuItemVariantOut {
   id: string;
   name: string;
   price: number;
+  prep_time_minutes: number;
   is_available: boolean;
 }
 
@@ -285,10 +286,12 @@ export interface OrderItemOut {
 export interface PaymentOut {
   id: string;
   order_id: string;
+  provider: string;
+  provider_order_id: string | null;
+  provider_payment_id: string | null;
   amount: number;
   currency: string;
   status: string;
-  provider: string;
   created_at: string;
 }
 
@@ -323,20 +326,20 @@ export interface ReviewOut {
 
 export interface LoyaltyAccountOut {
   id: string;
-  user_id: string;
+  customer_id: string;
+  shop_id: string;
   points_balance: number;
-  total_earned: number;
-  total_redeemed: number;
+  tier: string;
+  created_at: string;
   updated_at: string;
 }
 
 export interface LoyaltyTransactionOut {
   id: string;
   account_id: string;
-  delta: number;
-  balance_after: number;
-  reason: string;
   order_id: string | null;
+  points: number;
+  action: string;
   created_at: string;
 }
 
@@ -562,6 +565,7 @@ export const ordersApi = {
   get: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}`),
   updateStatus: (id: string, status: OrderStatus) =>
     apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status } }),
+  cancel: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}/cancel`, { method: "PATCH" }),
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }), // Changed to match python backend
 };
@@ -589,6 +593,8 @@ export const reviewsApi = {
 export const loyaltyApi = {
   me: (shop_id: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: { shop_id } }), // Added shop_id param
   transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }), // Added shop_id param
+  redeem: (body: { shop_id: string; points: number }) =>
+    apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me/redeem", { method: "POST", body }),
 };
 
 // ── Admin API ──────────────────────────────────────────────────────────────────

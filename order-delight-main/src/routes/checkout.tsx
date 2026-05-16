@@ -56,7 +56,7 @@ function CheckoutPage() {
   const discountPerPoint = shop?.loyalty_discount_per_point ?? 0.1;
   const maxRedeemByTotal = Math.floor(total / Math.max(discountPerPoint, 0.01));
   const parsedRedeemPoints = Math.max(0, parseInt(redeemPoints, 10) || 0);
-  const appliedRedeemPoints = useLoyalty ? Math.min(parsedRedeemPoints, loyalty?.points ?? 0, maxRedeemByTotal) : 0;
+  const appliedRedeemPoints = useLoyalty ? Math.min(parsedRedeemPoints, loyalty?.points_balance ?? 0, maxRedeemByTotal) : 0;
   const loyaltyDiscount = appliedRedeemPoints * discountPerPoint;
   const payableTotal = Math.max(total - loyaltyDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
@@ -82,7 +82,7 @@ function CheckoutPage() {
       });
       return order;
     },
-    
+
     onSuccess: async (order) => {
       try {
         const pay = await paymentsApi.create({ order_id: order.id });
@@ -180,7 +180,7 @@ function CheckoutPage() {
               {loyalty && (
                 <div className="space-y-2 rounded-md border border-border p-3">
                   <p className="text-xs text-muted-foreground">
-                    Shop loyalty balance: <span className="font-semibold text-primary">{loyalty.points}</span> points
+                    Shop loyalty balance: <span className="font-semibold text-primary">{loyalty.points_balance}</span> points
                     · 1 point = {formatCurrency(discountPerPoint)} discount.
                   </p>
                   <div className="flex items-center gap-2">
@@ -195,11 +195,11 @@ function CheckoutPage() {
                   </div>
                   {useLoyalty && (
                     <div className="space-y-1">
-                      <Label>Points to use (max {Math.min(loyalty.points, maxRedeemByTotal)})</Label>
+                      <Label>Points to use (max {Math.min(loyalty.points_balance, maxRedeemByTotal)})</Label>
                       <Input
                         type="number"
                         min={0}
-                        max={Math.min(loyalty.points, maxRedeemByTotal)}
+                        max={Math.min(loyalty.points_balance, maxRedeemByTotal)}
                         value={redeemPoints}
                         placeholder="0"
                         onChange={(e) => {

@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle } from "lucide-react";
 import { menuApi, reviewsApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
@@ -102,11 +102,13 @@ function ShopDetail() {
     ? shop.image_url
     : getFallbackDetailImage(shop.id, shop.name);
 
-  const grouped = (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
-    const k = it.category || "Menu";
-    (acc[k] ||= []).push(it);
-    return acc;
-  }, {});
+  const grouped = useMemo(() => {
+    return (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
+      const key = it.category || "Menu";
+      (acc[key] ||= []).push(it);
+      return acc;
+    }, {});
+  }, [items]);
 
   return (
     <div className="min-h-screen">
@@ -255,16 +257,14 @@ function ShopDetail() {
                           </div>
                         </div>
                         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                          {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : null}
+                          <img
+                            src={item.image_url ?? getFallbackDetailImage(item.id, item.name)}
+                            alt={item.name || "Menu item"}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = getFallbackDetailImage(item.id, item.name);
+                            }}
+                          />
                         </div>
                       </Card>
                     ))}
@@ -320,29 +320,32 @@ function ShopDetail() {
 }
 
 function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: () => void }) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: variants } = useQuery({
     queryKey: ["item", item?.id, "variants"],
-    queryFn: () => menuApi.listVariants(item!.id),
+    queryFn: () => (item ? menuApi.listVariants(item.id) : Promise.resolve([])),
     enabled: !!item,
   });
   const [variantId, setVariantId] = useState<string>("");
   const [qty, setQty] = useState(1);
 
+  useEffect(() => {
+    if (!item) return;
+    setQty(1);
+    setVariantId(variants?.[0]?.id ?? "");
+  }, [item?.id, variants]);
+
   if (!item) return null;
-  const v: MenuItemVariantOut | null = variants?.find((x) => x.id === variantId) ?? null;
-  const price = v?.price ?? item.price;
+  const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
+  const price = selectedVariant?.price ?? item.price;
 
   function add() {
-    cart.addItem(item!, v, qty);
-    toast.success(`Added ${qty} × ${item!.name}`);
+    if (!item) return;
+    cart.addItem(item, selectedVariant, qty);
+    toast.success(`Added ${qty} × ${item.name}`);
     onClose();
     setQty(1);
     setVariantId("");
-    if (!user) {
-      // ok — they can still browse cart
-    }
   }
 
   return (

@@ -176,13 +176,13 @@ function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({
     queryKey: ["shop", shopId, "items", "owner"],
-    queryFn: () => menuApi.list(shopId),
+    queryFn: () => menuApi.listItems(shopId),
   });
   const [editing, setEditing] = useState<MenuItemOut | "new" | null>(null);
   const [variantsFor, setVariantsFor] = useState<MenuItemOut | null>(null);
 
   const remove = useMutation({
-    mutationFn: (id: string) => menuApi.delete(shopId, id),
+    mutationFn: (id: string) => menuApi.deleteItem(id),
     onSuccess: () => {
       toast.success("Item deleted");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "items", "owner"] });
@@ -321,8 +321,8 @@ function ItemDialog({
         };
         console.log("[Menu Item Payload]", payload);
         return isEdit
-          ? menuApi.update(shopId, (editing as MenuItemOut).id, payload)
-          : menuApi.create(shopId, payload);
+          ? menuApi.updateItem((editing as MenuItemOut).id, payload)
+          : menuApi.createItem(shopId, payload);
       } catch (err) {
         console.error("[Menu Item Error before API]", err);
         throw err;
@@ -459,7 +459,12 @@ function VariantsDialog({ item, onClose }: { item: MenuItemOut | null; onClose: 
         if (!name.trim()) {
           throw new ApiError(400, "Variant name is required");
         }
-        return menuApi.addVariant("", item!.id, { name, price: parsedPrice, is_available: true });
+        return menuApi.createVariant(item.id, {
+          name,
+          price: parsedPrice,
+          prep_time_minutes: 1,
+          is_available: true,
+        });
       } catch (err) {
         console.error("[Variant Create Error]", err);
         throw err;
@@ -602,7 +607,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                     {o.items?.length ?? 0} items · {formatDate(o.created_at)}
                   </p>
                 </div>
-                <span className="font-semibold">{formatCurrency(o.total)}</span>
+                <span className="font-semibold">{formatCurrency(o.total_amount)}</span>
                 <Select
                   value={o.status}
                   disabled={updatingOrderId !== null}
