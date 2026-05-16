@@ -187,7 +187,13 @@ async def shop_orders(
         raise HTTPException(404, "Shop not found")
     if user.role != "admin" and shop.owner_id != user.id:
         raise HTTPException(403, "Forbidden")
-    stmt = select(Order).where(Order.shop_id == shop_id).options(selectinload(Order.items))
+    # Modify the base statement to exclude orders where the payment was abandoned
+    from sqlalchemy import or_
+    stmt = select(Order).where(
+        Order.shop_id == shop_id,
+        # Only show orders that are fully paid, OR if you support Cash on Delivery
+        or_(Order.payment_status == "paid", Order.payment_method == "cod")
+    ).options(selectinload(Order.items))
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
     stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
@@ -237,12 +243,34 @@ async def cancel_order(
             raise HTTPException(403, "Forbidden")
     if order.status in {"completed", "cancelled"}:
         raise HTTPException(400, "Cannot cancel this order")
+        
     order.status = "cancelled"
     order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
+
+    # --- NEW: Refund loyalty points if the order is cancelled ---
+    if order.loyalty_points_used > 0:
+        from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
+        account_stmt = select(LoyaltyAccount).where(
+            LoyaltyAccount.customer_id == order.customer_id,
+            LoyaltyAccount.shop_id == order.shop_id,
+        )
+        account = (await db.execute(account_stmt)).scalar_one_or_none()
+        if account:
+            account.points_balance += order.loyalty_points_used
+            db.add(
+                LoyaltyTransaction(
+                    id=new_id(),
+                    account_id=account.id,
+                    order_id=order.id,
+                    points=order.loyalty_points_used,
+                    action="refunded",
+                )
+            )
+    # ------------------------------------------------------------
+
     await db.commit()
     await db.refresh(order)
     return await _order_out(db, order.id)
-
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_order(
