@@ -199,16 +199,16 @@ interface BackendShopOut {
   description: string | null;
   address_line: string;
   city: string;
-  state: string | null;
-  pincode: string | null;
+  state: string;
+  pincode: string;
   category: string;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
   is_open: boolean;
   is_accepting_orders: boolean;
-  rating: number;
-  total_reviews: number;
+  rating_avg: number;
+  rating_count: number;
   loyalty_discount_per_point: number;
   created_at: string;
 }
@@ -228,8 +228,8 @@ function mapShopFromBackend(s: BackendShopOut): ShopOut {
     is_active: s.is_active,
     is_open: s.is_open,
     is_accepting_orders: s.is_accepting_orders,
-    rating: s.rating,
-    total_reviews: s.total_reviews,
+    rating: s.rating_avg,
+    total_reviews: s.rating_count,
     loyalty_discount_per_point: s.loyalty_discount_per_point,
     created_at: s.created_at,
   };
@@ -247,7 +247,7 @@ export interface MenuItemOut {
   shop_id: string;
   name: string;
   description: string | null;
-  base_price: number;
+  price: number;
   image_url: string | null;
   is_available: boolean;
   category: string | null;
@@ -528,28 +528,20 @@ export const shopsApi = {
 // ── Menu API ───────────────────────────────────────────────────────────────────
 
 export const menuApi = {
-  list: (shopId: string) =>
+  listItems: (shopId: string) =>
     apiRequest<MenuItemOut[]>(`/api/v1/menu/shops/${shopId}/items`, { auth: false }),
-  create: (shopId: string, body: Partial<MenuItemOut>) => {
-    console.log("[menuApi.create] shopId:", shopId, "body:", body);
-    return apiRequest<MenuItemOut>(`/api/v1/menu/shops/${shopId}/items`, { method: "POST", body });
-  },
-  update: (shopId: string, itemId: string, body: Partial<MenuItemOut>) => {
-    console.log("[menuApi.update] itemId:", itemId, "body:", body);
-    return apiRequest<MenuItemOut>(`/api/v1/menu/items/${itemId}`, { method: "PATCH", body });
-  },
-  delete: (shopId: string, itemId: string) =>
+  createItem: (shopId: string, body: Partial<MenuItemOut>) =>
+    apiRequest<MenuItemOut>(`/api/v1/menu/shops/${shopId}/items`, { method: "POST", body }),
+  updateItem: (itemId: string, body: Partial<MenuItemOut>) =>
+    apiRequest<MenuItemOut>(`/api/v1/menu/items/${itemId}`, { method: "PATCH", body }),
+  deleteItem: (itemId: string) =>
     apiRequest<void>(`/api/v1/menu/items/${itemId}`, { method: "DELETE" }),
   listVariants: (itemId: string) =>
     apiRequest<MenuItemVariantOut[]>(`/api/v1/menu/items/${itemId}/variants`, { auth: false }),
-  addVariant: (shopId: string, itemId: string, body: Partial<MenuItemVariantOut>) => {
-    console.log("[menuApi.addVariant] itemId:", itemId, "body:", body);
-    return apiRequest<MenuItemVariantOut>(`/api/v1/menu/items/${itemId}/variants`, { method: "POST", body });
-  },
-  updateVariant: (variantId: string, body: Partial<MenuItemVariantOut>) => {
-    console.log("[menuApi.updateVariant] variantId:", variantId, "body:", body);
-    return apiRequest<MenuItemVariantOut>(`/api/v1/menu/variants/${variantId}`, { method: "PATCH", body });
-  },
+  createVariant: (itemId: string, body: Partial<MenuItemVariantOut>) =>
+    apiRequest<MenuItemVariantOut>(`/api/v1/menu/items/${itemId}/variants`, { method: "POST", body }),
+  updateVariant: (variantId: string, body: Partial<MenuItemVariantOut>) =>
+    apiRequest<MenuItemVariantOut>(`/api/v1/menu/variants/${variantId}`, { method: "PATCH", body }),
   deleteVariant: (variantId: string) =>
     apiRequest<void>(`/api/v1/menu/variants/${variantId}`, { method: "DELETE" }),
 };
@@ -562,7 +554,8 @@ export const ordersApi = {
     items: CartItem[];
     notes?: string | null;
     scheduled_at?: string | null;
-    loyalty_points_to_use?: number;
+    redeem_loyalty_points?: number; // <-- FIXED NAMING
+    payment_method: string;         // <-- ADDED PAYMENT METHOD
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),
@@ -586,9 +579,9 @@ export const paymentsApi = {
 // ── Reviews API ────────────────────────────────────────────────────────────────
 
 export const reviewsApi = {
-  list: (shopId: string) => apiRequest<ReviewOut[]>(`/api/v1/shops/${shopId}/reviews`, { auth: false }),
-  create: (shopId: string, body: { order_id: string; rating: number; comment?: string | null }) =>
-    apiRequest<ReviewOut>(`/api/v1/shops/${shopId}/reviews`, { method: "POST", body }),
+  list: (shopId: string) => apiRequest<ReviewOut[]>(`/api/v1/reviews/shops/${shopId}`, { auth: false }),
+  create: (body: { order_id: string; rating: number; comment?: string | null }) =>
+    apiRequest<ReviewOut>(`/api/v1/reviews`, { method: "POST", body }),
 };
 
 // ── Loyalty API ────────────────────────────────────────────────────────────────

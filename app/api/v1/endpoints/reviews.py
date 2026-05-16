@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.deps import require_roles
 from app.db.session import get_db
@@ -38,17 +41,29 @@ async def create_review(
     if existing:
         raise HTTPException(409, "Review already submitted for this order")
 
+    logging.debug("Creating review for order %s customer %s shop %s", order.id, order.customer_id, order.shop_id)
     review = Review(id=new_id(), order_id=order.id, shop_id=order.shop_id, customer_id=order.customer_id, rating=payload.rating, comment=payload.comment)
     db.add(review)
     await db.commit()
-    await db.refresh(review)
+    result = await db.execute(
+        select(Review).options(selectinload(Review.customer)).where(Review.id == review.id)
+    )
+    review = result.scalar_one()
     await _recompute_shop_rating(db, order.shop_id)
     return ReviewOut.model_validate(review)
 
 
 @router.get("/shops/{shop_id}", response_model=list[ReviewOut])
 async def list_reviews(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)], page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)) -> list[ReviewOut]:
-    stmt = select(Review).where(Review.shop_id == shop_id).order_by(Review.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    stmt = (
+        select(Review)
+        .options(selectinload(Review.customer))
+        .where(Review.shop_id == shop_id)
+        .order_by(Review.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    logging.debug("Listing reviews for shop %s page=%s page_size=%s", shop_id, page, page_size)
     rows = (await db.execute(stmt)).scalars().all()
     return [ReviewOut.model_validate(r) for r in rows]
 

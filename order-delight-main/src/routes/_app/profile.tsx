@@ -502,7 +502,7 @@ function ProfilePage() {
                     <Input
                       id="email-pwd-post"
                       type="password"
-                      autoComplete="current-password"
+                      autoComplete="off"
                       placeholder="Your current password"
                       value={emailCurrentPwd}
                       onChange={(e) => setEmailCurrentPwd(e.target.value)}
@@ -601,7 +601,7 @@ function ProfilePage() {
                   <Input
                     id="phone-pwd"
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="off"
                     placeholder="Confirm with your current password"
                     value={phonePwd}
                     onChange={(e) => setPhonePwd(e.target.value)}

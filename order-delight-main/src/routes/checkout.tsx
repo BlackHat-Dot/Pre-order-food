@@ -79,6 +79,7 @@ function CheckoutPage() {
         notes: notes || undefined,
         pickup_time: pickup || undefined,
         redeem_loyalty_points: appliedRedeemPoints,
+        payment_method: "online",
       });
       return order;
     },

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronLeft, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle } from "lucide-react";
-import { menuApi, reviewsApi, shopsApi, type MenuItemOut, type VariantOut } from "@/lib/api";
+import { menuApi, reviewsApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,18 +43,28 @@ function getFallbackDetailImage(shopId: string, shopName: string) {
 }
 
 function ShopDetail() {
-  const { shopId } = Route.useParams();
+  const params = Route.useParams() as { shopId: string };
+  const { shopId } = params;
   const { count } = useCart();
   const [heroImageFailed, setHeroImageFailed] = useState(false);
-  const { data: shop, isLoading } = useQuery({
+  const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
   });
-  const { data: items, isLoading: itemsLoading } = useQuery({
+  const {
+    data: items,
+    isLoading: itemsLoading,
+    isError: itemsError,
+    error: itemsErrorObj,
+  } = useQuery<MenuItemOut[], Error>({
     queryKey: ["shop", shopId, "items"],
     queryFn: () => menuApi.listItems(shopId),
   });
-  const { data: reviews } = useQuery({
+  const {
+    data: reviews,
+    isError: reviewsError,
+    error: reviewsErrorObj,
+  } = useQuery<ReviewOut[], Error>({
     queryKey: ["shop", shopId, "reviews"],
     queryFn: () => reviewsApi.list(shopId),
   });
@@ -68,6 +78,21 @@ function ShopDetail() {
         <div className="mx-auto max-w-6xl space-y-4 px-4 py-8">
           <Skeleton className="h-48 w-full rounded-2xl" />
           <Skeleton className="h-8 w-1/3" />
+        </div>
+      </div>
+    );
+  }
+  if (shopError) {
+    return (
+      <div className="min-h-screen">
+        <PublicNav />
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <Card className="border-destructive/40 bg-destructive/10">
+            <CardContent className="py-10 text-center text-destructive">
+              <p className="text-lg font-semibold">Failed to load shop details.</p>
+              <p>{shopErrorObj instanceof Error ? shopErrorObj.message : "Please try again later."}</p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -127,6 +152,7 @@ function ShopDetail() {
                   <span className="flex items-center gap-1">
                     <Star className="h-3 w-3 fill-current text-primary" />
                     {Number(shop.rating).toFixed(1)}
+                    <span className="text-[11px] text-muted-foreground">({shop.total_reviews} reviews)</span>
                   </span>
                 )}
               </div>
@@ -182,6 +208,13 @@ function ShopDetail() {
           <TabsContent value="menu" className="mt-6 space-y-8">
             {itemsLoading ? (
               <Skeleton className="h-32 w-full" />
+            ) : itemsError ? (
+              <Card className="border-destructive/40 bg-destructive/10">
+                <CardContent className="py-10 text-center text-destructive">
+                  <p className="text-lg font-semibold">Unable to load menu.</p>
+                  <p>{itemsErrorObj instanceof Error ? itemsErrorObj.message : "Please try again later."}</p>
+                </CardContent>
+              </Card>
             ) : !items || items.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="py-10 text-center text-muted-foreground">
@@ -241,7 +274,14 @@ function ShopDetail() {
             )}
           </TabsContent>
           <TabsContent value="reviews" className="mt-6 space-y-3">
-            {!reviews || reviews.length === 0 ? (
+            {reviewsError ? (
+              <Card className="border-destructive/40 bg-destructive/10">
+                <CardContent className="py-10 text-center text-destructive">
+                  <p className="text-lg font-semibold">Unable to load reviews.</p>
+                  <p>{reviewsErrorObj instanceof Error ? reviewsErrorObj.message : "Please try again later."}</p>
+                </CardContent>
+              </Card>
+            ) : !reviews || reviews.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="py-10 text-center text-muted-foreground">
                   No reviews yet.
@@ -291,7 +331,7 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
   const [qty, setQty] = useState(1);
 
   if (!item) return null;
-  const v: VariantOut | null = variants?.find((x) => x.id === variantId) ?? null;
+  const v: MenuItemVariantOut | null = variants?.find((x) => x.id === variantId) ?? null;
   const price = v?.price ?? item.price;
 
   function add() {

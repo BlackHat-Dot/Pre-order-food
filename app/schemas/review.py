@@ -23,6 +23,7 @@ class ReviewOut(BaseModel):
     rating: int
     comment: str | None
     created_at: datetime
+    customer_name: str | None = None
 
     model_config = {"from_attributes": True}
 
