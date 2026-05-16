@@ -608,7 +608,7 @@ export interface AdminUserOut extends UserOut {
 
 export const adminApi = {
   analytics: (days?: number) =>
-    apiRequest<AdminAnalytics>("/api/v1/admin/analytics", { query: days ? { days } : undefined }),
+    apiRequest<AdminAnalytics>("/api/v1/admin/analytics/trends", { query: days ? { days } : undefined }),
   users: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
     apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
   updateUser: (userId: string, body: { role?: string; is_active?: boolean }) =>
