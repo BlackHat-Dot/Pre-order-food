@@ -37,6 +37,7 @@ function CheckoutPage() {
   const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState<string>("");
+  const [finalAmount, setFinalAmount] = useState<number>(0);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -86,9 +87,12 @@ function CheckoutPage() {
     onSuccess: async (order) => {
       try {
         const pay = await paymentsApi.create({ order_id: order.id });
+        setFinalAmount(order.total_price); // <--- Save the true backend price!
         setPendingOrderId(order.id);
-        setProviderOrderId(pay.provider_order_id ?? null);
-        setProviderPaymentId(pay.provider_payment_id ?? `mock_pay_${order.id}`);
+        
+        // Force mock strings so the backend NEVER gets a null value
+        setProviderOrderId(pay.provider_order_id || `mock_order_${order.id}`);
+        setProviderPaymentId(pay.provider_payment_id || `mock_pay_${order.id}`);
       } catch (err) {
         await ordersApi.cancel(order.id).catch(() => {});
         toast.error(err instanceof ApiError ? err.message : "Failed to start payment");
@@ -99,13 +103,10 @@ function CheckoutPage() {
 
   const verify = useMutation({
     mutationFn: async () => {
-      if (!pendingOrderId || !providerOrderId || !providerPaymentId) {
-        throw new ApiError(400, "Invalid payment state");
-      }
       await paymentsApi.verify({
-        order_id: pendingOrderId,
-        provider_order_id: providerOrderId,
-        provider_payment_id: providerPaymentId,
+        order_id: pendingOrderId!,
+        provider_order_id: providerOrderId || `mock_order_${pendingOrderId}`,
+        provider_payment_id: providerPaymentId || `mock_pay_${pendingOrderId}`,
         signature: "mock_signature",
       });
     },
@@ -274,11 +275,13 @@ function CheckoutPage() {
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount</span>
-              <span className="font-semibold">{formatCurrency(payableTotal)}</span>
+              <span className="font-semibold">{formatCurrency(finalAmount)}</span> {/* <-- Changed from payableTotal */}
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted-foreground">Reference</span>
-              <span className="max-w-[200px] truncate font-mono text-xs">{providerPaymentId}</span>
+              <span className="max-w-[200px] truncate font-mono text-xs">
+                {providerPaymentId || "mock_payment"}
+              </span>
             </div>
           </div>
           <DialogFooter>

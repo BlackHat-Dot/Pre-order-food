@@ -300,8 +300,8 @@ export interface OrderOut {
   shop_id: string;
   customer_id: string;
   status: OrderStatus;
-  total_amount: number;
-  notes: string | null;
+  total_price: number;       // <-- Changed from total_amount
+  instructions: string | null; // <-- Changed from notes to match backend
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
