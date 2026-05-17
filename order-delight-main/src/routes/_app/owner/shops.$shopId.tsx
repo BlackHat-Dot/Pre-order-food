@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy} from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -79,6 +79,19 @@ function OwnerShop() {
             </div>
             <p className="text-sm text-muted-foreground">{shop.cuisine ?? "—"}</p>
           </div>
+          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-mono">ID: {shop.id}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shop.id);
+                  toast.success("Shop ID copied to clipboard!");
+                }}
+                className="rounded-md p-1 hover:bg-muted hover:text-foreground transition-colors"
+                title="Copy Shop ID"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Open</span>

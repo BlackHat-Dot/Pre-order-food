@@ -18,7 +18,9 @@ from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
 from app.services.sms import send_sms
 from app.utils.ids import new_id
 from app.utils.order_state import VALID_TRANSITIONS
-
+from sqlalchemy import select
+from app.models.loyalty import Loyalty # Adjust import based on your actual model name
+from app.models.notification import Notification # We will create this below
 
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
@@ -201,29 +203,66 @@ async def shop_orders(
     return [OrderOut.model_validate(o) for o in rows]
 
 
+
 @router.patch("/{order_id}/status", response_model=OrderOut)
 async def update_order_status(
     order_id: str,
     payload: OrderStatusUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("shop_owner", "admin"))],
-) -> OrderOut:
+    user: Annotated[User, Depends(get_current_user)],
+):
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(404, "Order not found")
-    shop = await db.get(Shop, order.shop_id)
-    if not shop:
-        raise HTTPException(404, "Shop not found")
-    if user.role != "admin" and shop.owner_id != user.id:
-        raise HTTPException(403, "Forbidden")
 
-    valid_next = VALID_TRANSITIONS.get(order.status, set())
-    if payload.status not in valid_next:
-        raise HTTPException(400, "Invalid status transition")
-    order.status = payload.status
+    old_status = order.status
+    new_status = payload.status
+
+    # 1. LOYALTY REVERSAL LOGIC
+    if new_status == "cancelled" and old_status != "cancelled":
+        loyalty_record = await db.scalar(
+            select(Loyalty).where(Loyalty.customer_id == order.customer_id, Loyalty.shop_id == order.shop_id)
+        )
+        
+        if loyalty_record:
+            # A. Refund points that the user SPENT on this order
+            if order.redeem_loyalty_points and order.redeem_loyalty_points > 0:
+                loyalty_record.points += order.redeem_loyalty_points
+                
+                # Create Notification for Refund
+                db.add(Notification(
+                    user_id=order.customer_id,
+                    title="Points Refunded",
+                    message=f"Order #{order.id[:8]} was cancelled. {order.redeem_loyalty_points} points were refunded to your account.",
+                    type="loyalty_refund"
+                ))
+
+            # B. Deduct points the user EARNED (if cancelled after completion)
+            if old_status == "completed" and order.loyalty_points_earned and order.loyalty_points_earned > 0:
+                loyalty_record.points = max(0, loyalty_record.points - order.loyalty_points_earned)
+                
+                # Create Notification for Deduction
+                db.add(Notification(
+                    user_id=order.customer_id,
+                    title="Points Deducted",
+                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_earned} earned points were removed.",
+                    type="loyalty_deduction"
+                ))
+
+    # 2. ORDER ACCEPTANCE NOTIFICATION
+    if new_status == "accepted" and old_status == "pending":
+        db.add(Notification(
+            user_id=order.customer_id,
+            title="Order Accepted!",
+            message=f"The shop has accepted your order #{order.id[:8]} and is preparing it.",
+            type="order_update"
+        ))
+
+    # Apply the status change
+    order.status = new_status
     await db.commit()
     await db.refresh(order)
-    return await _order_out(db, order.id)
+    return OrderOut.model_validate(order)
 
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)

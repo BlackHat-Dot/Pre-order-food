@@ -51,7 +51,7 @@ interface RequestOptions {
   isForm?: boolean;
 }
 
-async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const {
     method = "GET",
     body,

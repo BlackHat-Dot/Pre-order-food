@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, Search, Star, MapPin, Phone, ChevronLeft, ChevronRight, Store } from "lucide-react";
+import { ShieldCheck, Search, Star, Copy, MapPin, Phone, ChevronLeft, ChevronRight, Store } from "lucide-react";
 import { adminApi, ApiError, type AdminShopOut } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +38,20 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted">
             <Store className="h-5 w-5 text-muted-foreground" />
           </div>
+
+          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-mono">ID: {s.id}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(s.id);
+                  toast.success("Shop ID copied to clipboard!");
+                }}
+                className="rounded-md p-1 hover:bg-muted hover:text-foreground transition-colors"
+                title="Copy Shop ID"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-1">
