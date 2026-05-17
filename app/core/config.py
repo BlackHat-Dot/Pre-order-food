@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_POSTGRES_URL = "postgresql://username:password@localhost:5432/preorder_db"
+DEFAULT_POSTGRES_URL = "postgresql://postgres:nXDslfkImWkfmrYsJghJyVQfoRDMPExK@yamabiko.proxy.rlwy.net:38097/railway"
 
 
 class Settings(BaseSettings):
