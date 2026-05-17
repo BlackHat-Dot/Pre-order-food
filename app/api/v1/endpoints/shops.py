@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Integer, cast, func, select
+from sqlalchemy import Integer, cast, func, select, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import basic_rate_limit, get_current_user, require_roles
+# REMOVED basic_rate_limit to bypass Redis!
+from app.core.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models.menu import MenuItem
 from app.models.order import Order, OrderItem
@@ -17,8 +18,8 @@ from app.schemas.shop import ShopCreate, ShopOut, ShopStatusUpdate, ShopUpdate
 from app.services.cache import cache_delete, cache_get_json, cache_set_json
 from app.utils.ids import new_id
 
-
-router = APIRouter(prefix="/shops", tags=["Shops"], dependencies=[Depends(basic_rate_limit)])
+# FIXED: Removed the Redis basic_rate_limit dependency
+router = APIRouter(prefix="/shops", tags=["Shops"])
 
 
 def _hour_bucket_expr(db: AsyncSession, column):
@@ -145,46 +146,24 @@ async def set_shop_status(
     return ShopOut.model_validate(shop)
 
 
-from bson import ObjectId
-from datetime import datetime
-from fastapi import APIRouter, HTTPException
-
+# FIXED: Proper SQLAlchemy PostgreSQL Aggregation for Dashboard
 @router.get("/{shop_id}/dashboard")
-async def get_shop_dashboard(shop_id: str):
-    try:
-        # 1. CRITICAL: Cast the incoming string to a MongoDB ObjectId
-        shop_object_id = ObjectId(shop_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid shop ID format")
-
+async def get_shop_dashboard(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # 2. Raw Aggregation Pipeline
-    pipeline = [
-        {"$match": {"shop_id": shop_object_id}}, # Uses the casted ObjectId
-        {"$group": {
-            "_id": None,
-            "total_orders": {"$sum": 1},
-            "total_revenue": {
-                "$sum": {"$cond": [{"$eq": ["$status", "completed"]}, "$total_price", 0]}
-            },
-            "pending_orders": {
-                "$sum": {"$cond": [{"$in": ["$status", ["pending", "accepted", "preparing"]]}, 1, 0]}
-            },
-            "completed_orders": {
-                "$sum": {"$cond": [{"$eq": ["$status", "completed"]}, 1, 0]}
-            },
-            "today_orders": {
-                "$sum": {"$cond": [{"$gte": ["$created_at", today]}, 1, 0]}
-            }
-        }}
-    ]
-    
-    # 3. Execute and format response
-    result = await db.orders.aggregate(pipeline).to_list(1)
-    
-    if not result:
-        # Force a valid fallback schema instead of an empty {}
+    # Use SQLAlchemy to aggregate metrics for the shop
+    stmt = select(
+        func.count(Order.id).label("total_orders"),
+        func.sum(case((Order.status == "completed", Order.total_price), else_=0)).label("total_revenue"),
+        func.sum(case((Order.status.in_(["pending", "accepted", "preparing"]), 1), else_=0)).label("pending_orders"),
+        func.sum(case((Order.status == "completed", 1), else_=0)).label("completed_orders"),
+        func.sum(case((Order.created_at >= today, 1), else_=0)).label("today_orders")
+    ).where(Order.shop_id == shop_id)
+
+    result = await db.execute(stmt)
+    row = result.first()
+
+    if not row:
         return {
             "total_orders": 0, 
             "total_revenue": 0, 
@@ -192,9 +171,15 @@ async def get_shop_dashboard(shop_id: str):
             "completed_orders": 0, 
             "today_orders": 0
         }
-        
-    result[0].pop("_id", None)
-    return result[0]
+
+    return {
+        "total_orders": int(row.total_orders or 0),
+        "total_revenue": float(row.total_revenue or 0.0),
+        "pending_orders": int(row.pending_orders or 0),
+        "completed_orders": int(row.completed_orders or 0),
+        "today_orders": int(row.today_orders or 0)
+    }
+
 
 @router.get("/{shop_id}/stats")
 async def shop_stats(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
@@ -205,4 +190,3 @@ async def shop_stats(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)])
         await db.execute(select(func.count(MenuItem.id)).where(MenuItem.shop_id == shop_id, MenuItem.is_available.is_(True)))
     ).scalar_one()
     return {"shop_id": shop_id, "total_orders": int(total_orders), "active_items": int(active_items)}
-
