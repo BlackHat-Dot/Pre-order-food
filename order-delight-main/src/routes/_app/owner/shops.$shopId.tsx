@@ -132,16 +132,15 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 // Replace the entire StatsTab component in src/routes/_app/owner/shops.$shopId.tsx:
 function StatsTab({ shopId }: { shopId: string }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
-    // FIXED: Added (shopsApi as any) to silence the missing function error
-    queryFn: () => (shopsApi as any).dashboard(shopId), 
+    queryFn: () => (shopsApi as any).dashboard(shopId),
   });
 
   if (isLoading) return <Skeleton className="h-32 w-full" />;
-
-  // Explicitly check for data presence
-  if (!data || Object.keys(data).length === 0) {
+  
+  // If the backend fails entirely, show the fallback
+  if (error || !data || Object.keys(data).length === 0) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-12 text-center text-muted-foreground">
@@ -151,6 +150,7 @@ function StatsTab({ shopId }: { shopId: string }) {
     );
   }
 
+  // Explicitly render the metrics returned from the backend aggregation
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
       <Stat label="Total Orders" value={data.total_orders ?? 0} />

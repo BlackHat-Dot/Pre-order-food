@@ -531,6 +531,7 @@ export const shopsApi = {
 
   // ADD THESE TWO FUNCTIONS HERE:
   dashboard: async (id: string) => {
+    // Make sure this path exactly matches your FastAPI route
     return apiRequest<any>(`/api/v1/shops/${id}/dashboard`);
   },
   stats: async (id: string) => {
