@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle } from "lucide-react";
 import { menuApi, reviewsApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
@@ -150,6 +150,18 @@ function ShopDetail() {
                     <Phone className="h-3 w-3" /> {shop.phone}
                   </span>
                 )}
+                <span className="flex items-center gap-1 border-l pl-4 border-border/50">
+                <span className="font-mono">ID: {shop.id}</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shop.id);
+                    toast.success("Shop ID copied!");
+                  }}
+                  className="rounded-md p-1 hover:text-foreground transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </span>
                 {shop.rating != null && (
                   <span className="flex items-center gap-1">
                     <Star className="h-3 w-3 fill-current text-primary" />
