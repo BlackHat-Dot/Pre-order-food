@@ -7,10 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import basic_rate_limit, require_roles
+from app.core.deps import basic_rate_limit, require_roles, get_current_user
 from app.db.session import get_db
 from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
 from app.models.menu import MenuItem, MenuItemVariant
+from app.models.notification import Notification
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop
 from app.models.user import User
@@ -18,9 +19,6 @@ from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
 from app.services.sms import send_sms
 from app.utils.ids import new_id
 from app.utils.order_state import VALID_TRANSITIONS
-from sqlalchemy import select
-from app.models.loyalty import Loyalty # Adjust import based on your actual model name
-from app.models.notification import Notification # We will create this below
 
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
@@ -221,25 +219,46 @@ async def update_order_status(
     # 1. LOYALTY REVERSAL LOGIC
     if new_status == "cancelled" and old_status != "cancelled":
         loyalty_record = await db.scalar(
-            select(Loyalty).where(Loyalty.customer_id == order.customer_id, Loyalty.shop_id == order.shop_id)
+            select(LoyaltyAccount).where(
+                LoyaltyAccount.customer_id == order.customer_id, 
+                LoyaltyAccount.shop_id == order.shop_id
+            )
         )
         
         if loyalty_record:
             # A. Refund points that the user SPENT on this order
             if order.redeem_loyalty_points and order.redeem_loyalty_points > 0:
-                loyalty_record.points += order.redeem_loyalty_points
+                loyalty_record.points_balance += order.redeem_loyalty_points
+                
+                # Log the refund transaction
+                db.add(LoyaltyTransaction(
+                    id=new_id(),
+                    account_id=loyalty_record.id,
+                    order_id=order.id,
+                    points=order.redeem_loyalty_points,
+                    action="adjusted"
+                ))
                 
                 # Create Notification for Refund
                 db.add(Notification(
                     user_id=order.customer_id,
                     title="Points Refunded",
-                    message=f"Order #{order.id[:8]} was cancelled. {order.redeem_loyalty_points} points were refunded to your account.",
+                    message=f"Order #{order.id[:8]} was cancelled. {order.redeem_loyalty_points} points were refunded.",
                     type="loyalty_refund"
                 ))
 
             # B. Deduct points the user EARNED (if cancelled after completion)
-            if old_status == "completed" and order.loyalty_points_earned and order.loyalty_points_earned > 0:
-                loyalty_record.points = max(0, loyalty_record.points - order.loyalty_points_earned)
+            if old_status == "completed" and getattr(order, "loyalty_points_earned", 0) > 0:
+                loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
+                
+                # Log the deduction transaction
+                db.add(LoyaltyTransaction(
+                    id=new_id(),
+                    account_id=loyalty_record.id,
+                    order_id=order.id,
+                    points=-order.loyalty_points_earned,
+                    action="adjusted"
+                ))
                 
                 # Create Notification for Deduction
                 db.add(Notification(
