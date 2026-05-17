@@ -528,6 +528,14 @@ export const shopsApi = {
     const updated = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { method: "PATCH", body: payload });
     return mapShopFromBackend(updated);
   },
+
+  // ADD THESE TWO FUNCTIONS HERE:
+  dashboard: async (id: string) => {
+    return apiRequest<any>(`/api/v1/shops/${id}/dashboard`);
+  },
+  stats: async (id: string) => {
+    return apiRequest<any>(`/api/v1/shops/${id}/stats`);
+  },
 };
 
 // ── Menu API ───────────────────────────────────────────────────────────────────

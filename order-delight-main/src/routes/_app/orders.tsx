@@ -70,7 +70,7 @@ function OrdersPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-base font-semibold">{formatCurrency(o.total_amount)}</p>
+                    <p className="text-base font-semibold">{formatCurrency(o.total_price)}</p>
                   </div>
                 </CardContent>
               </Card>

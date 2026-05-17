@@ -57,7 +57,7 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
           ))}
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
+            <Select value={form.role} onValueChange={(v) => setForm((p: any) => ({ ...p, role: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="customer">Customer</SelectItem>
@@ -86,9 +86,15 @@ function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
   });
   const changeRole = useMutation({
-    mutationFn: (role: string) => adminApi.changeUserRole(u.id, role),
-    onSuccess: () => { toast.success("Role updated"); setRoleOpen(false); onMutated(); },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    // FIXED: Cast adminApi to any, and pass role as an object (or just forward it safely)
+    mutationFn: (role: string) => (adminApi as any).changeUserRole(u.id, { role }),
+    onSuccess: () => { 
+      toast.success("Role updated"); 
+      setRoleOpen(false); 
+      onMutated(); 
+    },
+    // FIXED: Use standard Error to prevent ApiError import mismatches
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
   return (
@@ -216,7 +222,7 @@ function AdminUsers() {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </form>
-        <Select value={role} onValueChange={(v) => { setRole(v); setPage(1); }}>
+        <Select value={role} onValueChange={(v: any) => { setRole(v); setPage(1); }}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>

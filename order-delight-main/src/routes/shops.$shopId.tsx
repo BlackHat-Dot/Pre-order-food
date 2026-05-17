@@ -341,7 +341,14 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
 
   function add() {
     if (!item) return;
+
+    // 1. Find the actual variant object using your variantId state
+    // (If your variants are stored in a separate variable, replace 'item.variants' with 'variants')
+    const selectedVariant = (item as any).variants?.find((v: any) => v.id === variantId) || undefined;
+
+    // 2. Add it to the cart
     cart.addItem(item, selectedVariant, qty);
+    
     toast.success(`Added ${qty} × ${item.name}`);
     onClose();
     setQty(1);

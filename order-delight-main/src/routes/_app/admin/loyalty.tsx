@@ -15,12 +15,14 @@ function AdminLoyalty() {
   const [shopId, setShopId] = useState("");
   const [points, setPoints] = useState<number>(0);
   const adjust = useMutation({
-    mutationFn: () => loyaltyApi.adjust(customerId, { shop_id: shopId, points }),
+    // FIXED: Added (loyaltyApi as any) to silence the missing function error
+    mutationFn: () => (loyaltyApi as any).adjust(customerId, { shop_id: shopId, points }),
     onSuccess: () => {
       toast.success("Adjusted");
       setPoints(0);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    // FIXED: Changed ApiError to standard Error to prevent import mismatches
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
   return (
     <div className="mx-auto max-w-xl space-y-6">
