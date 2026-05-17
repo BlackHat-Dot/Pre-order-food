@@ -146,19 +146,22 @@ async def set_shop_status(
 
 
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime
+from fastapi import APIRouter, HTTPException
 
 @router.get("/{shop_id}/dashboard")
 async def get_shop_dashboard(shop_id: str):
-    # 1. ROOT CAUSE FIX: Cast to ObjectId for raw PyMongo aggregation
-    match_query = {"shop_id": ObjectId(shop_id)}
-    
-    # 2. Today's date boundary
+    try:
+        # 1. CRITICAL: Cast the incoming string to a MongoDB ObjectId
+        shop_object_id = ObjectId(shop_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid shop ID format")
+
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # 3. Standardize the metrics calculation natively in the database
+    # 2. Raw Aggregation Pipeline
     pipeline = [
-        {"$match": match_query},
+        {"$match": {"shop_id": shop_object_id}}, # Uses the casted ObjectId
         {"$group": {
             "_id": None,
             "total_orders": {"$sum": 1},
@@ -177,9 +180,18 @@ async def get_shop_dashboard(shop_id: str):
         }}
     ]
     
+    # 3. Execute and format response
     result = await db.orders.aggregate(pipeline).to_list(1)
+    
     if not result:
-        return {"total_orders": 0, "total_revenue": 0, "pending_orders": 0, "completed_orders": 0, "today_orders": 0}
+        # Force a valid fallback schema instead of an empty {}
+        return {
+            "total_orders": 0, 
+            "total_revenue": 0, 
+            "pending_orders": 0, 
+            "completed_orders": 0, 
+            "today_orders": 0
+        }
         
     result[0].pop("_id", None)
     return result[0]
