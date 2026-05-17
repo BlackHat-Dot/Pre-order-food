@@ -137,6 +137,9 @@ function StatsTab({ shopId }: { shopId: string }) {
     queryFn: () => (shopsApi as any).dashboard(shopId),
   });
 
+  console.log("DASHBOARD DATA:", data);
+  console.log("DASHBOARD ERROR:", error);
+
   if (isLoading) return <Skeleton className="h-32 w-full" />;
   
   // If the backend fails entirely, show the fallback
