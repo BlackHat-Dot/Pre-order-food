@@ -39,19 +39,20 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
             <Store className="h-5 w-5 text-muted-foreground" />
           </div>
 
-          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-mono">ID: {s.id}</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(s.id);
-                  toast.success("Shop ID copied to clipboard!");
-                }}
-                className="rounded-md p-1 hover:bg-muted hover:text-foreground transition-colors"
-                title="Copy Shop ID"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
+          {/* 👇 Mini version of the Copy ID block 👇 */}
+          <div className="mt-1 flex items-center gap-1 text-muted-foreground opacity-80">
+            <span className="font-mono text-[11px]">ID: {s.id}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.id);
+                toast.success("Shop ID copied!");
+              }}
+              className="rounded p-0.5 hover:bg-muted hover:text-foreground transition-colors"
+              title="Copy Shop ID"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-1">
