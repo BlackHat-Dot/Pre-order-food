@@ -280,6 +280,9 @@ async def update_order_status(
     # Apply the status change
     order.status = new_status
     await db.commit()
+    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
+    result = await db.execute(stmt)
+    order = result.scalar_one()
     await db.refresh(order)
     return OrderOut.model_validate(order)
 
