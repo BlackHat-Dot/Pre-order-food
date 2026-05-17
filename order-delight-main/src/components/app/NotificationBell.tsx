@@ -20,6 +20,7 @@ export function NotificationBell() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", "me"] }),
   });
 
+  
   const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
 
   return (
