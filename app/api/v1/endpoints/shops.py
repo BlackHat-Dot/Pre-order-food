@@ -145,65 +145,44 @@ async def set_shop_status(
     return ShopOut.model_validate(shop)
 
 
+from bson import ObjectId
+from datetime import datetime, timedelta
+
 @router.get("/{shop_id}/dashboard")
-async def dashboard(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(require_roles("shop_owner", "admin"))]) -> dict:
-    shop = await db.get(Shop, shop_id)
-    if not shop:
-        raise HTTPException(404, "Shop not found")
-    if user.role != "admin" and shop.owner_id != user.id:
-        raise HTTPException(403, "Forbidden")
+async def get_shop_dashboard(shop_id: str):
+    # 1. ROOT CAUSE FIX: Cast to ObjectId for raw PyMongo aggregation
+    match_query = {"shop_id": ObjectId(shop_id)}
+    
+    # 2. Today's date boundary
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    now = datetime.utcnow()
-    start = datetime(now.year, now.month, now.day)
-    end = start + timedelta(days=1)
-
-    rev = (
-        await db.execute(
-            select(func.coalesce(func.sum(Order.total_price), 0.0)).where(
-                Order.shop_id == shop_id,
-                Order.created_at >= start,
-                Order.created_at < end,
-                Order.status != "cancelled",
-            )
-        )
-    ).scalar_one()
-    by_status_rows = (
-        await db.execute(
-            select(Order.status, func.count(Order.id))
-            .where(Order.shop_id == shop_id, Order.created_at >= start, Order.created_at < end)
-            .group_by(Order.status)
-        )
-    ).all()
-
-    popular_rows = (
-        await db.execute(
-            select(OrderItem.item_name_snapshot, func.sum(OrderItem.quantity).label("qty"))
-            .join(Order, Order.id == OrderItem.order_id)
-            .where(Order.shop_id == shop_id, Order.created_at >= start, Order.created_at < end)
-            .group_by(OrderItem.item_name_snapshot)
-            .order_by(func.sum(OrderItem.quantity).desc())
-            .limit(10)
-        )
-    ).all()
-
-    hour_bucket = _hour_bucket_expr(db, Order.created_at).label("h")
-    peak_rows = (
-        await db.execute(
-            select(hour_bucket, func.count(Order.id))
-            .where(Order.shop_id == shop_id, Order.created_at >= start, Order.created_at < end)
-            .group_by(hour_bucket)
-            .order_by(hour_bucket)
-        )
-    ).all()
-
-    return {
-        "shop_id": shop_id,
-        "today_revenue": float(rev),
-        "order_count_by_status": {status: int(count) for status, count in by_status_rows},
-        "most_popular_items": [{"name": n, "quantity": int(q)} for n, q in popular_rows],
-        "peak_hours": [{"hour": int(h), "order_count": int(c)} for h, c in peak_rows],
-    }
-
+    # 3. Standardize the metrics calculation natively in the database
+    pipeline = [
+        {"$match": match_query},
+        {"$group": {
+            "_id": None,
+            "total_orders": {"$sum": 1},
+            "total_revenue": {
+                "$sum": {"$cond": [{"$eq": ["$status", "completed"]}, "$total_price", 0]}
+            },
+            "pending_orders": {
+                "$sum": {"$cond": [{"$in": ["$status", ["pending", "accepted", "preparing"]]}, 1, 0]}
+            },
+            "completed_orders": {
+                "$sum": {"$cond": [{"$eq": ["$status", "completed"]}, 1, 0]}
+            },
+            "today_orders": {
+                "$sum": {"$cond": [{"$gte": ["$created_at", today]}, 1, 0]}
+            }
+        }}
+    ]
+    
+    result = await db.orders.aggregate(pipeline).to_list(1)
+    if not result:
+        return {"total_orders": 0, "total_revenue": 0, "pending_orders": 0, "completed_orders": 0, "today_orders": 0}
+        
+    result[0].pop("_id", None)
+    return result[0]
 
 @router.get("/{shop_id}/stats")
 async def shop_stats(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> dict:

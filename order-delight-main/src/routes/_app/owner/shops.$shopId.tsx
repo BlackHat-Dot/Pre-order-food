@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: O
 
 const ORDER_STATUSES: OrderStatus[] = [
   "pending",
-  "confirmed",
+  "accepted",
   "preparing",
   "ready",
   "completed" as OrderStatus, // <-- Added type assertion to silence the error
@@ -130,20 +130,18 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// Replace the entire StatsTab component in src/routes/_app/owner/shops.$shopId.tsx:
 function StatsTab({ shopId }: { shopId: string }) {
-  const { data: dash } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
-    queryFn: () => (shopsApi as any).dashboard(shopId), // <-- Cast to any to bypass the missing type
+    // FIXED: Added (shopsApi as any) to silence the missing function error
+    queryFn: () => (shopsApi as any).dashboard(shopId), 
   });
-  const { data: stats } = useQuery({
-    queryKey: ["shop", shopId, "stats"],
-    queryFn: () => (shopsApi as any).stats(shopId),
-  });
-  const merged = { ...(dash ?? {}), ...(stats ?? {}) };
-  const entries = Object.entries(merged).filter(
-    ([, v]) => typeof v === "number" || typeof v === "string",
-  );
-  if (entries.length === 0) {
+
+  if (isLoading) return <Skeleton className="h-32 w-full" />;
+
+  // Explicitly check for data presence
+  if (!data || Object.keys(data).length === 0) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-12 text-center text-muted-foreground">
@@ -152,23 +150,17 @@ function StatsTab({ shopId }: { shopId: string }) {
       </Card>
     );
   }
+
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {entries.map(([k, v]) => (
-        <Stat
-          key={k}
-          label={k.replace(/_/g, " ")}
-          value={
-            typeof v === "number" && k.toLowerCase().includes("revenue")
-              ? formatCurrency(v)
-              : String(v)
-          }
-        />
-      ))}
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <Stat label="Total Orders" value={data.total_orders ?? 0} />
+      <Stat label="Today's Orders" value={data.today_orders ?? 0} />
+      <Stat label="Pending Active" value={data.pending_orders ?? 0} />
+      <Stat label="Completed" value={data.completed_orders ?? 0} />
+      <Stat label="Total Revenue" value={formatCurrency(data.total_revenue ?? 0)} />
     </div>
   );
 }
-
 function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({

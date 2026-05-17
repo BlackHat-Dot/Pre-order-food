@@ -255,6 +255,15 @@ export interface MenuItemOut {
   variants: MenuItemVariantOut[];
 }
 
+export interface VariantOut {
+  id: string;
+  item_id: string;
+  name: string;
+  price: number;
+  prep_time_minutes?: number;
+  is_available: boolean;
+}
+
 export interface CartItem {
   menu_item_id: string;
   variant_id: string | null;
@@ -264,14 +273,7 @@ export interface CartItem {
   unit_price: number;
 }
 
-export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "delivered"
-  | "cancelled";
-
+export type OrderStatus = "pending" | "accepted" | "preparing" | "ready" | "completed" | "cancelled";
 export interface OrderItemOut {
   id: string;
   menu_item_id: string;
