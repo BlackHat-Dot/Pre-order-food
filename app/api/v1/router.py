@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import admin, auth, loyalty, menu, orders, payments, reviews, shops, users, verification
+from app.api.v1.endpoints import admin, auth, loyalty, menu, orders, payments, reviews, shops, users, verification, notification
 
 api_router = APIRouter()
 
@@ -14,4 +14,4 @@ api_router.include_router(payments.router)
 api_router.include_router(reviews.router)
 api_router.include_router(loyalty.router)
 api_router.include_router(admin.router)
-
+api_router.include_router(notification.router)

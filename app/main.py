@@ -148,7 +148,7 @@ def create_app() -> FastAPI:
             "app_name": settings.APP_NAME
         }
 
-    app.include_router(notification_router, prefix="/api/v1")
+    app.include_router(api_router, prefix="/api/v1")
     return app
 
 
