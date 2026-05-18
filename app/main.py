@@ -12,7 +12,7 @@ try:
     import sentry_sdk  # type: ignore
 except Exception:  # pragma: no cover
     sentry_sdk = None
-
+from app.api.v1.endpoints.notification import router as notification_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.security import hash_password
@@ -148,7 +148,7 @@ def create_app() -> FastAPI:
             "app_name": settings.APP_NAME
         }
 
-    app.include_router(api_router, prefix=settings.API_PREFIX)
+    app.include_router(notification_router, prefix="/api/v1")
     return app
 
 
