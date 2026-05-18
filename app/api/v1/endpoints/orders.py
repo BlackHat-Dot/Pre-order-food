@@ -216,6 +216,22 @@ async def update_order_status(
     old_status = order.status
     new_status = payload.status
 
+    allowed_transitions = {
+        "pending": ["accepted", "cancelled"],
+        "accepted": ["preparing"],
+        "preparing": ["ready"],
+        "ready": ["completed"],
+        "completed": [], # Cannot change once completed
+        "cancelled": []  # Cannot change once cancelled
+    }
+
+    if new_status not in allowed_transitions.get(old_status, []):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid action: Cannot change order from '{old_status}' to '{new_status}'."
+        )
+
+
     # 1. LOYALTY REVERSAL LOGIC
     if new_status == "cancelled" and old_status != "cancelled":
         loyalty_record = await db.scalar(
