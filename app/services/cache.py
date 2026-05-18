@@ -11,15 +11,9 @@ from app.core.config import settings
 _redis: Redis | None = None
 
 
-async def get_redis() -> Redis | None:
-    global _redis
-    if _redis is None:
-        try:
-            _redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
-            await _redis.ping()
-        except Exception:
-            _redis = None
-    return _redis
+async def get_redis():
+
+    return None
 
 
 async def cache_get_json(key: str) -> Any | None:
