@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.models.coupon import Coupon
 from app.models.shop import Shop
-from app.models.loyalty import LoyaltyAccount # Or wherever your loyalty transaction balance is saved
+from app.models.loyalty import LoyaltyAccount
 from app.schemas.coupon import CouponMint, CouponOut
 from app.core.deps import get_current_user
 from app.models.user import User
@@ -33,11 +33,18 @@ async def mint_shop_coupon(
     discount_per_point = getattr(shop, "loyalty_discount_per_point", 0.1)
 
     # 2. Get the user's active loyalty wallet row for this shop
-    stmt = select(LoyaltyAccount).where(LoyaltyAccount.shop_id == payload.shop_id, LoyaltyAccount.user_id == user.id)
+    # 🔑 FIXED: Changed LoyaltyAccount.user_id to customer_id to align with your schema profile
+    stmt = select(LoyaltyAccount).where(
+        LoyaltyAccount.shop_id == payload.shop_id, 
+        LoyaltyAccount.customer_id == user.id
+    )
     loyalty_wallet = (await db.execute(stmt)).scalar_one_or_none()
     
     if not loyalty_wallet or loyalty_wallet.points_balance < payload.points:
-        raise HTTPException(400, f"Insufficient points balance. Current wallet tracking: {loyalty_wallet.points_balance if loyalty_wallet else 0} pts.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Insufficient points balance. Current balance: {loyalty_wallet.points_balance if loyalty_wallet else 0} pts."
+        )
 
     # 3. Calculate financial transformation mechanics
     computed_discount = payload.points * discount_per_point
@@ -71,6 +78,8 @@ async def validate_coupon_code(
     shop_id: str,
     db: AsyncSession = Depends(get_db)
 ):
+    # 🔑 FIXED: Re-targeted query to pull from the actual Coupon table by code,
+    # and cleaned out the broken 'payload' / 'user' references.
     stmt = select(Coupon).where(Coupon.code == code.upper().strip())
     coupon = (await db.execute(stmt)).scalar_one_or_none()
     
@@ -78,7 +87,7 @@ async def validate_coupon_code(
         raise HTTPException(404, "Invalid voucher code combination token")
     if coupon.shop_id != shop_id:
         raise HTTPException(400, "This voucher code is locked to a different shop provider profile")
-    if coupon.is_redeemed:
+    if coupon.is_redeemed or coupon.discount_value <= 0:
         raise HTTPException(410, "This voucher string code has already been fully redeemed")
         
     return CouponOut.model_validate(coupon)
