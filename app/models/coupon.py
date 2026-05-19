@@ -1,7 +1,7 @@
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, Integer, Boolean, DateTime
+from sqlalchemy import String, ForeignKey, Integer, Boolean, DateTime, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base_class import Base
+from app.db.base import Base
 import json
 
 class Coupon(Base):
@@ -13,7 +13,7 @@ class Coupon(Base):
     creator_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     points_spent: Mapped[int] = mapped_column(Integer, nullable=False)
-    discount_value: Mapped[float] = mapped_column(sa.Float, nullable=False)
+    discount_value: Mapped[float] = mapped_column(Float, nullable=False)
     
     is_redeemed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     redeemed_by_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
