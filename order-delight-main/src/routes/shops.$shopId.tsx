@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle } from "lucide-react";
-import { menuApi, reviewsApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut } from "@/lib/api";
+import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X } from "lucide-react";
+import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -46,11 +47,20 @@ function ShopDetail() {
   const params = Route.useParams() as { shopId: string };
   const { shopId } = params;
   const { count } = useCart();
+  const qc = useQueryClient();
   const [heroImageFailed, setHeroImageFailed] = useState(false);
+  
+  // Inline review writing form state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState<number | null>(null);
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+  const [reviewComment, setReviewComment] = useState("");
+
   const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
   });
+  
   const {
     data: items,
     isLoading: itemsLoading,
@@ -60,6 +70,7 @@ function ShopDetail() {
     queryKey: ["shop", shopId, "items"],
     queryFn: () => menuApi.listItems(shopId),
   });
+
   const {
     data: reviews,
     isError: reviewsError,
@@ -68,6 +79,28 @@ function ShopDetail() {
     queryKey: ["shop", shopId, "reviews"],
     queryFn: () => reviewsApi.list(shopId),
   });
+
+  // Inline Review Submit Mutation Engine
+  const submitReview = useMutation({
+    mutationFn: (payload: { rating: number | null; comment: string; order_id: string }) => 
+      ordersApi.submitReview(shopId, payload),
+    onSuccess: () => {
+      toast.success("Review posted successfully!");
+      setReviewComment("");
+      setReviewRating(null);
+      setShowReviewForm(false);
+      qc.invalidateQueries({ queryKey: ["shop", shopId] });
+      qc.invalidateQueries({ queryKey: ["shop", shopId, "reviews"] });
+    },
+    onError: (e) => {
+      toast.error(e instanceof ApiError ? e.message : "Failed to post review");
+    }
+  });
+
+  const handleReviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitReview.mutate({ rating: reviewRating, comment: reviewComment, order_id: "" });
+  };
 
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
 
@@ -166,7 +199,7 @@ function ShopDetail() {
                   <span className="flex items-center gap-1">
                     <Star className="h-3 w-3 fill-current text-primary" />
                     {Number(shop.rating).toFixed(1)}
-                    <span className="text-[11px] text-muted-foreground">({shop.total_reviews} reviews)</span>
+                    <span className="text-[11px] text-muted-foreground">({reviews?.length ?? 0} reviews)</span>
                   </span>
                 )}
               </div>
@@ -219,6 +252,7 @@ function ShopDetail() {
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="reviews">Reviews ({reviews?.length ?? 0})</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="menu" className="mt-6 space-y-8">
             {itemsLoading ? (
               <Skeleton className="h-32 w-full" />
@@ -285,7 +319,93 @@ function ShopDetail() {
               ))
             )}
           </TabsContent>
-          <TabsContent value="reviews" className="mt-6 space-y-3">
+          
+          <TabsContent value="reviews" className="mt-6 space-y-4">
+            {/* Inline Action Bar Header */}
+            <div className="flex items-center justify-between border-b border-border/50 pb-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Customer Feedback ({reviews?.length ?? 0})
+              </h3>
+              {!showReviewForm && (
+                <Button 
+                  onClick={() => setShowReviewForm(true)} 
+                  variant="outline" 
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs font-medium rounded-xl"
+                >
+                  <MessageSquarePlus className="h-3.5 w-3.5" /> Write a review
+                </Button>
+              )}
+            </div>
+
+            {/* Collapsible Write Review Box Form */}
+            {showReviewForm && (
+              <Card className="border-border/60 bg-muted/20 animate-in fade-in duration-200 rounded-xl shadow-inner">
+                <CardContent className="p-4 space-y-4">
+                  <form onSubmit={handleReviewSubmit} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground block">
+                        Your Rating <span className="text-[10px] opacity-60">(Optional)</span>
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewRating(star === reviewRating ? null : star)}
+                            onMouseEnter={() => setHoveredRating(star)}
+                            onMouseLeave={() => setHoveredRating(null)}
+                            className="transform transition-transform active:scale-95 p-0.5 outline-none"
+                          >
+                            <Star
+                              className={`h-5 w-5 transition-colors ${
+                                star <= (hoveredRating ?? reviewRating ?? 0)
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-muted-foreground/20"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground block">
+                        Review Message <span className="text-[10px] opacity-60">(Optional)</span>
+                      </label>
+                      <Textarea
+                        placeholder="Tell others about the food quality, taste, or service..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        className="resize-none min-h-[80px] text-sm bg-background rounded-xl focus-visible:ring-primary"
+                        maxLength={300}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs font-medium rounded-lg"
+                        onClick={() => { setShowReviewForm(false); setReviewRating(null); setReviewComment(""); }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        size="sm" 
+                        className="h-8 text-xs font-medium rounded-lg"
+                        disabled={submitReview.isPending}
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
             {reviewsError ? (
               <Card className="border-destructive/40 bg-destructive/10">
                 <CardContent className="py-10 text-center text-destructive">
@@ -294,32 +414,37 @@ function ShopDetail() {
                 </CardContent>
               </Card>
             ) : !reviews || reviews.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  No reviews yet.
+              <Card className="border-dashed bg-muted/5 rounded-xl">
+                <CardContent className="py-12 text-center text-muted-foreground text-xs font-medium">
+                  No reviews yet. Be the first to share your experience!
                 </CardContent>
               </Card>
             ) : (
-              reviews.map((r) => (
-                <Card key={r.id}>
-                  <CardContent className="space-y-2 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{r.customer_name || "Customer"}</span>
-                        <span className="flex items-center gap-0.5 text-primary">
-                          {Array.from({ length: r.rating }).map((_, i) => (
-                            <Star key={i} className="h-3 w-3 fill-current" />
-                          ))}
+              <div className="space-y-2.5">
+                {reviews.map((r) => (
+                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl">
+                    <CardContent className="space-y-1.5 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-foreground">{r.customer_name || "Customer"}</span>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {formatDateShort(r.created_at)}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateShort(r.created_at)}
-                      </span>
-                    </div>
-                    {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
-                  </CardContent>
-                </Card>
-              ))
+                      {r.rating > 0 && (
+                        <div className="flex items-center gap-0.5 text-primary">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={`h-3 w-3 ${i < r.rating ? "fill-current text-amber-400" : "text-muted-foreground/10"}`} 
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {r.comment && <p className="text-xs text-muted-foreground/90 leading-relaxed">{r.comment}</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </TabsContent>
         </Tabs>
@@ -353,14 +478,8 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
 
   function add() {
     if (!item) return;
-
-    // 1. Find the actual variant object using your variantId state
-    // (If your variants are stored in a separate variable, replace 'item.variants' with 'variants')
     const selectedVariant = (item as any).variants?.find((v: any) => v.id === variantId) || undefined;
-
-    // 2. Add it to the cart
     cart.addItem(item, selectedVariant, qty);
-    
     toast.success(`Added ${qty} × ${item.name}`);
     onClose();
     setQty(1);

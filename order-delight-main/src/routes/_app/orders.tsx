@@ -147,20 +147,6 @@ function OrdersPage() {
   }, [data, promptedOrders]);
 
   // Network pipeline handler engine to submit values to database
-  const submitReview = useMutation({
-    mutationFn: async ({ shopId, rating, comment, orderId }: { shopId: string; rating: number | null; comment: string; orderId: string }) => {
-      // Points cleanly to your global orders API/review handler configuration parameters
-      return await ordersApi.submitReview(shopId, { rating, comment, order_id: orderId });
-    },
-    onSuccess: () => {
-      toast.success("Thank you for your review!");
-      setActiveReviewShop(null);
-      qc.invalidateQueries({ queryKey: ["my-orders"] });
-    },
-    onError: (e) => {
-      toast.error(e instanceof ApiError ? e.message : "Failed to post feedback data");
-    }
-  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -215,21 +201,6 @@ function OrdersPage() {
       )}
 
       {/* Review Modal Insertion Overlay */}
-      <ReviewModal
-        isOpen={activeReviewShop !== null}
-        shopName={activeReviewShop?.name || ""}
-        onClose={() => setActiveReviewShop(null)}
-        onSubmit={(rating, comment) => {
-          if (activeReviewShop) {
-            submitReview.mutate({
-              shopId: activeReviewShop.id,
-              rating,
-              comment,
-              orderId: activeReviewShop.orderId
-            });
-          }
-        }}
-      />
     </div>
   );
 }
