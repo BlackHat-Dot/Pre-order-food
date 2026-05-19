@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
+import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle, Info, Ticket, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { loyaltyApi, ordersApi, paymentsApi, shopsApi } from "@/lib/api";
+import { loyaltyApi, ordersApi, paymentsApi, shopsApi, apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
@@ -51,7 +51,7 @@ function FreeOrderSuccessModal({ isOpen, onClose, shopName }: FreeOrderModalProp
               It's on the house! <Sparkles className="h-5 w-5 text-amber-400 fill-amber-400" />
             </h2>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              Your loyalty points fully covered this meal from <span className="font-semibold text-foreground">{shopName}</span>.
+              Your gift voucher code fully covered this meal from <span className="font-semibold text-foreground">{shopName}</span>.
             </p>
           </div>
 
@@ -79,15 +79,19 @@ function CheckoutPage() {
   const qc = useQueryClient();
   const { lines, total, count } = useCart();
   const shopId = lines[0]?.shop_id;
+  
   const [notes, setNotes] = useState("");
   const [pickup, setPickup] = useState("");
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [providerOrderId, setProviderOrderId] = useState<string | null>(null);
   const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
-  const [useLoyalty, setUseLoyalty] = useState(false);
-  const [redeemPoints, setRedeemPoints] = useState<string>("");
   const [finalAmount, setFinalAmount] = useState<number>(0);
   
+  // Interactive Coupon State Blocks
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
   // Free order state tracking node
   const [freeOrderShopName, setFreeOrderShopName] = useState<string | null>(null);
   const [freeOrderId, setFreeOrderId] = useState<string | null>(null);
@@ -101,23 +105,28 @@ function CheckoutPage() {
     queryFn: () => shopsApi.get(shopId!),
     enabled: !!shopId,
   });
-  
-  const { data: loyalty } = useQuery({
-    queryKey: ["loyalty", "me"],
-    queryFn: () => loyaltyApi.me(shopId!),
-    enabled: !!user && !!shopId,
-  });
 
-  const shopDiscount = (shop as any)?.loyalty_discount_per_point ?? 0.1;
-  const loyaltyBalance = (loyalty as any)?.points_balance ?? (loyalty as any)?.points ?? 0;
-
-  const discountPerPoint = shopDiscount;
-  const maxRedeemByTotal = Math.floor(total / Math.max(discountPerPoint, 0.01));
-  const parsedRedeemPoints = Math.max(0, parseInt(redeemPoints, 10) || 0);
-  const appliedRedeemPoints = useLoyalty ? Math.min(parsedRedeemPoints, loyaltyBalance, maxRedeemByTotal) : 0;
-  const loyaltyDiscount = appliedRedeemPoints * discountPerPoint;
-  const payableTotal = Math.max(total - loyaltyDiscount, 0);
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount_value : 0;
+  const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
+
+  // Dynamic Coupon Server Validation API Call handler
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setIsValidatingCoupon(true);
+    try {
+      const couponData = await apiRequest<any>(`/api/v1/coupons/validate/${couponCode.trim()}?shop_id=${shopId}`, {
+        method: "GET"
+      });
+      setAppliedCoupon(couponData);
+      toast.success(`Coupon code applied: ${formatCurrency(couponData.discount_value)} discount added!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid or unresolvable shop voucher code.");
+      setAppliedCoupon(null);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
 
   const cancelOrder = useMutation({
     mutationFn: (id: string) => ordersApi.cancel(id),
@@ -135,8 +144,8 @@ function CheckoutPage() {
         })),
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,   
-        redeem_loyalty_points: appliedRedeemPoints,
-        payment_method: payableTotal === 0 ? "loyalty" : "online", // Intelligent adjustment for full conversions
+        coupon_id: appliedCoupon ? appliedCoupon.id : undefined, // Links the voucher model on the backend
+        payment_method: payableTotal === 0 ? "loyalty_coupon" : "online",
       };
       
       const order = await ordersApi.create(payload);
@@ -144,31 +153,27 @@ function CheckoutPage() {
     },
 
     onSuccess: async (order: any) => {
-      // 🚨 INTERCEPT POINT 1: If payableTotal is zero, trigger the free experience directly
       if (payableTotal === 0) {
         try {
-          // Verify with the backend that the 0-amount transaction is fully confirmed
           await paymentsApi.create({ order_id: order.id });
           await paymentsApi.verify({
             order_id: order.id,
-            provider_order_id: `loyalty_free_${order.id}`,
-            provider_payment_id: `loyalty_pay_${order.id}`,
-            signature: "free_loyalty_signature",
+            provider_order_id: `coupon_free_${order.id}`,
+            provider_payment_id: `coupon_pay_${order.id}`,
+            signature: "free_coupon_signature",
           } as any);
 
-          // Fire off success states cleanly
           setFreeOrderShopName((shop as any)?.name ?? "the shop");
           setFreeOrderId(order.id);
           cart.clear();
           qc.invalidateQueries({ queryKey: ["my-orders"] });
         } catch (err) {
           await ordersApi.cancel(order.id).catch(() => {});
-          toast.error("Failed to complete loyalty voucher deduction.");
+          toast.error("Failed to complete free voucher adjustment authorization.");
         }
         return;
       }
 
-      // Fallback for normal transaction verification routes
       try {
         const pay: any = await paymentsApi.create({ order_id: order.id });
         setFinalAmount(order.total_price ?? order.total_amount ?? 0); 
@@ -236,77 +241,104 @@ function CheckoutPage() {
         <h1 className="mb-6 text-2xl font-bold tracking-tight">Checkout</h1>
 
         <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-          <Card>
-            <CardContent className="space-y-4 p-6">
-              <div>
-                <p className="text-sm text-muted-foreground">Ordering from</p>
-                <p className="text-lg font-semibold">{(shop as any)?.name ?? "Shop"}</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pickup">Pickup time (optional)</Label>
-                <Input
-                  id="pickup"
-                  type="datetime-local"
-                  value={pickup}
-                  onChange={(e) => setPickup(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes for the shop (optional)</Label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Allergies, preferences, etc."
-                />
-              </div>
-              {loyalty && (
-                <div className="space-y-2 rounded-md border border-border p-3">
-                  <p className="text-xs text-muted-foreground">
-                    Shop loyalty balance: <span className="font-semibold text-primary">{loyaltyBalance}</span> points
-                    · 1 point = {formatCurrency(discountPerPoint)} discount.
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="space-y-4 p-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">Ordering from</p>
+                  <p className="text-lg font-semibold">{(shop as any)?.name ?? "Shop"}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pickup">Pickup time (optional)</Label>
+                  <Input
+                    id="pickup"
+                    type="datetime-local"
+                    value={pickup}
+                    onChange={(e) => setPickup(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes for the shop (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Allergies, preferences, etc."
+                  />
+                </div>
+                {shop && !(shop as any).is_verified && (
+                  <p className="text-sm text-destructive">
+                    Warning: This shop is not admin-verified. Order at your own risk.
                   </p>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={useLoyalty}
-                      onCheckedChange={(v) => {
-                        setUseLoyalty(Boolean(v));
-                        setRedeemPoints("");
-                      }}
-                    />
-                    <span className="text-sm">Use loyalty points for this order (optional)</span>
-                  </div>
-                  {useLoyalty && (
-                    <div className="space-y-1">
-                      <Label>Points to use (max {Math.min(loyaltyBalance, maxRedeemByTotal)})</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={Math.min(loyaltyBalance, maxRedeemByTotal)}
-                        value={redeemPoints}
-                        placeholder="0"
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/^0+(?=\d)/, "");
-                          setRedeemPoints(raw);
-                        }}
-                      />
-                    </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 🚨 DYNAMIC VOUCHER REDEMPTION CARD WITH INFO TOOLTIP NODE */}
+            <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Tag className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-bold text-foreground">Have a Gift Coupon Voucher?</Label>
+                  
+                  {/* Explanatory "i" symbol for educational context */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-foreground outline-none transition-colors">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="p-3 max-w-xs space-y-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
+                        <p className="text-xs font-bold">🎟️ Shared Discounts:</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          You can convert your loyalty points into a code voucher inside your <Link to="/loyalty" className="text-primary font-semibold underline">Loyalty Wallet</Link>.
+                        </p>
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium leading-relaxed">
+                          Vouchers are public! If you don't have points, a friend can generate a code from their account and send it to you to apply here.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. CHET-A8F2NB"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={!!appliedCoupon || isValidatingCoupon}
+                    className="font-mono tracking-wider h-10 rounded-xl focus-visible:ring-primary uppercase"
+                  />
+                  {appliedCoupon ? (
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                      className="h-10 rounded-xl text-xs font-medium px-4"
+                    >
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button 
+                      type="button" 
+                      onClick={handleApplyCoupon}
+                      disabled={isValidatingCoupon || !couponCode.trim()}
+                      className="h-10 rounded-xl text-xs px-5 font-semibold"
+                    >
+                      {isValidatingCoupon ? "Checking..." : "Apply"}
+                    </Button>
                   )}
                 </div>
-              )}
-              {shop && !(shop as any).is_verified && (
-                <p className="text-sm text-destructive">
-                  Warning: This shop is not admin-verified. Order at your own risk.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card className="h-fit">
             <CardContent className="space-y-3 p-6">
               <h3 className="font-semibold">Summary</h3>
               <div className="space-y-1.5 text-sm">
-                ={lines.map((l) => (
+                {lines.map((l) => (
                   <div key={`${l.item_id}-${l.variant_id ?? "_"}`} className="flex justify-between">
                     <span className="text-muted-foreground">
                       {l.quantity} × {l.name}
@@ -320,15 +352,15 @@ function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(total)}</span>
               </div>
-              {appliedRedeemPoints > 0 && (
+              {couponDiscount > 0 && (
                 <div className="flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Loyalty discount ({appliedRedeemPoints} points)</span>
-                  <span>-{formatCurrency(loyaltyDiscount)}</span>
+                  <span>Voucher Discount</span>
+                  <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-base font-semibold">
                 <span>Payable</span>
-                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : ""}>
+                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-black tracking-tight animate-pulse" : ""}>
                   {payableTotal === 0 ? "FREE" : formatCurrency(payableTotal)}
                 </span>
               </div>
@@ -336,7 +368,7 @@ function CheckoutPage() {
                 You will earn approximately <span className="font-semibold text-primary">{estimatedEarn}</span> shop loyalty points after payment.
               </p>
               <Button
-                className={`w-full ${payableTotal === 0 ? "bg-emerald-600 hover:bg-emerald-500 text-white" : ""}`}
+                className={`w-full ${payableTotal === 0 ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : ""}`}
                 size="lg"
                 disabled={placeOrder.isPending}
                 onClick={() => placeOrder.mutate()}
@@ -380,7 +412,7 @@ function CheckoutPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 🚨 INTERCEPT POINT 2: Free Order Success Pop-up Modal Rendering Asset */}
+      {/* Free Order Success Pop-up Modal Rendering Asset */}
       <FreeOrderSuccessModal
         isOpen={!!freeOrderId}
         shopName={freeOrderShopName || ""}
