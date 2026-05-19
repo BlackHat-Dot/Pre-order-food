@@ -216,7 +216,22 @@ async def update_order_status(
     old_status = order.status
     new_status = payload.status
 
-    # 1. LOYALTY REVERSAL LOGIC
+    allowed_transitions = {
+        "pending": ["accepted", "cancelled"],
+        "accepted": ["preparing"],
+        "preparing": ["ready"],
+        "ready": ["completed"],
+        "completed": [], 
+        "cancelled": []  
+    }
+
+    if new_status not in allowed_transitions.get(old_status, []):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid action: Cannot change order from '{old_status}' to '{new_status}'."
+        )
+
+    # 1. UNIFIED LOYALTY CANCELLATION LOGIC
     if new_status == "cancelled" and old_status != "cancelled":
         loyalty_record = await db.scalar(
             select(LoyaltyAccount).where(
@@ -227,63 +242,72 @@ async def update_order_status(
         
         if loyalty_record:
             # A. Refund points that the user SPENT on this order
-            if order.redeem_loyalty_points and order.redeem_loyalty_points > 0:
-                loyalty_record.points_balance += order.redeem_loyalty_points
+            if getattr(order, "loyalty_points_used", 0) > 0:
+                loyalty_record.points_balance += order.loyalty_points_used
                 
-                # Log the refund transaction
+                # Log the refund transaction history
                 db.add(LoyaltyTransaction(
                     id=new_id(),
                     account_id=loyalty_record.id,
                     order_id=order.id,
-                    points=order.redeem_loyalty_points,
-                    action="adjusted"
+                    points=order.loyalty_points_used,
+                    action="refunded"
                 ))
                 
                 # Create Notification for Refund
                 db.add(Notification(
+                    id=new_id(),
                     user_id=order.customer_id,
-                    title="Points Refunded",
-                    message=f"Order #{order.id[:8]} was cancelled. {order.redeem_loyalty_points} points were refunded.",
+                    title="Points Refunded!",
+                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_used} points have been refunded to your account.",
                     type="loyalty_refund"
                 ))
 
-            # B. Deduct points the user EARNED (if cancelled after completion)
-            if old_status == "completed" and getattr(order, "loyalty_points_earned", 0) > 0:
+            # B. Deduct points the user EARNED (if order was already paid or completed)
+            if (old_status == "completed" or order.payment_status == "paid") and getattr(order, "loyalty_points_earned", 0) > 0:
                 loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
                 
-                # Log the deduction transaction
+                # Log the deduction transaction history
                 db.add(LoyaltyTransaction(
                     id=new_id(),
                     account_id=loyalty_record.id,
                     order_id=order.id,
                     points=-order.loyalty_points_earned,
-                    action="adjusted"
+                    action="deducted"
                 ))
                 
                 # Create Notification for Deduction
                 db.add(Notification(
+                    id=new_id(),
                     user_id=order.customer_id,
-                    title="Points Deducted",
-                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_earned} earned points were removed.",
+                    title="Points Adjusted",
+                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_earned} points earned from this order were removed.",
                     type="loyalty_deduction"
                 ))
 
-    # 2. ORDER ACCEPTANCE NOTIFICATION
-    if new_status == "accepted" and old_status == "pending":
+    # 2. ORDER UPDATES NOTIFICATIONS
+    status_messages = {
+        "accepted": f"The shop has accepted your order #{order.id[:8]} and is preparing it.",
+        "preparing": f"Your order #{order.id[:8]} is currently being prepared in the kitchen!",
+        "ready": f"Your order #{order.id[:8]} is ready for pickup! Come get it hot!",
+        "completed": f"Order #{order.id[:8]} has been marked as completed. Thank you!",
+        "cancelled": f"Your order #{order.id[:8]} has been cancelled."
+    }
+
+    if new_status in status_messages:
         db.add(Notification(
+            id=new_id(),
             user_id=order.customer_id,
-            title="Order Accepted!",
-            message=f"The shop has accepted your order #{order.id[:8]} and is preparing it.",
+            title=f"Order {new_status.capitalize()}!",
+            message=status_messages[new_status],
             type="order_update"
         ))
 
     # Apply the status change
     order.status = new_status
     await db.commit()
-    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
-    result = await db.execute(stmt)
-    order = result.scalar_one()
-    return OrderOut.model_validate(order)
+    
+    return await _order_out(db, order.id)
 
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)
@@ -304,32 +328,69 @@ async def cancel_order(
     if order.status in {"completed", "cancelled"}:
         raise HTTPException(400, "Cannot cancel this order")
         
+    old_status = order.status
     order.status = "cancelled"
     order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
 
-    # --- NEW: Refund loyalty points if the order is cancelled ---
-    if order.loyalty_points_used > 0:
-        from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
-        account_stmt = select(LoyaltyAccount).where(
-            LoyaltyAccount.customer_id == order.customer_id,
-            LoyaltyAccount.shop_id == order.shop_id,
+    # UNIFIED LOYALTY REVERSAL LOGIC (Matches status endpoint perfectly)
+    loyalty_record = await db.scalar(
+        select(LoyaltyAccount).where(
+            LoyaltyAccount.customer_id == order.customer_id, 
+            LoyaltyAccount.shop_id == order.shop_id
         )
-        account = (await db.execute(account_stmt)).scalar_one_or_none()
-        if account:
-            account.points_balance += order.loyalty_points_used
-            db.add(
-                LoyaltyTransaction(
-                    id=new_id(),
-                    account_id=account.id,
-                    order_id=order.id,
-                    points=order.loyalty_points_used,
-                    action="refunded",
-                )
-            )
-    # ------------------------------------------------------------
+    )
+    
+    if loyalty_record:
+        # A. Refund points that the user SPENT on this order
+        if getattr(order, "loyalty_points_used", 0) > 0:
+            loyalty_record.points_balance += order.loyalty_points_used
+            
+            db.add(LoyaltyTransaction(
+                id=new_id(),
+                account_id=loyalty_record.id,
+                order_id=order.id,
+                points=order.loyalty_points_used,
+                action="refunded"
+            ))
+            
+            db.add(Notification(
+                id=new_id(),
+                user_id=order.customer_id,
+                title="Points Refunded!",
+                message=f"Your order #{order.id[:8]} was cancelled. {order.loyalty_points_used} points have been refunded to your account.",
+                type="loyalty_refund"
+            ))
+
+        # B. Deduct points the user EARNED
+        if (old_status == "completed" or order.payment_status == "paid") and getattr(order, "loyalty_points_earned", 0) > 0:
+            loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
+            
+            db.add(LoyaltyTransaction(
+                id=new_id(),
+                account_id=loyalty_record.id,
+                order_id=order.id,
+                points=-order.loyalty_points_earned,
+                action="deducted"
+            ))
+            
+            db.add(Notification(
+                id=new_id(),
+                user_id=order.customer_id,
+                title="Points Adjusted",
+                message=f"Your order #{order.id[:8]} was cancelled. {order.loyalty_points_earned} points earned from this order were removed.",
+                type="loyalty_deduction"
+            ))
+
+    # Order Cancellation Notification
+    db.add(Notification(
+        id=new_id(),
+        user_id=order.customer_id,
+        title="Order Cancelled",
+        message=f"Your order #{order.id[:8]} has been successfully cancelled.",
+        type="order_update"
+    ))
 
     await db.commit()
-    await db.refresh(order)
     return await _order_out(db, order.id)
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -52,6 +52,57 @@ async def create_review(
     await _recompute_shop_rating(db, order.shop_id)
     return ReviewOut.model_validate(review)
 
+@router.post("/shops/{shop_id}", response_model=ReviewOut, status_code=201)
+async def create_shop_profile_review(
+    shop_id: str,
+    payload: ReviewCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles("customer", "admin"))],
+) -> ReviewOut:
+    # 1. Ensure the shop profile actually exists
+    shop = await db.get(Shop, shop_id)
+    if not shop:
+        raise HTTPException(404, "Shop not found")
+
+    # 2. Check if this customer has already written a generic review for this shop
+    # (Optional constraint: ensures a user can't spam fake score data onto a storefront)
+    existing = (
+        await db.execute(
+            select(Review).where(
+                Review.shop_id == shop_id, 
+                Review.customer_id == user.id,
+                Review.order_id == None  # Filters for organic profile reviews
+            )
+        )
+    ).scalar_one_or_none()
+    
+    if existing:
+        raise HTTPException(409, "You have already left feedback for this shop profile")
+
+    logging.debug("Creating generic store review for shop %s by customer %s", shop_id, user.id)
+    
+    # 3. Save the organic profile review without tying it to a mandatory order_id token
+    review = Review(
+        id=new_id(),
+        order_id=None,  # Handled cleanly as null since it's an organic profile review
+        shop_id=shop_id,
+        customer_id=user.id,
+        rating=payload.rating,
+        comment=payload.comment
+    )
+    db.add(review)
+    await db.commit()
+
+    # 4. Pull the review back out with the user data attached so Pydantic packages the response cleanly
+    result = await db.execute(
+        select(Review).options(selectinload(Review.customer)).where(Review.id == review.id)
+    )
+    review = result.scalar_one()
+    
+    # 5. Recompute the storefront summary metrics array row
+    await _recompute_shop_rating(db, shop_id)
+    
+    return ReviewOut.model_validate(review)
 
 @router.get("/shops/{shop_id}", response_model=list[ReviewOut])
 async def list_reviews(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)], page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)) -> list[ReviewOut]:

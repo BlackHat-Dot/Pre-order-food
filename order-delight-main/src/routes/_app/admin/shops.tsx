@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, Search, Star, Copy, MapPin, Phone, ChevronLeft, ChevronRight, Store } from "lucide-react";
+import { ShieldCheck, Search, Star, Copy, MapPin, Phone, ChevronLeft, ChevronRight, Store, Mail } from "lucide-react";
 import { adminApi, ApiError, type AdminShopOut } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,78 +21,131 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
 
   const verify = useMutation({
     mutationFn: (v: boolean) => adminApi.verifyShop(s.id, { is_verified: v }),
-    onSuccess: () => { toast.success(s.is_verified ? "Shop unverified" : "Shop verified"); onMutated(); },
+    onSuccess: () => { 
+      toast.success(s.is_verified ? "Shop unverified" : "Shop verified"); 
+      onMutated(); 
+    },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
   });
+  
   const setActive = useMutation({
     mutationFn: (v: boolean) => adminApi.setShopActive(s.id, { is_active: v }),
-    onSuccess: () => { toast.success("Updated"); onMutated(); },
+    onSuccess: () => { 
+      toast.success("Updated status successfully"); 
+      onMutated(); 
+    },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
   });
 
   return (
-    <Card className="border-border/50 hover:border-border transition-colors">
-      <CardContent className="p-0">
-        <div className="flex flex-wrap gap-4 p-4">
-          {/* Icon */}
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted">
-            <Store className="h-5 w-5 text-muted-foreground" />
-          </div>
-
-          {/* 👇 Mini version of the Copy ID block 👇 */}
-          <div className="mt-1 flex items-center gap-1 text-muted-foreground opacity-80">
-            <span className="font-mono text-[11px]">ID: {s.id}</span>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(s.id);
-                toast.success("Shop ID copied!");
-              }}
-              className="rounded p-0.5 hover:bg-muted hover:text-foreground transition-colors"
-              title="Copy Shop ID"
-            >
-              <Copy className="h-3 w-3" />
-            </button>
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold">{s.name}</p>
-              {s.is_verified && <ShieldCheck className="h-4 w-4 text-primary" />}
-              <Badge variant="outline" className="text-xs">{s.category}</Badge>
-              <span className={`text-xs font-medium ${s.is_open ? "text-emerald-500" : "text-muted-foreground"}`}>
-                {s.is_open ? "● Open" : "○ Closed"}
-              </span>
+    <Card className="border-border/50 hover:border-border transition-all shadow-sm">
+      <CardContent className="p-6">
+        <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
+          
+          {/* LEFT SECTION: Icon block and Structured Core Info */}
+          <div className="flex gap-4 flex-1 min-w-0 items-start">
+            {/* Structured Store Branding Container */}
+            <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Store className="h-6 w-6" />
             </div>
-            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{s.city}, {s.state}</span>
-              <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</span>
-              <span className="flex items-center gap-1">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                {ratingAvg.toFixed(1)} ({ratingCount})
-              </span>
+
+            {/* Shop Details Content Body */}
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold tracking-tight text-foreground truncate">
+                  {s.name}
+                </h3>
+                {s.is_verified && (
+                  <Badge variant="secondary" className="gap-0.5 bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/10 dark:text-blue-400 font-medium px-2 py-0">
+                    <ShieldCheck className="h-3 w-3 text-blue-500" /> Verified
+                  </Badge>
+                )}
+                <Badge 
+                  variant="outline" 
+                  className={`text-[11px] px-2 py-0 ${
+                    s.is_open 
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold" 
+                      : "border-muted bg-muted/50 text-muted-foreground"
+                  }`}
+                >
+                  {s.is_open ? "• Open" : "Closed"}
+                </Badge>
+              </div>
+
+              {/* Dynamic Category Indicator Tag */}
+              <p className="text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded w-fit capitalize">
+                {s.category || "General Catering"}
+              </p>
+
+              {/* Multi-Column Metadata Row Array */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5 truncate">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  {s.city}, {s.state}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  {s.phone}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                  {ratingAvg.toFixed(1)} ({ratingCount} reviews)
+                </span>
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="text-muted-foreground/60">Owner:</span> 
+                  <span className="font-medium text-foreground truncate">{s.owner_name}</span>
+                </span>
+              </div>
+
+              {/* Detailed Owner Contacts Field */}
+              {s.owner_email && (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70 pl-5">
+                  <Mail className="h-3 w-3 text-muted-foreground/50" /> {s.owner_email}
+                </p>
+              )}
+
+              {/* Repositioned Identification Asset Bar */}
+              <div className="flex items-center gap-2 pt-2">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/70 bg-muted/40 px-2 py-1 rounded border border-border/40">
+                  <span>ID: <span className="select-all text-foreground/90 font-medium">{s.id}</span></span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(s.id);
+                      toast.success("Shop ID copied to clipboard!");
+                    }}
+                    className="rounded p-0.5 hover:bg-muted text-muted-foreground/60 hover:text-foreground transition-colors"
+                    title="Copy Shop ID"
+                  >
+                    <Copy className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Owner: <span className="font-medium text-foreground">{s.owner_name}</span>
-              {s.owner_email && <span className="ml-1">· {s.owner_email}</span>}
-            </p>
           </div>
 
-          {/* Controls */}
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <span className="text-xs text-muted-foreground">{formatDate(s.created_at)}</span>
-            <div className="flex items-center gap-2">
+          {/* RIGHT SECTION: Standardized Action Sidebar Controls */}
+          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-4 w-full md:w-auto shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-border/40">
+            <span className="text-xs text-muted-foreground md:order-first order-last">
+              Registered {formatDate(s.created_at)}
+            </span>
+            
+            <div className="flex items-center md:flex-col lg:flex-row gap-3 w-full md:w-auto justify-end">
+              {/* Verification Call to Action */}
               <Button
                 size="sm"
                 variant={s.is_verified ? "outline" : "default"}
-                className="h-7 px-3 text-xs"
+                className="h-8 px-3 text-xs font-medium min-w-[84px]"
                 onClick={() => verify.mutate(!s.is_verified)}
                 disabled={verify.isPending}
               >
                 {s.is_verified ? "Unverify" : "Verify"}
               </Button>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">{s.is_active ? "Active" : "Disabled"}</span>
+
+              {/* Activation State Machine Node */}
+              <div className="flex items-center gap-2 h-8 bg-muted/30 px-2.5 rounded-lg border border-border/30">
+                <span className="text-xs font-medium text-muted-foreground min-w-[48px] text-right">
+                  {s.is_active ? "Active" : "Disabled"}
+                </span>
                 <Switch
                   checked={s.is_active}
                   onCheckedChange={(v) => setActive.mutate(v)}
@@ -101,6 +154,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
               </div>
             </div>
           </div>
+
         </div>
       </CardContent>
     </Card>

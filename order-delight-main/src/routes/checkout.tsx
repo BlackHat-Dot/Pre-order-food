@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -25,9 +25,58 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
+// ==========================================
+// ENGAGING, PREMIUM "FREE ORDER" SUCCESS MODAL
+// ==========================================
+interface FreeOrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  shopName: string;
+}
+
+function FreeOrderSuccessModal({ isOpen, onClose, shopName }: FreeOrderModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md border-none bg-gradient-to-b from-emerald-500/10 to-background p-6 text-center shadow-2xl rounded-2xl overflow-hidden relative">
+        <div className="absolute -top-12 -left-12 h-32 w-32 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none animate-pulse" />
+        <div className="absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-primary/15 blur-2xl pointer-events-none" />
+
+        <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 transform transition-transform hover:scale-110 duration-200">
+            <Gift className="h-8 w-8 animate-bounce" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center justify-center gap-1.5">
+              It's on the house! <Sparkles className="h-5 w-5 text-amber-400 fill-amber-400" />
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Your loyalty points fully covered this meal from <span className="font-semibold text-foreground">{shopName}</span>.
+            </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mx-auto">
+            <CheckCircle className="h-3.5 w-3.5" /> Free Order Placed Successfully
+          </div>
+
+          <div className="pt-2">
+            <Button 
+              onClick={onClose} 
+              className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl text-xs gap-1.5 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+            >
+              Track Your Order <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CheckoutPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { lines, total, count } = useCart();
   const shopId = lines[0]?.shop_id;
   const [notes, setNotes] = useState("");
@@ -38,6 +87,10 @@ function CheckoutPage() {
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState<string>("");
   const [finalAmount, setFinalAmount] = useState<number>(0);
+  
+  // Free order state tracking node
+  const [freeOrderShopName, setFreeOrderShopName] = useState<string | null>(null);
+  const [freeOrderId, setFreeOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -55,7 +108,6 @@ function CheckoutPage() {
     enabled: !!user && !!shopId,
   });
 
-  // Safely extract properties to bypass TypeScript mismatches
   const shopDiscount = (shop as any)?.loyalty_discount_per_point ?? 0.1;
   const loyaltyBalance = (loyalty as any)?.points_balance ?? (loyalty as any)?.points ?? 0;
 
@@ -74,7 +126,6 @@ function CheckoutPage() {
 
   const placeOrder = useMutation({
     mutationFn: async () => {
-      // Cast payload as any to prevent strict interface schema mismatches
       const payload: any = {
         shop_id: shopId!,
         items: lines.map((l) => ({
@@ -85,7 +136,7 @@ function CheckoutPage() {
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,   
         redeem_loyalty_points: appliedRedeemPoints,
-        payment_method: "online",
+        payment_method: payableTotal === 0 ? "loyalty" : "online", // Intelligent adjustment for full conversions
       };
       
       const order = await ordersApi.create(payload);
@@ -93,13 +144,35 @@ function CheckoutPage() {
     },
 
     onSuccess: async (order: any) => {
+      // 🚨 INTERCEPT POINT 1: If payableTotal is zero, trigger the free experience directly
+      if (payableTotal === 0) {
+        try {
+          // Verify with the backend that the 0-amount transaction is fully confirmed
+          await paymentsApi.create({ order_id: order.id });
+          await paymentsApi.verify({
+            order_id: order.id,
+            provider_order_id: `loyalty_free_${order.id}`,
+            provider_payment_id: `loyalty_pay_${order.id}`,
+            signature: "free_loyalty_signature",
+          } as any);
+
+          // Fire off success states cleanly
+          setFreeOrderShopName((shop as any)?.name ?? "the shop");
+          setFreeOrderId(order.id);
+          cart.clear();
+          qc.invalidateQueries({ queryKey: ["my-orders"] });
+        } catch (err) {
+          await ordersApi.cancel(order.id).catch(() => {});
+          toast.error("Failed to complete loyalty voucher deduction.");
+        }
+        return;
+      }
+
+      // Fallback for normal transaction verification routes
       try {
         const pay: any = await paymentsApi.create({ order_id: order.id });
-        
-        // Safeguard for either total_price or total_amount
         setFinalAmount(order.total_price ?? order.total_amount ?? 0); 
         setPendingOrderId(order.id);
-        
         setProviderOrderId(pay.provider_order_id || `mock_order_${order.id}`);
         setProviderPaymentId(pay.provider_payment_id || `mock_pay_${order.id}`);
       } catch (err) {
@@ -139,7 +212,7 @@ function CheckoutPage() {
     }
   }
 
-  if (count === 0) {
+  if (count === 0 && !freeOrderId) {
     return (
       <div className="min-h-screen">
         <PublicNav />
@@ -233,7 +306,7 @@ function CheckoutPage() {
             <CardContent className="space-y-3 p-6">
               <h3 className="font-semibold">Summary</h3>
               <div className="space-y-1.5 text-sm">
-                {lines.map((l) => (
+                ={lines.map((l) => (
                   <div key={`${l.item_id}-${l.variant_id ?? "_"}`} className="flex justify-between">
                     <span className="text-muted-foreground">
                       {l.quantity} × {l.name}
@@ -248,31 +321,34 @@ function CheckoutPage() {
                 <span>{formatCurrency(total)}</span>
               </div>
               {appliedRedeemPoints > 0 && (
-                <div className="flex items-center justify-between text-sm text-success">
+                <div className="flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                   <span>Loyalty discount ({appliedRedeemPoints} points)</span>
                   <span>-{formatCurrency(loyaltyDiscount)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-base font-semibold">
                 <span>Payable</span>
-                <span>{formatCurrency(payableTotal)}</span>
+                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : ""}>
+                  {payableTotal === 0 ? "FREE" : formatCurrency(payableTotal)}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground">
                 You will earn approximately <span className="font-semibold text-primary">{estimatedEarn}</span> shop loyalty points after payment.
               </p>
               <Button
-                className="w-full"
+                className={`w-full ${payableTotal === 0 ? "bg-emerald-600 hover:bg-emerald-500 text-white" : ""}`}
                 size="lg"
                 disabled={placeOrder.isPending}
                 onClick={() => placeOrder.mutate()}
               >
-                {placeOrder.isPending ? "Placing order…" : "Place order & pay"}
+                {placeOrder.isPending ? "Placing order…" : payableTotal === 0 ? "Claim Free Order! 🎉" : "Place order & pay"}
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
 
+      {/* Standard Demo Payment Confirmation Prompt Dialog */}
       <Dialog open={!!pendingOrderId} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
@@ -303,6 +379,18 @@ function CheckoutPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 🚨 INTERCEPT POINT 2: Free Order Success Pop-up Modal Rendering Asset */}
+      <FreeOrderSuccessModal
+        isOpen={!!freeOrderId}
+        shopName={freeOrderShopName || ""}
+        onClose={() => {
+          const targetId = freeOrderId!;
+          setFreeOrderId(null);
+          setFreeOrderShopName(null);
+          navigate({ to: "/orders/$orderId", params: { orderId: targetId } });
+        }}
+      />
     </div>
   );
 }

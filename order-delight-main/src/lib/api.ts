@@ -578,8 +578,13 @@ export const ordersApi = {
     apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status } }),
   cancel: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}/cancel`, { method: "PATCH" }),
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }), // Changed to match python backend
+    apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }),
+
+  // 👇 ENSURE THIS EXACT SIGNATURE SITS CLEANLY AT THE TAIL OF THE OBJECT 👇
+  submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
+    apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
 };
+  // Changed to match python backend
 
 // ── Payments API ───────────────────────────────────────────────────────────────
 
