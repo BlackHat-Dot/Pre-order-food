@@ -32,39 +32,80 @@ interface FreeOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   shopName: string;
+  couponCode?: string;
+  couponDiscountUsed: number;
+  leftoverBalance?: number;
 }
 
-function FreeOrderSuccessModal({ isOpen, onClose, shopName }: FreeOrderModalProps) {
+function FreeOrderSuccessModal({ 
+  isOpen, 
+  onClose, 
+  shopName, 
+  couponCode, 
+  couponDiscountUsed,
+  leftoverBalance = 0 
+}: FreeOrderModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md border-none bg-gradient-to-b from-emerald-500/10 to-background p-6 text-center shadow-2xl rounded-2xl overflow-hidden relative">
+        {/* Background Ambient Aesthetics */}
         <div className="absolute -top-12 -left-12 h-32 w-32 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none animate-pulse" />
         <div className="absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-primary/15 blur-2xl pointer-events-none" />
 
-        <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-300">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 transform transition-transform hover:scale-110 duration-200">
-            <Gift className="h-8 w-8 animate-bounce" />
+        <div className="space-y-6 py-2 animate-in fade-in zoom-in-95 duration-300">
+          {/* Main Visual Anchor */}
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 transform transition-transform hover:scale-110 duration-200">
+            <Gift className="h-7 w-7 animate-bounce" />
           </div>
 
-          <div className="space-y-1.5">
+          {/* Typography Header */}
+          <div className="space-y-2">
             <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center justify-center gap-1.5">
-              It's on the house! <Sparkles className="h-5 w-5 text-amber-400 fill-amber-400" />
+              Invoice Settled! <Sparkles className="h-5 w-5 text-amber-400 fill-amber-400" />
             </h2>
-            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              Your gift voucher code fully covered this meal from <span className="font-semibold text-foreground">{shopName}</span>.
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              Your transaction at <span className="font-semibold text-foreground">{shopName}</span> has been completely covered by your gift voucher.
             </p>
           </div>
 
+          {/* Professional Transactional Ledger Breakdown */}
+          {couponCode && (
+            <div className="rounded-xl bg-muted/50 border border-border/80 p-3.5 text-left space-y-2.5 max-w-xs mx-auto shadow-inner">
+              <div className="flex justify-between items-center text-[11px] text-muted-foreground font-medium">
+                <span>Voucher Reference</span>
+                <code className="font-mono bg-background px-2 py-0.5 rounded border border-border font-bold text-primary tracking-wider uppercase text-[10px]">
+                  {couponCode}
+                </code>
+              </div>
+              
+              <div className="h-px bg-border/60" />
+              
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-muted-foreground font-normal">Redeemed This Order</span>
+                <span className="text-foreground">{formatCurrency(couponDiscountUsed)}</span>
+              </div>
+
+              {leftoverBalance > 0 && (
+                <div className="flex justify-between items-center text-xs font-bold bg-emerald-500/10 dark:bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/20 mt-1">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-medium">Remaining Coupon Value</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(leftoverBalance)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Summary Status Pill */}
           <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mx-auto">
-            <CheckCircle className="h-3.5 w-3.5" /> Free Order Placed Successfully
+            <CheckCircle className="h-3.5 w-3.5" /> Order Successfully Processed
           </div>
 
+          {/* Call To Action Redirect Node */}
           <div className="pt-2">
             <Button 
               onClick={onClose} 
-              className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl text-xs gap-1.5 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+              className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs gap-1.5 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
             >
-              Track Your Order <ArrowRight className="h-4 w-4" />
+              Track Order Real-Time <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -413,16 +454,20 @@ function CheckoutPage() {
       </Dialog>
 
       {/* Free Order Success Pop-up Modal Rendering Asset */}
-      <FreeOrderSuccessModal
-        isOpen={!!freeOrderId}
-        shopName={freeOrderShopName || ""}
-        onClose={() => {
-          const targetId = freeOrderId!;
-          setFreeOrderId(null);
-          setFreeOrderShopName(null);
-          navigate({ to: "/orders/$orderId", params: { orderId: targetId } });
-        }}
-      />
+      // Find where you render the FreeOrderSuccessModal near the bottom of checkout.tsx:
+    <FreeOrderSuccessModal
+    isOpen={!!freeOrderId}
+    shopName={freeOrderShopName || ""}
+    couponCode={appliedCoupon?.code}
+    couponDiscountUsed={total} // Total price of food items cleared out
+    leftoverBalance={appliedCoupon ? Math.max(0, appliedCoupon.discount_value - total) : 0}
+    onClose={() => {
+      const targetId = freeOrderId!;
+      setFreeOrderId(null);
+      setFreeOrderShopName(null);
+      navigate({ to: "/orders/$orderId", params: { orderId: targetId } });
+    }}
+  />
     </div>
   );
 }

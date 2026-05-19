@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +16,7 @@ from app.models.notification import Notification
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop
 from app.models.user import User
+from app.models.coupon import Coupon  # 🚀 IMPORTED: New coupon model reference dependency
 from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
 from app.services.sms import send_sms
 from app.utils.ids import new_id
@@ -96,41 +98,90 @@ async def create_order(
         instructions=payload.instructions,
         payment_method=payload.payment_method,
     )
-    # Optional shop-specific loyalty redemption.
-    redeem_points = max(payload.redeem_loyalty_points or 0, 0)
-    discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
-    if redeem_points > 0:
-        account_stmt = select(LoyaltyAccount).where(
-            LoyaltyAccount.customer_id == user.id,
-            LoyaltyAccount.shop_id == shop.id,
-        )
-        account = (await db.execute(account_stmt)).scalar_one_or_none()
-        if not account or account.points_balance < redeem_points:
-            raise HTTPException(400, "Insufficient loyalty points for this shop")
-        max_discount_points = int(total_price / discount_per_point) if discount_per_point > 0 else 0
-        points_to_use = min(redeem_points, max_discount_points)
-        discount_amount = round(points_to_use * discount_per_point, 2)
-        if points_to_use > 0:
-            account.points_balance -= points_to_use
-            order.loyalty_points_used = points_to_use
-            order.loyalty_discount_amount = discount_amount
-            order.total_price = round(max(total_price - discount_amount, 0), 2)
-            db.add(
-                LoyaltyTransaction(
-                    id=new_id(),
-                    account_id=account.id,
-                    order_id=order.id,
-                    points=-points_to_use,
-                    action="redeemed",
-                )
-            )
 
-    # Loyalty points are earned after payment is confirmed (see payments.py).
-    # Store the expected earn amount on the order for display purposes only.
+    # 🚀 STRATEGY 3: COUPOUN VALUE VALUATION ENGINE WITH SURPLUS SAFEGUARDS
+    # Check if a coupon token was attached to the incoming request payload
+    coupon_id = getattr(payload, "coupon_id", None)
+    if coupon_id:
+        coupon = await db.get(Coupon, coupon_id)
+        if not coupon:
+            raise HTTPException(404, "Voucher code reference missing")
+        if coupon.shop_id != shop.id:
+            raise HTTPException(400, "This voucher is restricted to another storefront profile")
+        if coupon.is_redeemed or coupon.discount_value <= 0:
+            raise HTTPException(410, "This voucher code has already been completely exhausted")
+
+        if coupon.discount_value >= total_price:
+            # 🌟 SURPLUS VALUE SCENARIO (Voucher is worth more than the order)
+            leftover_balance = round(coupon.discount_value - total_price, 2)
+            
+            # The order is completely paid for by the voucher
+            order.coupon_discount_applied = total_price
+            order.total_price = 0.0
+            
+            # Keep the voucher alive in the database with the leftover balance!
+            coupon.discount_value = leftover_balance
+            coupon.is_redeemed = False 
+            
+            # Create a notification to let the user know they still have money left on the code
+            db.add(Notification(
+                id=new_id(),
+                user_id=user.id,
+                title="Voucher Balance Updated",
+                message=(
+                    f"Your voucher {coupon.code} has been partially applied. A remaining balance of "
+                    f"₹{leftover_balance:,.2f} is secured on this code and remains available for your next transaction."
+                ),
+                type="coupon_update"
+            ))
+        else:
+            # STANDARD SCENARIO (Order costs more than the voucher's value)
+            order.coupon_discount_applied = coupon.discount_value
+            order.total_price = round(total_price - coupon.discount_value, 2)
+            
+            # Fully exhaust and close out the coupon record
+            coupon.discount_value = 0.0
+            coupon.is_redeemed = True
+            coupon.redeemed_at = datetime.utcnow()
+            coupon.redeemed_by_id = user.id
+            coupon.order_id = order.id
+
+    # Legacy fallback for direct shop-specific points redemptions
+    elif getattr(payload, "redeem_loyalty_points", 0) > 0:
+        redeem_points = max(payload.redeem_loyalty_points or 0, 0)
+        discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
+        if redeem_points > 0:
+            account_stmt = select(LoyaltyAccount).where(
+                LoyaltyAccount.customer_id == user.id,
+                LoyaltyAccount.shop_id == shop.id,
+            )
+            account = (await db.execute(account_stmt)).scalar_one_or_none()
+            if not account or account.points_balance < redeem_points:
+                raise HTTPException(400, "Insufficient loyalty points for this shop")
+            max_discount_points = int(total_price / discount_per_point) if discount_per_point > 0 else 0
+            points_to_use = min(redeem_points, max_discount_points)
+            discount_amount = round(points_to_use * discount_per_point, 2)
+            if points_to_use > 0:
+                account.points_balance -= points_to_use
+                order.loyalty_points_used = points_to_use
+                order.loyalty_discount_amount = discount_amount
+                order.total_price = round(max(total_price - discount_amount, 0), 2)
+                db.add(
+                    LoyaltyTransaction(
+                        id=new_id(),
+                        account_id=account.id,
+                        order_id=order.id,
+                        points=-points_to_use,
+                        action="redeemed",
+                    )
+                )
+
+    # Calculate expected points collection metrics
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     db.add(order)
     await db.flush()
+    
     for oi in order_items:
         oi.order_id = order.id
         db.add(oi)
@@ -187,11 +238,9 @@ async def shop_orders(
         raise HTTPException(404, "Shop not found")
     if user.role != "admin" and shop.owner_id != user.id:
         raise HTTPException(403, "Forbidden")
-    # Modify the base statement to exclude orders where the payment was abandoned
-    from sqlalchemy import or_
+        
     stmt = select(Order).where(
         Order.shop_id == shop_id,
-        # Only show orders that are fully paid, OR if you support Cash on Delivery
         or_(Order.payment_status == "paid", Order.payment_method == "cod")
     ).options(selectinload(Order.items))
     if status_filter:
@@ -199,7 +248,6 @@ async def shop_orders(
     stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     rows = (await db.execute(stmt)).scalars().all()
     return [OrderOut.model_validate(o) for o in rows]
-
 
 
 @router.patch("/{order_id}/status", response_model=OrderOut)
@@ -231,7 +279,6 @@ async def update_order_status(
             detail=f"Invalid action: Cannot change order from '{old_status}' to '{new_status}'."
         )
 
-    # 1. UNIFIED LOYALTY CANCELLATION LOGIC
     if new_status == "cancelled" and old_status != "cancelled":
         loyalty_record = await db.scalar(
             select(LoyaltyAccount).where(
@@ -241,11 +288,8 @@ async def update_order_status(
         )
         
         if loyalty_record:
-            # A. Refund points that the user SPENT on this order
             if getattr(order, "loyalty_points_used", 0) > 0:
                 loyalty_record.points_balance += order.loyalty_points_used
-                
-                # Log the refund transaction history
                 db.add(LoyaltyTransaction(
                     id=new_id(),
                     account_id=loyalty_record.id,
@@ -253,8 +297,6 @@ async def update_order_status(
                     points=order.loyalty_points_used,
                     action="refunded"
                 ))
-                
-                # Create Notification for Refund
                 db.add(Notification(
                     id=new_id(),
                     user_id=order.customer_id,
@@ -263,11 +305,8 @@ async def update_order_status(
                     type="loyalty_refund"
                 ))
 
-            # B. Deduct points the user EARNED (if order was already paid or completed)
             if (old_status == "completed" or order.payment_status == "paid") and getattr(order, "loyalty_points_earned", 0) > 0:
                 loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
-                
-                # Log the deduction transaction history
                 db.add(LoyaltyTransaction(
                     id=new_id(),
                     account_id=loyalty_record.id,
@@ -275,8 +314,6 @@ async def update_order_status(
                     points=-order.loyalty_points_earned,
                     action="deducted"
                 ))
-                
-                # Create Notification for Deduction
                 db.add(Notification(
                     id=new_id(),
                     user_id=order.customer_id,
@@ -285,7 +322,6 @@ async def update_order_status(
                     type="loyalty_deduction"
                 ))
 
-    # 2. ORDER UPDATES NOTIFICATIONS
     status_messages = {
         "accepted": f"The shop has accepted your order #{order.id[:8]} and is preparing it.",
         "preparing": f"Your order #{order.id[:8]} is currently being prepared in the kitchen!",
@@ -303,10 +339,8 @@ async def update_order_status(
             type="order_update"
         ))
 
-    # Apply the status change
     order.status = new_status
     await db.commit()
-    
     return await _order_out(db, order.id)
 
 
@@ -332,7 +366,6 @@ async def cancel_order(
     order.status = "cancelled"
     order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
 
-    # UNIFIED LOYALTY REVERSAL LOGIC (Matches status endpoint perfectly)
     loyalty_record = await db.scalar(
         select(LoyaltyAccount).where(
             LoyaltyAccount.customer_id == order.customer_id, 
@@ -341,10 +374,8 @@ async def cancel_order(
     )
     
     if loyalty_record:
-        # A. Refund points that the user SPENT on this order
         if getattr(order, "loyalty_points_used", 0) > 0:
             loyalty_record.points_balance += order.loyalty_points_used
-            
             db.add(LoyaltyTransaction(
                 id=new_id(),
                 account_id=loyalty_record.id,
@@ -352,7 +383,6 @@ async def cancel_order(
                 points=order.loyalty_points_used,
                 action="refunded"
             ))
-            
             db.add(Notification(
                 id=new_id(),
                 user_id=order.customer_id,
@@ -361,10 +391,8 @@ async def cancel_order(
                 type="loyalty_refund"
             ))
 
-        # B. Deduct points the user EARNED
         if (old_status == "completed" or order.payment_status == "paid") and getattr(order, "loyalty_points_earned", 0) > 0:
             loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
-            
             db.add(LoyaltyTransaction(
                 id=new_id(),
                 account_id=loyalty_record.id,
@@ -372,7 +400,6 @@ async def cancel_order(
                 points=-order.loyalty_points_earned,
                 action="deducted"
             ))
-            
             db.add(Notification(
                 id=new_id(),
                 user_id=order.customer_id,
@@ -381,7 +408,6 @@ async def cancel_order(
                 type="loyalty_deduction"
             ))
 
-    # Order Cancellation Notification
     db.add(Notification(
         id=new_id(),
         user_id=order.customer_id,
@@ -392,6 +418,7 @@ async def cancel_order(
 
     await db.commit()
     return await _order_out(db, order.id)
+
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_order(
@@ -411,4 +438,3 @@ async def _order_out(db: AsyncSession, order_id: str) -> OrderOut:
     stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
     order = (await db.execute(stmt)).scalar_one()
     return OrderOut.model_validate(order)
-
