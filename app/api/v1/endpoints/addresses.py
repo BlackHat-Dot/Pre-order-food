@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated, list
+from typing import Annotated
 from app.db.session import get_db
 from app.models.address import UserAddress
 from app.models.user import User
