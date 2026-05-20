@@ -28,6 +28,7 @@ import {
   type Country,
 } from "@/components/phone";
 import { cn } from "@/lib/utils";
+import { ProfileAddresses } from "@/components/app/ProfileAddresses";
 
 export const Route = createFileRoute("/_app/profile")({ component: ProfilePage });
 
@@ -85,13 +86,12 @@ function ProfilePage() {
   // ── Email verification state machine ──────────────────────────────────────
   const [emailInput, setEmailInput] = useState(user?.email ?? "");
   const [emailOtp, setEmailOtp] = useState("");
-  const [emailToken, setEmailToken] = useState<string | null>(null); // proof JWT after OTP verified
+  const [emailToken, setEmailToken] = useState<string | null>(null);
   const [emailStep, setEmailStep] = useState<"idle" | "sent" | "verified">("idle");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldownSecs, startCooldown] = useCountdown(0);
-  // Password required when changing a verified email
   const [emailCurrentPwd, setEmailCurrentPwd] = useState("");
   const [editingEmail, setEditingEmail] = useState(!user?.email);
 
@@ -110,9 +110,7 @@ function ProfilePage() {
   const emailValid = isValidEmail(emailInput);
   const hasSavedEmail = Boolean(savedEmail);
   const emailUnverified = hasSavedEmail && !user?.email_verified;
-  // Require password when changing an already-verified email
   const needsPassword = !!(user?.email && user.email_verified && emailChanged);
-  // Send/Resend button enabled: valid email, new or unverified current email, not in cooldown, not loading
   const canSendOtp =
     emailValid &&
     emailStep !== "verified" &&
@@ -130,7 +128,6 @@ function ProfilePage() {
           ? "Verify current email"
           : "Send code";
 
-  // Reset verification state when email input changes
   function handleEmailChange(val: string) {
     setEmailInput(val);
     if (emailStep !== "idle") {
@@ -211,11 +208,9 @@ function ProfilePage() {
     }
   }
 
-  // ── Save profile (name + email) ────────────────────────────────────────────
   const saveProfile = useMutation({
     mutationFn: async () => {
       const body: Record<string, unknown> = { name };
-
       const emailTrimmed = emailInput.trim() || null;
       const emailLower = (emailTrimmed ?? "").toLowerCase();
 
@@ -226,11 +221,9 @@ function ProfilePage() {
         body.email_verification_token = emailToken;
         if (emailCurrentPwd) body.current_password = emailCurrentPwd;
       } else if (emailTrimmed && emailLower === savedEmail && emailToken) {
-        // Verifying the existing email without changing it.
         body.email = emailTrimmed;
         body.email_verification_token = emailToken;
       } else if (!emailTrimmed && savedEmail) {
-        // Removing email
         body.email = null;
       }
 
@@ -252,11 +245,8 @@ function ProfilePage() {
 
   const canSaveProfile =
     !saveProfile.isPending &&
-    // Something must have changed
     (name.trim() !== (user?.name ?? "").trim() || emailStep === "verified" || (!emailChanged && emailInput.trim() !== (user?.email ?? ""))) &&
-    // If email changed, it must be verified before saving
     (!emailChanged || emailStep === "verified") &&
-    // If password is required (changing verified email), it must be provided
     (!needsPassword || !emailChanged || !!emailCurrentPwd);
 
   // ── Phone change ───────────────────────────────────────────────────────────
@@ -329,7 +319,6 @@ function ProfilePage() {
           <CardTitle>Personal info</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="profile-name">Full name</Label>
@@ -341,7 +330,7 @@ function ProfilePage() {
             />
           </div>
 
-          {/* ── Email section ─────────────────────────────────────────────── */}
+          {/* Email section */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Label htmlFor="profile-email" className="flex items-center gap-1.5">
@@ -365,7 +354,6 @@ function ProfilePage() {
               )}
             </div>
 
-            {/* Email input */}
             <div className="flex gap-2 items-end">
               <div className="relative flex-1">
                 <Input
@@ -422,7 +410,6 @@ function ProfilePage() {
               )}
             </div>
 
-            {/* Inline validation */}
             {emailInput && !emailValid && (
               <p className="flex items-center gap-1 text-xs text-destructive">
                 <AlertCircle className="h-3 w-3 shrink-0" />
@@ -430,7 +417,6 @@ function ProfilePage() {
               </p>
             )}
 
-            {/* Password gate for verified email change */}
             {emailStep !== "verified" && needsPassword && emailChanged && emailValid && (
               <div className="space-y-1.5">
                 <Label htmlFor="email-pwd" className="text-xs text-muted-foreground">
@@ -447,7 +433,6 @@ function ProfilePage() {
               </div>
             )}
 
-            {/* OTP entry — shown after sending */}
             {emailStep === "sent" && (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <p className="text-sm font-medium">Enter the 6-digit code sent to <span className="text-primary">{emailInput.trim()}</span></p>
@@ -489,7 +474,6 @@ function ProfilePage() {
               </div>
             )}
 
-            {/* Verified banner */}
             {emailStep === "verified" && (
               <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-700">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -519,7 +503,6 @@ function ProfilePage() {
             )}
           </div>
 
-          {/* Save button */}
           <Button
             onClick={() => saveProfile.mutate()}
             disabled={!canSaveProfile}
@@ -544,7 +527,6 @@ function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Current phone display */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
             <div>
               <p className="text-sm font-medium font-mono">{user?.phone || "—"}</p>
@@ -656,6 +638,9 @@ function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 🚀 FIXED AND MOUNTED: Address profiles display cleanly here inside layout */}
+      <ProfileAddresses />
     </div>
   );
 }
