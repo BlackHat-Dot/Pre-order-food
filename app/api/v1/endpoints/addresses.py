@@ -61,3 +61,17 @@ async def set_default_address(
     addr.is_default = True
     await db.commit()
     return {"message": "Successfully updated system default delivery point specifications"}
+
+@router.delete("/{address_id}", status_code=200)
+async def delete_saved_address(
+    address_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    addr = await db.get(UserAddress, address_id)
+    if not addr or addr.user_id != user.id:
+        raise HTTPException(404, "Target address entry not located")
+        
+    await db.delete(addr)
+    await db.commit()
+    return {"message": "Successfully removed destination address from customer record map"}
