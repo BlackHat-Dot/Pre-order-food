@@ -31,19 +31,28 @@ export const Route = createFileRoute("/_app")({
 });
 
 // ========================================================
-// 🚀 SMART CROSS-SHOP CONFLICT ENFORCEMENT MODAL COMPONENT
+// 🚀 UPGRADED CROSS-SHOP CONFLICT MODAL (EXPLICIT SHOP NAMES)
 // ========================================================
 function GlobalCartConflictModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [pendingLine, setPendingLine] = useState<CartLine | null>(null);
+  
   const currentCart = cart.all();
-  const conflictingShopId = currentCart[0]?.shop_id;
+  const existingShopId = currentCart[0]?.shop_id;
+  const incomingShopId = pendingLine?.shop_id;
 
-  // Dynamically resolve existing shop parameters for user readability
+  // 1. Fetch current shop name in cart
   const { data: oldShop } = useQuery({
-    queryKey: ["shop", conflictingShopId],
-    queryFn: () => shopsApi.get(conflictingShopId!),
-    enabled: !!conflictingShopId && isOpen,
+    queryKey: ["shop", existingShopId],
+    queryFn: () => shopsApi.get(existingShopId!),
+    enabled: !!existingShopId && isOpen,
+  });
+
+  // 2. Fetch the incoming item's shop name
+  const { data: newShop } = useQuery({
+    queryKey: ["shop", incomingShopId],
+    queryFn: () => shopsApi.get(incomingShopId!),
+    enabled: !!incomingShopId && isOpen,
   });
 
   useEffect(() => {
@@ -59,7 +68,6 @@ function GlobalCartConflictModal() {
 
   const handleConfirmReplacement = () => {
     if (pendingLine) {
-      // Forcefully wipe the existing shop items and write down the new choice cleanly
       cart.add(pendingLine, true);
     }
     setIsOpen(false);
@@ -74,14 +82,20 @@ function GlobalCartConflictModal() {
             <AlertTriangle className="h-6 w-6" />
           </div>
           <DialogTitle className="text-base font-black tracking-tight text-foreground">
-            Replace active cart items?
+            Switch restaurants?
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-            Your cart contains active items from{" "}
+            Your cart already contains selections from{" "}
             <span className="font-bold text-foreground">
-              {(oldShop as any)?.name || "another merchant partner"}
+              {oldShop?.name || "another restaurant"}
             </span>
-            . Proceeding will discard your current selections to start a new cart.
+            . 
+            <br /><br />
+            Would you like to clear your current cart and replace it with your new item from{" "}
+            <span className="font-bold text-primary">
+              {newShop?.name || "this restaurant"}
+            </span>
+            ?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-center pt-3 w-full">
@@ -98,7 +112,7 @@ function GlobalCartConflictModal() {
             onClick={handleConfirmReplacement}
             className="rounded-xl text-xs h-10 order-1 sm:order-2 flex-1 bg-destructive hover:bg-destructive/90 text-white font-bold shadow-md shadow-destructive/10"
           >
-            Clear & Add New Item
+            Replace Cart
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -106,9 +120,6 @@ function GlobalCartConflictModal() {
   );
 }
 
-// ==========================================
-// CORE APP WRAPPER LAYOUT SHELL WITH MODALS
-// ==========================================
 function AppLayout() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
@@ -145,7 +156,6 @@ function AppLayout() {
     );
   }
 
-  // Role gating
   if (path.startsWith("/admin") && user.role !== "admin") {
     return <RedirectTo to="/unauthorized" />;
   }
@@ -203,8 +213,6 @@ function AppLayout() {
           <Outlet />
         </main>
       </SidebarInset>
-
-      {/* 🌟 MOUNTED: Intercepts active cross-shop item events instantly */}
       <GlobalCartConflictModal />
     </SidebarProvider>
   );

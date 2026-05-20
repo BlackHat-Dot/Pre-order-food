@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Trash2, ShoppingBag, ChevronLeft } from "lucide-react";
+import { Trash2, ShoppingBag, ChevronLeft, Store } from "lucide-react";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { shopsApi } from "@/lib/api";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
 
@@ -13,6 +15,16 @@ function CartPage() {
   const { lines, total, count } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Extract current shop ID from active items
+  const currentShopId = lines[0]?.shop_id;
+
+  // 🚀 Fetch current shop information for header layout identity
+  const { data: shop } = useQuery({
+    queryKey: ["shop", currentShopId],
+    queryFn: () => shopsApi.get(currentShopId!),
+    enabled: !!currentShopId,
+  });
 
   function checkout() {
     if (!user) {
@@ -43,6 +55,20 @@ function CartPage() {
           </Card>
         ) : (
           <div className="space-y-3">
+            
+            {/* 🚀 THE FIXED IDENTITY BANNER: Explicitly tells customer who they are ordering from */}
+            {shop && (
+              <div className="mb-4 rounded-xl border border-border/60 bg-muted/40 p-4 flex items-center gap-3 animate-in fade-in duration-200">
+                <div className="bg-primary/10 text-primary p-2 rounded-lg border border-primary/20 shrink-0">
+                  <Store className="h-4 w-4" />
+                </div>
+                <div className="space-y-0.5 text-left">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Items Selected From</p>
+                  <h2 className="text-sm font-bold text-foreground tracking-tight">{shop.name}</h2>
+                </div>
+              </div>
+            )}
+
             {lines.map((l) => (
               <Card key={`${l.item_id}-${l.variant_id ?? "_"}`}>
                 <CardContent className="flex items-center gap-3 p-4">
