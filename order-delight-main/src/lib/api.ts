@@ -607,10 +607,14 @@ export const reviewsApi = {
 // ── Loyalty API ────────────────────────────────────────────────────────────────
 
 export const loyaltyApi = {
-  me: (shop_id: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: { shop_id } }), // Added shop_id param
-  transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }), // Added shop_id param
+  me: (shop_id: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: { shop_id } }),
+  transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }),
   redeem: (body: { shop_id: string; points: number }) =>
     apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me/redeem", { method: "POST", body }),
+    
+  // 🚀 ADD THIS NEW METHOD TO TALK TO YOUR ADMIN ADJUSTMENT BACKEND ENDPOINT:
+  adminAdjust: (customerId: string, body: { shop_id: string; points: number }) =>
+    apiRequest<any>(`/api/v1/admin/loyalty/adjust/${customerId}`, { method: "POST", body }),
 };
 
 // ── Admin API ──────────────────────────────────────────────────────────────────
