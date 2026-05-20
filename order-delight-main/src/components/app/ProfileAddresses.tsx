@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-// 🚀 ADDED: Imported Loader2 and Search icons right from your existing lucide-react package
-import { MapPin, Plus, Trash2, Home, Briefcase, Compass, CheckCircle2, Loader2, Search } from "lucide-react";
+import { MapPin, Plus, Trash2, Home, Briefcase, Compass, CheckCircle2, Loader2, Search, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function ProfileAddresses() {
   const qc = useQueryClient();
@@ -15,12 +20,12 @@ export function ProfileAddresses() {
   const [title, setTitle] = useState("Home");
   const [landmark, setLandmark] = useState("");
   
-  // --- 🚀 MAP ENFORCEMENT & VERIFICATION STATES ---
+  // MAP ENFORCEMENT & VERIFICATION STATES
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedVerifiedAddress, setSelectedVerifiedAddress] = useState<string | null>(null);
-  const [houseDetails, setHouseDetails] = useState(""); // Forced flat/house number state
+  const [houseDetails, setHouseDetails] = useState("");
 
   // 1. Fetch user addresses
   const { data: addresses = [], isLoading } = useQuery({
@@ -28,7 +33,21 @@ export function ProfileAddresses() {
     queryFn: () => apiRequest<any[]>("/api/v1/addresses", { method: "GET" }),
   });
 
-  // --- 🚀 LIVE OPENSTREETMAP LOOKUP ENGINE ---
+  // 🚀 MAX ADDRESS ENFORCEMENT CAP CHECK
+  const isCapReached = addresses.length >= 3;
+
+  const handleAddNewClick = () => {
+    if (isCapReached) {
+      // Graceful toast alert explanation if they somehow bypass the disabled look
+      toast.warning("Address limit reached", {
+        description: "You can save up to 3 delivery locations. Please remove an old address to add a new one.",
+      });
+      return;
+    }
+    setIsAdding(true);
+  };
+
+  // LIVE OPENSTREETMAP LOOKUP ENGINE
   useEffect(() => {
     if (searchQuery.trim().length < 4) {
       setSuggestions([]);
@@ -49,7 +68,7 @@ export function ProfileAddresses() {
       } finally {
         setIsSearching(false);
       }
-    }, 500); // 500ms debounce saves network usage
+    }, 500);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
@@ -57,7 +76,6 @@ export function ProfileAddresses() {
   // 2. Add address profile mutation
   const addAddress = useMutation({
     mutationFn: async () => {
-      // Merges their raw flat number with the official map-verified coordinate string
       const fullFinalLine = `${houseDetails.trim()}, ${selectedVerifiedAddress}`;
       return await apiRequest("/api/v1/addresses", {
         method: "POST",
@@ -115,17 +133,45 @@ export function ProfileAddresses() {
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
-            <h3 className="font-bold text-sm tracking-tight text-foreground">Saved Delivery Addresses</h3>
+            <h3 className="font-bold text-sm tracking-tight text-foreground">
+              Saved Delivery Addresses ({addresses.length}/3)
+            </h3>
           </div>
+          
+          {/* 🚀 GRACEFUL INTERACTIVE CAP TOOLTIP ENFORCEMENT */}
           {!isAdding && (
-            <Button size="sm" variant="outline" onClick={() => setIsAdding(true)} className="h-8 rounded-xl text-xs gap-1">
-              <Plus className="h-3 w-3" /> Add New
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={handleAddNewClick} 
+                      disabled={isCapReached}
+                      className="h-8 rounded-xl text-xs gap-1 transition-all"
+                    >
+                      <Plus className="h-3 w-3" /> Add New
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isCapReached && (
+                  <TooltipContent className="bg-popover border text-popover-foreground max-w-xs rounded-xl p-3 shadow-lg space-y-1">
+                    <p className="text-xs font-bold flex items-center gap-1.5 text-amber-500">
+                      <Info className="h-3.5 w-3.5" /> Profile Limit Reached
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-normal">
+                      To safeguard account clarity, you can save a maximum of 3 unique locations. Please drop an older destination to save this profile.
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
 
         {isLoading ? (
-          <p className="text-xs text-muted-foreground animate-pulse py-4 text-left">Loading address list...</p>
+          <p className="text-xs text-muted-foreground animate-pulse py-4 text-left">Loading address profiles...</p>
         ) : addresses.length === 0 && !isAdding ? (
           <div className="text-center py-6 text-xs text-muted-foreground border border-dashed rounded-xl">
             No saved delivery locations found. Add an address to speed up checkout.
@@ -180,13 +226,12 @@ export function ProfileAddresses() {
           </div>
         )}
 
-        {/* --- 🚀 THE ENFORCED MAP INPUT MODULE --- */}
-        {isAdding && (
+        {/* THE ENFORCED MAP INPUT MODULE */}
+        {isAdding && !isCapReached && (
           <div className="border border-border p-4 rounded-xl bg-muted/20 space-y-4 animate-in fade-in duration-200 text-left">
             <p className="text-xs font-black tracking-wider text-primary uppercase">Verify Location Profile</p>
             
             <div className="space-y-3">
-              {/* Profile Label Tags */}
               <div>
                 <Label className="text-[11px] font-bold text-muted-foreground">Address Label</Label>
                 <div className="flex gap-2 mt-1">
@@ -205,7 +250,6 @@ export function ProfileAddresses() {
                 </div>
               </div>
 
-              {/* Dynamic Map Verification Box */}
               <div className="space-y-1 relative">
                 <Label className="text-[11px] font-bold text-muted-foreground">Search Area / Street / City</Label>
                 <div className="relative mt-1">
@@ -213,14 +257,13 @@ export function ProfileAddresses() {
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
-                      if (selectedVerifiedAddress) setSelectedVerifiedAddress(null); // Clear selection if re-typing
+                      if (selectedVerifiedAddress) setSelectedVerifiedAddress(null);
                     }}
                     className="h-10 rounded-xl pl-9 text-xs focus-visible:ring-primary" 
                     placeholder="Type area name (e.g. Polur, Chennai...)" 
                     disabled={!!selectedVerifiedAddress}
                   />
                   
-                  {/* 🚀 SPINNING LOADER DESIGN INTEGRATION */}
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     {isSearching ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -240,7 +283,6 @@ export function ProfileAddresses() {
                   )}
                 </div>
 
-                {/* OpenStreetMap Results Dropdown menu */}
                 {suggestions.length > 0 && !selectedVerifiedAddress && (
                   <div className="absolute z-30 w-full bg-popover border border-border mt-1 rounded-xl shadow-xl overflow-hidden max-h-[160px] overflow-y-auto divide-y divide-border">
                     {suggestions.map((place, idx) => (
@@ -261,7 +303,6 @@ export function ProfileAddresses() {
                 )}
               </div>
 
-              {/* Unlocked Mandatory House detail parameters */}
               {selectedVerifiedAddress ? (
                 <div className="space-y-3 pt-2 border-t border-dashed border-border/80 animate-in slide-in-from-top-2 duration-200">
                   <div className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 rounded-xl p-3 text-xs font-semibold flex items-start gap-2">
@@ -299,7 +340,6 @@ export function ProfileAddresses() {
               </Button>
               <Button 
                 type="button" 
-                // 🚀 ANTI-GARBAGE ENFORCEMENT: Disabled unless a map suggestion is selected AND a house number is typed!
                 disabled={!selectedVerifiedAddress || !houseDetails.trim() || addAddress.isPending}
                 onClick={() => addAddress.mutate()} 
                 className="h-8 text-xs rounded-lg font-bold px-4 bg-primary text-primary-foreground shadow"
