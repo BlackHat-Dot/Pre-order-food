@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X } from "lucide-react";
+import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X, Loader2 } from "lucide-react";
 import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,7 +46,6 @@ function ShopDetail() {
   const params = Route.useParams() as { shopId: string };
   const { shopId } = params;
   
-  // 🚀 FIXED: Grab lines to calculate shop-specific cart count
   const { lines } = useCart();
   const currentShopCartCount = useMemo(() => {
     return lines
@@ -63,6 +62,7 @@ function ShopDetail() {
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [reviewComment, setReviewComment] = useState("");
 
+  // Queries
   const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
@@ -111,44 +111,47 @@ function ShopDetail() {
 
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
 
+  // 🚀 FIXED: Repositioned structural loaders above property access blocks
   if (isLoading) {
     return (
       <div className="min-h-screen">
         <PublicNav />
-        <div className="mx-auto max-w-6xl space-y-4 px-4 py-8">
-          <Skeleton className="h-48 w-full rounded-2xl" />
-          <Skeleton className="h-8 w-1/3" />
+        <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 flex flex-col items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground font-medium">Syncing merchant profile data...</p>
         </div>
       </div>
     );
   }
-  if (shopError) {
+
+  if (shopError || !shop) {
     return (
       <div className="min-h-screen">
         <PublicNav />
         <div className="mx-auto max-w-6xl px-4 py-8">
           <Card className="border-destructive/40 bg-destructive/10">
             <CardContent className="py-10 text-center text-destructive">
-              <p className="text-lg font-semibold">Failed to load shop details.</p>
-              <p>{shopErrorObj instanceof Error ? shopErrorObj.message : "Please try again later."}</p>
+              <p className="text-sm font-bold">Failed to load shop details.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {shopErrorObj instanceof Error ? shopErrorObj.message : "The requested shop coordinate is unavailable."}
+              </p>
             </CardContent>
           </Card>
         </div>
       </div>
     );
   }
-  if (!shop) return null;
+
+  // 👇 Safe execution area — all parent objects verified
   const heroImage = !heroImageFailed && shop.image_url
     ? shop.image_url
     : getFallbackDetailImage(shop.id, shop.name);
 
-  const grouped = useMemo(() => {
-    return (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
-      const key = it.category || "Menu";
-      (acc[key] ||= []).push(it);
-      return acc;
-    }, {});
-  }, [items]);
+  const grouped = (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
+    const key = it.category || "Menu";
+    (acc[key] ||= []).push(it);
+    return acc;
+  }, {});
 
   return (
     <div className="min-h-screen">
@@ -191,17 +194,17 @@ function ShopDetail() {
                   </span>
                 )}
                 <span className="flex items-center gap-1 border-l pl-4 border-border/50">
-                <span className="font-mono">ID: {shop.id}</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(shop.id);
-                    toast.success("Shop ID copied!");
-                  }}
-                  className="rounded-md p-1 hover:text-foreground transition-colors"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </span>
+                  <span className="font-mono">ID: {shop.id}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shop.id);
+                      toast.success("Shop ID copied!");
+                    }}
+                    className="rounded-md p-1 hover:text-foreground transition-colors"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </span>
                 {shop.rating != null && (
                   <span className="flex items-center gap-1">
                     <Star className="h-3 w-3 fill-current text-primary" />
@@ -212,7 +215,6 @@ function ShopDetail() {
               </div>
             </div>
             
-            {/* 🚀 FIXED: Shop Status and Cart Button Alignment & Visibility */}
             <div className="flex items-center gap-2 mt-2 sm:mt-0">
               <span className={`inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold border transition-colors ${
                 shop.is_open 
@@ -234,9 +236,9 @@ function ShopDetail() {
                 </Link>
               )}
             </div>
-
           </CardContent>
         </Card>
+
         {items && items.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-3">
             {items.slice(0, 3).map((item, idx) => (
@@ -496,11 +498,8 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
   function add() {
     if (!item) return;
     
-    // 🚀 FIXED: Handle global modal conflicts cleanly
     const result = cart.addItem(item, (selectedVariant as any) ?? null, qty);
     
-    // If the cart engine intercepted a conflict and popped the global modal,
-    // we simply close the dialog and let the user decide.
     if (result && (result as any).conflict) {
       onClose();
       return;
