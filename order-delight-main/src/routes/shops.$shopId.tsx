@@ -5,7 +5,6 @@ import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag,
 import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,7 +45,15 @@ function getFallbackDetailImage(shopId: string, shopName: string) {
 function ShopDetail() {
   const params = Route.useParams() as { shopId: string };
   const { shopId } = params;
-  const { count } = useCart();
+  
+  // 🚀 FIXED: Grab lines to calculate shop-specific cart count
+  const { lines } = useCart();
+  const currentShopCartCount = useMemo(() => {
+    return lines
+      .filter((l) => l.shop_id === shopId)
+      .reduce((acc, curr) => acc + curr.quantity, 0);
+  }, [lines, shopId]);
+
   const qc = useQueryClient();
   const [heroImageFailed, setHeroImageFailed] = useState(false);
   
@@ -204,18 +211,30 @@ function ShopDetail() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={shop.is_open ? "default" : "secondary"}>
+            
+            {/* 🚀 FIXED: Shop Status and Cart Button Alignment & Visibility */}
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              <span className={`inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold border transition-colors ${
+                shop.is_open 
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20" 
+                  : "bg-muted text-muted-foreground border-border"
+              }`}>
                 {shop.is_open ? "Open" : "Closed"}
-              </Badge>
-              {count > 0 && (
+              </span>
+
+              {currentShopCartCount > 0 && (
                 <Link to="/cart">
-                  <Button>
-                    <ShoppingBag className="mr-2 h-4 w-4" /> View cart ({count})
+                  <Button 
+                    size="sm"
+                    className="h-7 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground px-3 text-xs font-semibold gap-1.5 shadow-sm transition-all"
+                  >
+                    <ShoppingBag className="h-3.5 w-3.5" /> 
+                    View Cart ({currentShopCartCount})
                   </Button>
                 </Link>
               )}
             </div>
+
           </CardContent>
         </Card>
         {items && items.length > 0 && (
@@ -321,7 +340,6 @@ function ShopDetail() {
           </TabsContent>
           
           <TabsContent value="reviews" className="mt-6 space-y-4">
-            {/* Inline Action Bar Header */}
             <div className="flex items-center justify-between border-b border-border/50 pb-3">
               <h3 className="text-sm font-semibold text-foreground">
                 Customer Feedback ({reviews?.length ?? 0})
@@ -338,7 +356,6 @@ function ShopDetail() {
               )}
             </div>
 
-            {/* Collapsible Write Review Box Form */}
             {showReviewForm && (
               <Card className="border-border/60 bg-muted/20 animate-in fade-in duration-200 rounded-xl shadow-inner">
                 <CardContent className="p-4 space-y-4">
@@ -478,8 +495,17 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
 
   function add() {
     if (!item) return;
-    const selectedVariant = (item as any).variants?.find((v: any) => v.id === variantId) || undefined;
-    cart.addItem(item, selectedVariant, qty);
+    
+    // 🚀 FIXED: Handle global modal conflicts cleanly
+    const result = cart.addItem(item, (selectedVariant as any) ?? null, qty);
+    
+    // If the cart engine intercepted a conflict and popped the global modal,
+    // we simply close the dialog and let the user decide.
+    if (result && (result as any).conflict) {
+      onClose();
+      return;
+    }
+
     toast.success(`Added ${qty} × ${item.name}`);
     onClose();
     setQty(1);
