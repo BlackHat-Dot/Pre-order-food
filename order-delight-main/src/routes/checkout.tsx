@@ -455,19 +455,20 @@ function CheckoutPage() {
 
       {/* Free Order Success Pop-up Modal Rendering Asset */}
       // Find where you render the FreeOrderSuccessModal near the bottom of checkout.tsx:
-    <FreeOrderSuccessModal
-    isOpen={!!freeOrderId}
-    shopName={freeOrderShopName || ""}
-    couponCode={appliedCoupon?.code}
-    couponDiscountUsed={total} // Total price of food items cleared out
-    leftoverBalance={appliedCoupon ? Math.max(0, appliedCoupon.discount_value - total) : 0}
-    onClose={() => {
-      const targetId = freeOrderId!;
-      setFreeOrderId(null);
-      setFreeOrderShopName(null);
-      navigate({ to: "/orders/$orderId", params: { orderId: targetId } });
-    }}
-  />
+    {/* 🚀 THE FIXED INVOICE SUCCESS MODAL CALLER */}
+      <FreeOrderSuccessModal
+        isOpen={!!freeOrderId}
+        shopName={freeOrderShopName || ""}
+        couponCode={appliedCoupon?.code}
+        couponDiscountUsed={total} 
+        leftoverBalance={appliedCoupon ? Math.max(0, appliedCoupon.discount_value - total) : 0}
+        onClose={() => {
+          const targetId = freeOrderId!;
+          setFreeOrderId(null);
+          setFreeOrderShopName(null);
+          navigate({ to: "/orders/$orderId", params: { orderId: targetId } });
+        }}
+      />
     </div>
   );
 }
