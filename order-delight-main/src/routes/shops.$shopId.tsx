@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X, Loader2 } from "lucide-react";
 import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
-import { PublicNav } from "@/components/app/PublicNav";
+import  PublicNav from "@/components/app/PublicNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,7 +111,7 @@ function ShopDetail() {
 
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
 
-  // 🚀 FIXED: Repositioned structural loaders above property access blocks
+  // Repositioned structural loaders above property access blocks
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -142,7 +142,6 @@ function ShopDetail() {
     );
   }
 
-  // 👇 Safe execution area — all parent objects verified
   const heroImage = !heroImageFailed && shop.image_url
     ? shop.image_url
     : getFallbackDetailImage(shop.id, shop.name);
@@ -154,7 +153,7 @@ function ShopDetail() {
   }, {});
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen text-left">
       <PublicNav />
       <div className="relative h-[320px] w-full overflow-hidden sm:h-[380px]">
         <img
@@ -303,23 +302,37 @@ function ShopDetail() {
                         className="flex h-full flex-row gap-4 overflow-hidden p-4 transition-colors hover:border-primary/40"
                       >
                         <div className="flex-1 space-y-1">
-                          <h3 className="font-medium">{item.name}</h3>
+                          <h3 className="font-medium text-sm">{item.name}</h3>
                           {item.description && (
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {item.description}
                             </p>
                           )}
                           <div className="flex items-center justify-between pt-2">
-                            <span className="font-semibold text-primary">
+                            <span className="font-semibold text-primary text-sm">
                               {formatCurrency(item.price)}
                             </span>
                             <Button
                               size="sm"
                               variant="outline"
                               disabled={item.is_available === false || !shop.is_open}
-                              onClick={() => setPicked(item)}
+                              onClick={() => {
+                                // 🚀 FIXED: Fallback checks to prevent users exceeding the 10 item line threshold
+                                const currentCountInCart = lines
+                                  .filter((l: any) => (l.item_id === item.id || l.menu_item_id === item.id))
+                                  .reduce((acc, curr) => acc + curr.quantity, 0);
+
+                                if (currentCountInCart >= 10) {
+                                  toast.error(`You have already added the limit of 10 units for ${item.name}.`, {
+                                    description: "To modify amounts, please adjust item values within your Cart tab panel."
+                                  });
+                                  return;
+                                }
+                                setPicked(item);
+                              }}
+                              className="h-8 rounded-xl text-xs font-semibold gap-1"
                             >
-                              <Plus className="mr-1 h-3 w-3" /> Add
+                              <Plus className="h-3.5 w-3.5" /> Add
                             </Button>
                           </div>
                         </div>
@@ -369,8 +382,8 @@ function ShopDetail() {
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
-                            key={star}
                             type="button"
+                            key={star}
                             onClick={() => setReviewRating(star === reviewRating ? null : star)}
                             onMouseEnter={() => setHoveredRating(star)}
                             onMouseLeave={() => setHoveredRating(null)}
@@ -441,7 +454,7 @@ function ShopDetail() {
             ) : (
               <div className="space-y-2.5">
                 {reviews.map((r) => (
-                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl">
+                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl text-left">
                     <CardContent className="space-y-1.5 p-4">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-xs text-foreground">{r.customer_name || "Customer"}</span>
@@ -484,6 +497,7 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
   });
   const [variantId, setVariantId] = useState<string>("");
   const [qty, setQty] = useState(1);
+  const { lines } = useCart();
 
   useEffect(() => {
     if (!item) return;
@@ -495,8 +509,30 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
   const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
   const price = selectedVariant?.price ?? item.price;
 
+  const MAX_QUANTITY_LIMIT = 10;
+
   function add() {
     if (!item) return;
+
+    const existingLine = lines.find(
+      (l: any) => (l.menu_item_id === item.id || l.item_id === item.id) && l.variant_id === (selectedVariant?.id ?? null)
+    );
+    const existingQty = existingLine ? existingLine.quantity : 0;
+    const combinedQty = existingQty + qty;
+
+    if (combinedQty > MAX_QUANTITY_LIMIT) {
+      if (existingQty > 0) {
+        toast.error(
+          `Cart capacity limit reached! You already have ${existingQty} units of this item in your cart. You can only add up to ${MAX_QUANTITY_LIMIT - existingQty} more.`,
+          { duration: 4000 }
+        );
+      } else {
+        toast.error(`Order maximum reached! You can only add a maximum of ${MAX_QUANTITY_LIMIT} units per food item.`, {
+          duration: 4000,
+        });
+      }
+      return;
+    }
     
     const result = cart.addItem(item, (selectedVariant as any) ?? null, qty);
     
@@ -513,48 +549,74 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{item.name}</DialogTitle>
-          {item.description && <DialogDescription>{item.description}</DialogDescription>}
+      <DialogContent className="sm:max-w-[420px] rounded-2xl">
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-lg font-bold tracking-tight">{item.name}</DialogTitle>
+          {item.description && <DialogDescription className="text-xs line-clamp-3">{item.description}</DialogDescription>}
         </DialogHeader>
         <div className="space-y-4">
           {variants && variants.length > 0 && (
-            <div className="space-y-2">
-              <Label>Choose option</Label>
+            <div className="space-y-2 text-left">
+              <Label className="text-xs font-semibold text-muted-foreground">Choose option</Label>
               <RadioGroup value={variantId} onValueChange={setVariantId}>
                 {variants.map((v) => (
                   <Label
                     key={v.id}
-                    className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/10"
+                    className="flex cursor-pointer items-center justify-between rounded-xl border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 transition-all"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
                       <RadioGroupItem value={v.id} /> {v.name}
                     </div>
-                    <span className="text-sm font-semibold">{formatCurrency(v.price)}</span>
+                    <span className="text-sm font-bold text-foreground">{formatCurrency(v.price)}</span>
                   </Label>
                 ))}
               </RadioGroup>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <Label>Quantity</Label>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+          
+          <div className="flex items-center justify-between border-t border-dashed pt-4 border-border/60">
+            <div className="space-y-0.5 text-left">
+              <Label className="text-sm font-bold text-foreground">Quantity</Label>
+              <p className="text-[11px] text-muted-foreground">Maximum limit: {MAX_QUANTITY_LIMIT} per item</p>
+            </div>
+            
+            <div className="flex items-center gap-1.5 bg-muted/40 border border-border/50 p-1 rounded-xl">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg font-bold"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+              >
                 −
               </Button>
-              <span className="w-8 text-center font-medium">{qty}</span>
-              <Button variant="outline" size="sm" onClick={() => setQty((q) => q + 1)}>
+              <span className="w-8 text-center font-mono text-sm font-bold">{qty}</span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg font-bold"
+                onClick={() => {
+                  if (qty >= MAX_QUANTITY_LIMIT) {
+                    toast.warning(`Each selected item profile is capped at a maximum of ${MAX_QUANTITY_LIMIT} units.`);
+                    return;
+                  }
+                  setQty((q) => q + 1);
+                }}
+              >
                 +
               </Button>
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+        <DialogFooter className="flex-row sm:justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} className="text-xs font-semibold rounded-xl">
             Cancel
           </Button>
-          <Button onClick={add}>Add — {formatCurrency(price * qty)}</Button>
+          <Button 
+            onClick={add} 
+            className="flex-1 sm:flex-initial text-xs font-bold rounded-xl px-5"
+          >
+            Add — {formatCurrency(price * qty)}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
