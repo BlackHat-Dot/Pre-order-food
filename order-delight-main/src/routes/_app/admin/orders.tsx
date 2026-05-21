@@ -15,22 +15,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/admin/orders")({ component: AdminOrders });
 
+// 🚀 ENFORCED: State matrix transition workflow rules
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  pending: ["accepted", "cancelled"],
-  accepted: ["preparing"],
+  pending: ["accepted", "cancelled"], // Only place cancel can take place
+  accepted: ["preparing"],            // 🚫 Cancellation is blocked once accepted!
   preparing: ["ready"],
   ready: ["completed"],
   completed: [],
   cancelled: [],
 };
 
-// Map each status to a nice Tailwind color scheme for the badge
 const STATUS_COLORS: Record<string, string> = {
   pending: "border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-  confirmed: "border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400", // Added confirmed just in case!
   accepted: "border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400",
   preparing: "border-purple-500/50 bg-purple-500/10 text-purple-600 dark:text-purple-400",
   ready: "border-orange-500/50 bg-orange-500/10 text-orange-600 dark:text-orange-400",
@@ -38,45 +38,43 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400",
 };
 
-const STATUSES = ["pending", "confirmed", "preparing", "ready", "completed", "cancelled"];
+const STATUSES = ["pending", "accepted", "preparing", "ready", "completed", "cancelled"];
 
 export function OrderRow({ o }: { o: AdminOrderOut }) {
   const qc = useQueryClient();
   
-  // Setup the mutation to actually hit your backend status update route
   const updateStatus = useMutation({
+    // 🚀 FIXED: Route pointed specifically to the admin status modifier endpoint context
     mutationFn: (newStatus: string) =>
-      apiRequest(`/api/v1/orders/${o.id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: newStatus }),
+      apiRequest(`/api/v1/admin/orders/${o.id}/status`, {
+        method: "PUT", // Matches administrative pipeline signature update
+        body: { status: newStatus },
       }),
     onSuccess: () => {
-      // Refresh the orders table automatically so the badge color updates!
+      toast.success("Order status updated by admin");
       qc.invalidateQueries({ queryKey: ["admin", "orders"] });
     },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to update state parameters.");
+    }
   });
 
-  // 1. Get the allowed next steps for this specific order
-  const availableOptions = ALLOWED_TRANSITIONS[o.status] || [];
-  
-  // 2. Grab the color mapping, default to gray if unknown
-  const badgeStyle = STATUS_COLORS[o.status] || "bg-muted text-muted-foreground";
+  const currentStatus = o.status.toLowerCase();
+  const availableOptions = ALLOWED_TRANSITIONS[currentStatus] || [];
+  const badgeStyle = STATUS_COLORS[currentStatus] || "bg-muted text-muted-foreground";
 
   return (
-    <Card className="border-border/50 hover:border-border transition-colors">
+    <Card className="border-border/50 hover:border-border transition-colors text-left">
       <CardContent className="flex flex-wrap items-center gap-4 p-4">
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">#{o.id.slice(0, 10)}</span>
             
-            {/* THE SMART BADGE DROPDOWN */}
             {availableOptions.length === 0 ? (
-              // Static badge for Completed/Cancelled
               <Badge variant="outline" className={`text-xs capitalize ${badgeStyle}`}>
                 {o.status}
               </Badge>
             ) : (
-              // Interactive badge for Active orders
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Badge 
@@ -90,7 +88,7 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
                   {availableOptions.map((status) => (
                     <DropdownMenuItem
                       key={status}
-                      className="capitalize cursor-pointer"
+                      className="capitalize cursor-pointer text-xs font-semibold"
                       onClick={() => updateStatus.mutate(status)}
                     >
                       Move to {status}
@@ -139,9 +137,9 @@ function AdminOrders() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 text-left">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Orders Registry (Admin)</h1>
           <p className="text-sm text-muted-foreground">
             {data ? `${data.length} orders shown · ${formatCurrency(total)} total` : "All platform orders"}
           </p>

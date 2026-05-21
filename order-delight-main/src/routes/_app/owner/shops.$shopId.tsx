@@ -531,6 +531,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  
   const { data, isLoading } = useQuery({
     queryKey: ["shop", shopId, "orders", status],
     queryFn: () =>
@@ -548,12 +549,22 @@ function OrdersTab({ shopId }: { shopId: string }) {
       return ordersApi.updateStatus(id, st);
     },
     onSuccess: () => {
-      toast.success("Updated");
+      toast.success("Order status transitioned successfully");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to update status"),
     onSettled: () => setUpdatingOrderId(null),
   });
+
+  // 🚀 ORDER STATUS FLOW MACHINE CONSTRAINT
+  const VALID_TRANSITIONS: Record<string, string[]> = {
+    pending: ["accepted", "cancelled"], // Only place cancellation can happen
+    accepted: ["preparing"],            // 🚫 'cancelled' is completely locked out
+    preparing: ["ready"],
+    ready: ["completed"],
+    completed: [],
+    cancelled: []
+  };
 
   return (
     <div className="space-y-4">
@@ -572,45 +583,58 @@ function OrdersTab({ shopId }: { shopId: string }) {
       ) : !data || data.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center text-muted-foreground">
-            No orders.
+            No orders found.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {data.map((o: any) => (
-            <Card key={o.id}>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-mono text-xs text-muted-foreground">
-                      #{o.id.slice(0, 8)}
+          {data.map((o: any) => {
+            const currentStatus = o.status.toLowerCase();
+            const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
+            const isTerminal = nextAllowedOptions.length === 0;
+
+            return (
+              <Card key={o.id}>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-xs text-muted-foreground">
+                        #{o.id.slice(0, 8)}
+                      </p>
+                      <StatusBadge status={o.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {o.items?.length ?? 0} items · {formatDate(o.created_at)}
                     </p>
-                    <StatusBadge status={o.status} />
                   </div>
-                  <p className="mt-1 text-sm">
-                    {o.items?.length ?? 0} items · {formatDate(o.created_at)}
-                  </p>
-                </div>
-                <span className="font-semibold">{formatCurrency(o.total_price)}</span>
-                <Select
-                  value={o.status}
-                  disabled={updatingOrderId !== null}
-                  onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
-                >
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORDER_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">
-                        {s}
+                  <span className="font-semibold mr-2">{formatCurrency(o.total_price)}</span>
+                  
+                  {/* 🚀 WORKFLOW CONSTRAINT ENFORCED DROP-DOWN */}
+                  <Select
+                    value={o.status}
+                    disabled={isTerminal || updatingOrderId !== null}
+                    onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
+                  >
+                    <SelectTrigger className="w-40 capitalize font-medium text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Always keep current status as a visible selection entry */}
+                      <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
+                        {o.status} (Current)
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-          ))}
+                      {/* Render only the valid next progressive steps */}
+                      {nextAllowedOptions.map((step) => (
+                        <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                          Move to {step}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
