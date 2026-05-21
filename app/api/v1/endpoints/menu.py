@@ -56,7 +56,8 @@ async def list_items(
     page_size: int = Query(20, ge=1, le=100),
     category: str | None = None,
     dietary_type: str | None = None,
-    available: bool | None = True,
+    # 🚀 FIXED: Default parameter changed to None so unavailable items are not pre-filtered out
+    available: bool | None = None,
 ) -> list[MenuItemOut]:
     key = f"menu:{shop_id}:{page}:{page_size}:{category}:{dietary_type}:{available}"
     logging.debug("Menu list request for shop %s page=%s page_size=%s category=%s available=%s", shop_id, page, page_size, category, available)
@@ -71,6 +72,7 @@ async def list_items(
         stmt = stmt.where(MenuItem.dietary_type == dietary_type)
     if available is not None:
         stmt = stmt.where(MenuItem.is_available.is_(available))
+        
     stmt = stmt.order_by(MenuItem.is_featured.desc(), MenuItem.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
     rows = list(result.scalars().all())
@@ -217,4 +219,3 @@ async def delete_variant(
 
 async def cache_delete_pattern(prefix: str) -> None:
     await cache_delete(prefix + "*")
-
