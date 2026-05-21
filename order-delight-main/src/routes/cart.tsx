@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Trash2, ShoppingBag, ChevronLeft, Store } from "lucide-react";
+import { Trash2, ShoppingBag, ChevronLeft, Store, AlertTriangle } from "lucide-react";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,10 +16,13 @@ function CartPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Explicitly verify B2B merchant identity roles
+  const isShopOwner = user?.role === "shop_owner";
+
   // Extract current shop ID from active items
   const currentShopId = lines[0]?.shop_id;
 
-  // 🚀 Fetch current shop information for header layout identity
+  // Fetch current shop information for header layout identity
   const { data: shop } = useQuery({
     queryKey: ["shop", currentShopId],
     queryFn: () => shopsApi.get(currentShopId!),
@@ -31,6 +34,8 @@ function CartPage() {
       navigate({ to: "/login" });
       return;
     }
+    // Safeguard edge case fallback
+    if (isShopOwner) return;
     navigate({ to: "/checkout" });
   }
 
@@ -56,7 +61,7 @@ function CartPage() {
         ) : (
           <div className="space-y-3">
             
-            {/* 🚀 THE FIXED IDENTITY BANNER: Explicitly tells customer who they are ordering from */}
+            {/* 🚀 THE IDENTITY BANNER: Explicitly tells customer who they are ordering from */}
             {shop && (
               <div className="mb-4 rounded-xl border border-border/60 bg-muted/40 p-4 flex items-center gap-3 animate-in fade-in duration-200">
                 <div className="bg-primary/10 text-primary p-2 rounded-lg border border-primary/20 shrink-0">
@@ -69,10 +74,25 @@ function CartPage() {
               </div>
             )}
 
+            {/* 🚀 ADDED ROLE PROTECTION BANNER: Nice user prompt telling owners to change profiles */}
+            {isShopOwner && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3 text-left my-4 shadow-sm animate-in zoom-in-95 duration-200">
+                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-foreground">Action Restrained for Shop Owners</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    You are currently authenticated via a <span className="font-semibold text-foreground">Shop Owner Account</span>. 
+                    To protect merchant balances, coupon integrity, and platform safety, store managers cannot submit checkout orders. 
+                    Please sign out and create a dedicated <span className="font-semibold text-amber-500">Customer Account</span> to complete your purchase.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {lines.map((l) => (
               <Card key={`${l.item_id}-${l.variant_id ?? "_"}`}>
                 <CardContent className="flex items-center gap-3 p-4">
-                  <div className="flex-1">
+                  <div className="flex-1 text-left">
                     <p className="font-medium">{l.name}</p>
                     {l.variant_name && (
                       <p className="text-xs text-muted-foreground">{l.variant_name}</p>
@@ -120,8 +140,19 @@ function CartPage() {
                   <span>Total</span>
                   <span>{formatCurrency(total)}</span>
                 </div>
-                <Button className="w-full" size="lg" onClick={checkout}>
-                  {user ? "Proceed to checkout" : "Sign in to checkout"}
+                
+                {/* 🚀 CRITICAL FIX: Disable button execution for shop owner context explicitly */}
+                <Button 
+                  className="w-full font-bold" 
+                  size="lg" 
+                  onClick={checkout}
+                  disabled={isShopOwner}
+                >
+                  {isShopOwner 
+                    ? "Checkout Disabled for Shop Owners" 
+                    : user 
+                    ? "Proceed to checkout" 
+                    : "Sign in to checkout"}
                 </Button>
               </CardContent>
             </Card>

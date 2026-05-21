@@ -517,6 +517,10 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const [qty, setQty] = useState(1);
   const { lines } = useCart();
 
+  // Gather current user role to enforce the carting guard block
+  const currentUserRole = useMemo(() => getUserRole(), []);
+  const isShopOwner = currentUserRole === "shop_owner";
+
   useEffect(() => {
     if (!item) return;
     setQty(1);
@@ -527,11 +531,22 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
   const price = selectedVariant?.price ?? item.price;
 
+  // 🚀 THIS IS WHERE WE BLOCK THE CARTING ACTION
   function add() {
     if (!item) return;
 
+    // 1. Immediately intercept if a shop owner attempts to build a basket line
+    if (isShopOwner) {
+      toast.error("Carting Restrained", {
+        description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
+        duration: 5000,
+      });
+      onClose(); // Shut the modal instantly
+      return;
+    }
+
+    // 2. Standard customer quantity capacity check limits
     const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
-    
     if (currentTotalInCart + qty > 10) {
       toast.error("Maximum Cart Capacity Exceeded", {
         description: `You can only add up to ${10 - currentTotalInCart} more items. Please check out your current selection first.`,
@@ -539,6 +554,7 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
       return;
     }
     
+    // 3. Complete standard item add execution
     cart.addItem(item, (selectedVariant as any) ?? null, qty);
     toast.success(`Added ${qty} × ${item.name}`);
     onClose();
