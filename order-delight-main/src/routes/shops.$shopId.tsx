@@ -21,6 +21,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDateShort } from "@/lib/format";
 import { cart, useCart } from "@/lib/cart";
+// 🚀 FIXED: Importing your application's authentic auth context provider hook
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/shops/$shopId")({ component: ShopDetail });
@@ -39,25 +41,6 @@ function getFallbackDetailImage(shopId: string, shopName: string) {
     hash |= 0;
   }
   return FALLBACK_DETAIL_IMAGES[Math.abs(hash) % FALLBACK_DETAIL_IMAGES.length];
-}
-
-function getUserRole(): string | null {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload).role || null;
-  } catch {
-    return null;
-  }
 }
 
 function ShopDetail() {
@@ -82,8 +65,9 @@ function ShopDetail() {
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
   const [conflictItem, setConflictItem] = useState<MenuItemOut | null>(null);
 
-  const currentUserRole = useMemo(() => getUserRole(), []);
-  const isShopOwner = currentUserRole === "shop_owner";
+  // 🚀 FIXED: Using standard hook user context states to avoid string parse failures
+  const { user } = useAuth();
+  const isShopOwner = user?.role === "shop_owner";
 
   const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
@@ -283,7 +267,7 @@ function ShopDetail() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  // 🚀 INTERCEPT ONE: Block right on the item list row click event directly
+                                  // 🚀 INTERCEPT ONE: Guaranteed lock at row item click level
                                   onClick={() => {
                                     toast.error("Carting Restrained", {
                                       description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
@@ -354,6 +338,7 @@ function ShopDetail() {
               <h3 className="text-sm font-semibold text-foreground">
                 Customer Reviews ({reviews?.length ?? 0})
               </h3>
+              {/* 🚀 FIXED: The write review option is now correctly hidden for shop owners */}
               {!showReviewForm && !isShopOwner && (
                 <Button 
                   onClick={() => setShowReviewForm(true)} 
@@ -522,9 +507,9 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const [qty, setQty] = useState(1);
   const { lines } = useCart();
 
-  // Extract user authentication session details to enforce internal modal safeguards
-  const currentUserRole = useMemo(() => getUserRole(), []);
-  const isShopOwner = currentUserRole === "shop_owner";
+  // 🚀 FIXED: Inherit authenticated context configuration hooks safely inside components
+  const { user } = useAuth();
+  const isShopOwner = user?.role === "shop_owner";
 
   useEffect(() => {
     if (!item) return;
@@ -539,13 +524,13 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   function add() {
     if (!item) return;
 
-    // 🚀 INTERCEPT TWO: Hard block injection inside sub-variant selection submission events
+    // 🚀 INTERCEPT TWO: Complete absolute lock inside options submission click events
     if (isShopOwner) {
       toast.error("Carting Restrained", {
         description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
         duration: 5000,
       });
-      onClose(); // Instantly close out the configuration viewport layout view
+      onClose();
       return;
     }
 
@@ -627,8 +612,13 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
         </div>
         <DialogFooter className="flex-row sm:justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} className="text-xs font-semibold rounded-xl">Cancel</Button>
-          <Button onClick={add} className="flex-1 sm:flex-initial text-xs font-bold rounded-xl px-5">
-            Add — {formatCurrency(price * qty)}
+          {/* 🚀 EXTRA PRECAUTION: Disable click submission option right inside variant layouts for owner states */}
+          <Button 
+            onClick={add} 
+            disabled={isShopOwner}
+            className="flex-1 sm:flex-initial text-xs font-bold rounded-xl px-5"
+          >
+            {isShopOwner ? "Action Blocked" : `Add — ${formatCurrency(price * qty)}`}
           </Button>
         </DialogFooter>
       </DialogContent>
