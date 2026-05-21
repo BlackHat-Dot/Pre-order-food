@@ -494,3 +494,27 @@ async def revenue_by_category(
         {"category": r.category, "orders": int(r.orders), "revenue": float(r.revenue)}
         for r in rows
     ]
+
+@router.put("/orders/{order_id}/status")
+async def update_order_status_admin(
+    _: Annotated[User, Depends(require_roles("admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    order_id: str,
+    status: str = Query(...),
+    
+    
+) -> dict:
+    from app.models.order import Order # Assumes Order model lives here
+
+    # 1. Fetch the target order record safely
+    order = await db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order record not found")
+        
+    # 2. Apply the status variation modification mapping string
+    order.status = status
+    
+    await db.commit()
+    await db.refresh(order)
+    
+    return {"updated": True, "order_id": order.id, "new_status": order.status}

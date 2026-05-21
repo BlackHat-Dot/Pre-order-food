@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { adminApi, apiRequest, type AdminOrderOut } from "@/lib/api";
+import { adminApi, type AdminOrderOut } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/admin/orders")({ component: AdminOrders });
 
-// 🚀 ENFORCED: State matrix transition workflow rules
+// State matrix transition workflow rules
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"], // Only place cancel can take place
   accepted: ["preparing"],            // 🚫 Cancellation is blocked once accepted!
@@ -38,18 +38,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400",
 };
 
-const STATUSES = ["pending", "accepted", "preparing", "ready", "completed", "cancelled"];
+const STATUSES = ["all", "pending", "accepted", "preparing", "ready", "completed", "cancelled"];
 
 export function OrderRow({ o }: { o: AdminOrderOut }) {
   const qc = useQueryClient();
   
+  // 🚀 FIXED: Now points directly to adminApi.updateOrderStatus to leverage your custom URL queries
   const updateStatus = useMutation({
-    // 🚀 FIXED: Route pointed specifically to the admin status modifier endpoint context
-    mutationFn: (newStatus: string) =>
-      apiRequest(`/api/v1/admin/orders/${o.id}/status`, {
-        method: "PUT", // Matches administrative pipeline signature update
-        body: { status: newStatus },
-      }),
+    mutationFn: (newStatus: string) => adminApi.updateOrderStatus(o.id, newStatus),
     onSuccess: () => {
       toast.success("Order status updated by admin");
       qc.invalidateQueries({ queryKey: ["admin", "orders"] });
@@ -84,11 +80,11 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
                     {updateStatus.isPending ? "Updating..." : `${o.status} ▾`}
                   </Badge>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
+                <DropdownMenuContent align="start" className="rounded-xl p-1 shadow-md">
                   {availableOptions.map((status) => (
                     <DropdownMenuItem
                       key={status}
-                      className="capitalize cursor-pointer text-xs font-semibold"
+                      className="capitalize cursor-pointer text-xs font-semibold rounded-lg"
                       onClick={() => updateStatus.mutate(status)}
                     >
                       Move to {status}
@@ -148,7 +144,6 @@ function AdminOrders() {
 
       <Tabs value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
         <TabsList className="flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
           {STATUSES.map((s) => (
             <TabsTrigger key={s} value={s} className="text-xs capitalize">{s}</TabsTrigger>
           ))}
