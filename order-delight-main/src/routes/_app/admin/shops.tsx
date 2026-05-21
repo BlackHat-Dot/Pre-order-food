@@ -43,7 +43,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
         <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
           
           {/* LEFT SECTION: Icon block and Structured Core Info */}
-          <div className="flex gap-4 flex-1 min-w-0 items-start">
+          <div className="flex gap-4 flex-1 min-w-0 items-start text-left">
             {/* Structured Store Branding Container */}
             <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Store className="h-6 w-6" />
@@ -97,26 +97,25 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
                 </span>
               </div>
 
-              {/* Detailed Owner Contacts Field */}
               {s.owner_email && (
                 <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70 pl-5">
                   <Mail className="h-3 w-3 text-muted-foreground/50" /> {s.owner_email}
                 </p>
               )}
 
-              {/* Repositioned Identification Asset Bar */}
-              <div className="flex items-center gap-2 pt-2">
-                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/70 bg-muted/40 px-2 py-1 rounded border border-border/40">
-                  <span>ID: <span className="select-all text-foreground/90 font-medium">{s.id}</span></span>
+              {/* 🚀 QUICK COPY SHOP ID UTILITY BAR */}
+              <div className="flex items-center gap-2 pt-1">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground/80 bg-muted/60 px-2 py-0.5 rounded border border-border/40 shadow-inner">
+                  <span>SHOP ID: <span className="text-foreground font-medium">{s.id.slice(0, 8)}...</span></span>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(s.id);
-                      toast.success("Shop ID copied to clipboard!");
+                      toast.success(`Copied Shop ID: ${s.name}`);
                     }}
-                    className="rounded p-0.5 hover:bg-muted text-muted-foreground/60 hover:text-foreground transition-colors"
-                    title="Copy Shop ID"
+                    className="rounded p-0.5 hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
+                    title="Copy Full Shop UUID"
                   >
-                    <Copy className="h-2.5 w-2.5" />
+                    <Copy className="h-3 w-3" />
                   </button>
                 </div>
               </div>
@@ -130,7 +129,6 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
             </span>
             
             <div className="flex items-center md:flex-col lg:flex-row gap-3 w-full md:w-auto justify-end">
-              {/* Verification Call to Action */}
               <Button
                 size="sm"
                 variant={s.is_verified ? "outline" : "default"}
@@ -141,7 +139,6 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
                 {s.is_verified ? "Unverify" : "Verify"}
               </Button>
 
-              {/* Activation State Machine Node */}
               <div className="flex items-center gap-2 h-8 bg-muted/30 px-2.5 rounded-lg border border-border/30">
                 <span className="text-xs font-medium text-muted-foreground min-w-[48px] text-right">
                   {s.is_active ? "Active" : "Disabled"}
@@ -161,6 +158,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
   );
 }
 
+// Main Admin View Layout
 function AdminShops() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -190,7 +188,7 @@ function AdminShops() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Header */}
-      <div>
+      <div className="text-left">
         <h1 className="text-2xl font-bold tracking-tight">Shops</h1>
         <p className="text-sm text-muted-foreground">
           {counts ? `${counts.total} total · ${counts.verified} verified · ${counts.open_now} open now` : "Manage platform shops"}
@@ -199,7 +197,7 @@ function AdminShops() {
 
       {/* Count cards */}
       {counts && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-left">
           {[
             { label: "Total", value: counts.total },
             { label: "Verified", value: counts.verified },

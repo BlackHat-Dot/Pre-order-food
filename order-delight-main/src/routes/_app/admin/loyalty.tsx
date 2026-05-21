@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ApiError, loyaltyApi } from "@/lib/api";
+import { ApiError, loyaltyApi, usersApi, shopsApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Award, ShieldAlert } from "lucide-react";
+import { Loader2, Search, Award, ShieldAlert, User, Store, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/_app/admin/loyalty")({ component: AdminLoyalty });
 
@@ -16,32 +16,34 @@ function AdminLoyalty() {
   const [shopId, setShopId] = useState("");
   const [points, setPoints] = useState<number>(0);
   
-  // 🚀 NEW STATE: Verification parameters for fetching real-time point states
-  const [verifiedProfile, setVerifiedProfile] = useState<{ points: number; customer_name?: string } | null>(null);
+  // Control state to trigger verification queries simultaneously
+  const [shouldFetch, setShouldFetch] = useState(false);
 
-  // 1. Verification query lookup action
-  const lookupProfile = useMutation({
-    // Leverages your custom loyaltyApi.me endpoint structure, passed down as a promise check
-    // If your backend admin route needs a direct lookup endpoint instead of /me, adjust this string path wrapper.
-    mutationFn: async () => {
-      if (!customerId.trim() || !shopId.trim()) throw new Error("IDs cannot be empty");
-      // Simulating or calling a dedicated balance query block
-      return await loyaltyApi.me(shopId.trim()); // If custom auth allows matching via admin parameters
-    },
-    onSuccess: (data: any) => {
-      setVerifiedProfile({
-        points: data.points ?? 0,
-        customer_name: data.customer_name
-      });
-      toast.success("Account loaded for confirmation!");
-    },
-    onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Account or Shop matching failed");
-      setVerifiedProfile(null);
-    }
+  // 1. Fetch live loyalty ledger balance parameters
+  const loyaltyQuery = useQuery({
+    queryKey: ["admin", "loyalty-check", customerId, shopId],
+    queryFn: () => loyaltyApi.me(shopId.trim()),
+    enabled: shouldFetch && !!customerId.trim() && !!shopId.trim(),
+    retry: false,
   });
 
-  // 2. Adjust points mutation engine
+  // 2. 🚀 FIXED: Using usersApi.get() which maps cleanly to your backend routing parameters!
+  const customerQuery = useQuery({
+    queryKey: ["admin", "customer-check", customerId],
+    queryFn: () => usersApi.get(customerId.trim()),
+    enabled: shouldFetch && !!customerId.trim(),
+    retry: false,
+  });
+
+  // 3. Fetch shop identity profile details
+  const shopQuery = useQuery({
+    queryKey: ["admin", "shop-check", shopId],
+    queryFn: () => shopsApi.get(shopId.trim()),
+    enabled: shouldFetch && !!shopId.trim(),
+    retry: false,
+  });
+
+  // 4. Adjust points mutation engine
   const adjust = useMutation({
     mutationFn: () => loyaltyApi.adminAdjust(customerId.trim(), {
       shop_id: shopId.trim(),
@@ -49,21 +51,37 @@ function AdminLoyalty() {
     }),
     onSuccess: () => {
       toast.success("Loyalty points adjusted successfully!");
-      // Automatically refresh the display layout so the admin sees the updated total balance instantly!
-      if (verifiedProfile !== null) {
-        setVerifiedProfile(prev => prev ? { ...prev, points: prev.points + points } : null);
-      }
       setPoints(0);
+      // Instantly refresh the ledger so the balance section updates dynamically
+      loyaltyQuery.refetch();
     },
     onError: (e) => {
       toast.error(e instanceof ApiError ? e.message : "Failed to apply adjustment");
     },
   });
 
-  const handleIdChange = () => {
-    // Clear out previously loaded profile if they modify the UUID inputs to prevent false reads
-    if (verifiedProfile) setVerifiedProfile(null);
+  const handleFetchClick = () => {
+    if (!customerId.trim() || !shopId.trim()) {
+      toast.error("Please enter both Customer and Shop ID strings.");
+      return;
+    }
+    setShouldFetch(true);
   };
+
+  const handleClear = () => {
+    setShouldFetch(false);
+    setCustomerId("");
+    setShopId("");
+    setPoints(0);
+  };
+
+  const isSearching = loyaltyQuery.isFetching || customerQuery.isFetching || shopQuery.isFetching;
+  
+  // 🚀 FIXED: Wrapped safely to check all profiles are fully populated before opening the card view
+  const hasData = !!(loyaltyQuery.data && customerQuery.data && shopQuery.data);
+  
+  // 🚀 FIXED: Swapped out .points for .points_balance to match your type definition file!
+  const currentPoints = loyaltyQuery.data?.points_balance ?? 0;
 
   return (
     <div className="mx-auto max-w-xl space-y-6 py-4">
@@ -78,14 +96,14 @@ function AdminLoyalty() {
         </CardHeader>
         <CardContent className="space-y-4 text-left">
           
-          {/* Target inputs layout area */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Customer Account ID (UUID)</Label>
             <Input 
               value={customerId} 
-              onChange={(e) => { setCustomerId(e.target.value); handleIdChange(); }} 
+              onChange={(e) => { setCustomerId(e.target.value); if(shouldFetch) setShouldFetch(false); }} 
               placeholder="e.g. c89ac9b8-2d16-4771-9837-ff929c9fcd0f" 
-              className="h-9 rounded-lg"
+              className="h-9 rounded-lg font-mono text-xs"
+              disabled={shouldFetch && hasData}
             />
           </div>
           
@@ -93,63 +111,81 @@ function AdminLoyalty() {
             <Label className="text-xs text-muted-foreground">Target Shop ID (UUID)</Label>
             <Input 
               value={shopId} 
-              onChange={(e) => { setShopId(e.target.value); handleIdChange(); }} 
+              onChange={(e) => { setShopId(e.target.value); if(shouldFetch) setShouldFetch(false); }} 
               placeholder="e.g. 854223a4-0b3e-4644-b22b-7d04a7f8521c" 
-              className="h-9 rounded-lg"
+              className="h-9 rounded-lg font-mono text-xs"
+              disabled={shouldFetch && hasData}
             />
           </div>
 
-          {/* 🚀 THE LOOKUP VERIFICATION ACTION TRIGGER */}
-          {!verifiedProfile && (
+          {!shouldFetch && (
             <Button
               type="button"
-              variant="secondary"
-              onClick={() => lookupProfile.mutate()}
-              disabled={!customerId.trim() || !shopId.trim() || lookupProfile.isPending}
+              onClick={handleFetchClick}
+              disabled={!customerId.trim() || !shopId.trim()}
               className="w-full h-9 rounded-xl text-xs font-bold gap-1.5"
             >
-              {lookupProfile.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Search className="h-3.5 w-3.5" />
-              )}
+              <Search className="h-3.5 w-3.5" />
               Fetch Current Points Balance
             </Button>
           )}
 
-          {/* 🚀 THE LIVE VERIFICATION BANNER BLOCK CONTAINER */}
-          {verifiedProfile && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                  <Award className="h-4 w-4 text-primary" />
-                  <span>Verified Customer Ledger Status</span>
-                </div>
-                <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                  Active
-                </span>
-              </div>
+          {shouldFetch && isSearching && (
+            <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span>Resolving cross-network entity profiles...</span>
+            </div>
+          )}
+
+          {shouldFetch && hasData && (
+            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4 animate-in fade-in duration-200">
               
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs text-foreground font-medium">Current Registered Points:</span>
-                <span className="text-xl font-black text-primary font-mono">{verifiedProfile.points} Pts</span>
+              {/* Customer Info Verification Details */}
+              <div className="space-y-2 border-b border-border/50 pb-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                  <User className="h-3.5 w-3.5" /> Customer Account Holder
+                </div>
+                <div className="pl-5 space-y-0.5">
+                  <p className="text-sm font-black text-foreground">{customerQuery.data?.name}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3 w-3" /> {customerQuery.data?.email || "No email linked"}
+                  </p>
+                </div>
               </div>
 
-              {/* Secure Modification Entry fields (unlocked safely post-verification read) */}
-              <div className="space-y-3 pt-2 border-t border-dashed border-border/80">
+              {/* Shop Info Verification Details */}
+              <div className="space-y-2 border-b border-border/50 pb-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500">
+                  <Store className="h-3.5 w-3.5" /> Destination Merchant Partner
+                </div>
+                <div className="pl-5 space-y-0.5">
+                  <p className="text-sm font-black text-foreground">{shopQuery.data?.name}</p>
+                  <p className="text-xs text-muted-foreground">Cuisine Style: {shopQuery.data?.cuisine ?? "—"}</p>
+                </div>
+              </div>
+
+              {/* Live Points Metrics */}
+              <div className="flex items-baseline justify-between bg-background border p-3 rounded-lg shadow-sm">
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Award className="h-3.5 w-3.5 text-primary" /> Active Balance:
+                </span>
+                <span className="text-xl font-black text-primary font-mono">{currentPoints} Pts</span>
+              </div>
+
+              {/* Points action delta inputs workflow form box */}
+              <div className="space-y-3 pt-1">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Adjustment Value (Use negative value to subtract points)</Label>
                   <Input 
                     type="number" 
                     value={points || ""} 
                     onChange={(e) => setPoints(Number(e.target.value))} 
-                    placeholder="e.g. 50 to add, -50 to remove"
+                    placeholder="e.g. 50 to credit, -50 to debit"
                     className="h-9 rounded-lg bg-background"
                   />
                 </div>
 
-                {/* Simulated overdraft warning if the adjustment would drain their balance below zero */}
-                {points < 0 && verifiedProfile.points + points < 0 && (
+                {points < 0 && currentPoints + points < 0 && (
                   <p className="text-[11px] text-destructive font-semibold flex items-center gap-1 bg-destructive/5 p-2 rounded-lg border border-destructive/10">
                     <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
                     Warning: This action will push the user's loyalty balance into a negative debt state!
@@ -170,13 +206,27 @@ function AdminLoyalty() {
                   </Button>
                   <Button 
                     variant="ghost" 
-                    onClick={() => { setVerifiedProfile(null); setPoints(0); }}
-                    className="h-9 rounded-xl text-xs font-semibold"
+                    onClick={handleClear}
+                    className="h-9 rounded-xl text-xs font-semibold border"
                   >
-                    Clear
+                    Reset Panel
                   </Button>
                 </div>
               </div>
+
+            </div>
+          )}
+
+          {/* Catch-all block for non-existent IDs */}
+          {shouldFetch && (loyaltyQuery.isError || customerQuery.isError || shopQuery.isError) && (
+            <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-center text-xs space-y-2 animate-in fade-in">
+              <p className="font-bold text-destructive">Lookup Failed</p>
+              <p className="text-muted-foreground text-[11px]">
+                The requested identities could not be matched. Please double-check that your UUID values are correct.
+              </p>
+              <Button size="sm" variant="outline" onClick={handleClear} className="h-7 text-[10px] mx-auto rounded-lg">
+                Reset UUIDs
+              </Button>
             </div>
           )}
 
