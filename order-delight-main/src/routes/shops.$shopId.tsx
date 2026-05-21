@@ -110,7 +110,6 @@ function ShopDetail() {
   const submitReview = useMutation({
     mutationFn: (payload: { rating: number | null; comment: string; order_id: string }) => 
       ordersApi.submitReview(shopId, payload),
-    // 🚀 FIXED: Changed from onShadowSuccess back to standard onSuccess to clear TS error
     onSuccess: () => {
       toast.success("Review posted successfully!");
       setReviewComment("");
