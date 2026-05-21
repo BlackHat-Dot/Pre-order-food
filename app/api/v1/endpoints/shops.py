@@ -195,7 +195,10 @@ async def shop_stats(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)])
 
 # ─── 🚀 ADDED: SHOP OWNER INCOMING ORDERS TAB FEED ENDPOINT ──────────────────
 
-@router.get("/{shop_id}/orders")
+# Around lines 180-230 inside app/api/v1/endpoints/shops.py
+
+# 🚀 FIXED: Route path changed from "/{shop_id}/orders" to look exactly like what the frontend requests
+@router.get("/orders/shops/{shop_id}")
 async def list_shop_orders_owner(
     shop_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],

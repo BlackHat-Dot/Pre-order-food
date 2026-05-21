@@ -31,6 +31,13 @@ async def create_order(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("customer", "admin"))],
 ) -> OrderOut:
+    # 🚀 CRITICAL FIX: Explicit guard block to stop shop owners from placing orders
+    if user.role == "shop_owner":
+        raise HTTPException(
+            status_code=403, 
+            detail="Shop Owners are strictly unauthorized to place pre-orders."
+        )
+
     shop = await db.get(Shop, payload.shop_id)
     if not shop or not shop.is_active:
         raise HTTPException(404, "Shop not found")
@@ -46,13 +53,20 @@ async def create_order(
             if entry.variant_id == "":
                 raise HTTPException(400, "Invalid variant_id")
             variant = await db.get(MenuItemVariant, entry.variant_id)
+            
+            # 🚀 FIXED: Clearly inform the client if a specific choice option is temporarily unlisted
             if not variant or not variant.is_available:
-                raise HTTPException(400, "Variant unavailable")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"The selected option configuration is currently unavailable."
+                )
+                
             item = await db.get(MenuItem, variant.item_id)
             if not item or item.shop_id != shop.id or not item.is_available:
-                raise HTTPException(400, "Item unavailable")
+                raise HTTPException(status_code=400, detail="Item unavailable")
             if entry.item_id and entry.item_id != item.id:
                 raise HTTPException(400, "Variant does not belong to the specified item")
+                
             total_price += variant.price * entry.quantity
             prep_times.append(variant.prep_time_minutes)
             order_items.append(
@@ -71,8 +85,14 @@ async def create_order(
             if not entry.item_id:
                 raise HTTPException(400, "Item ID is required for base item orders")
             item = await db.get(MenuItem, entry.item_id)
+            
+            # 🚀 FIXED: Explicit validation catch to showcase item availability block clearly
             if not item or item.shop_id != shop.id or not item.is_available:
-                raise HTTPException(400, "Item unavailable")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Dish '{item.name if item else 'Item'}' is sold out or unavailable right now."
+                )
+                
             total_price += item.price * entry.quantity
             prep_times.append(item.prep_time_minutes)
             order_items.append(
@@ -99,8 +119,6 @@ async def create_order(
         payment_method=payload.payment_method,
     )
 
-    # 🚀 STRATEGY 3: COUPOUN VALUE VALUATION ENGINE WITH SURPLUS SAFEGUARDS
-    # Check if a coupon token was attached to the incoming request payload
     coupon_id = getattr(payload, "coupon_id", None)
     if coupon_id:
         coupon = await db.get(Coupon, coupon_id)
@@ -112,41 +130,28 @@ async def create_order(
             raise HTTPException(410, "This voucher code has already been completely exhausted")
 
         if coupon.discount_value >= total_price:
-            # 🌟 SURPLUS VALUE SCENARIO (Voucher is worth more than the order)
             leftover_balance = round(coupon.discount_value - total_price, 2)
-            
-            # The order is completely paid for by the voucher
             order.coupon_discount_applied = total_price
             order.total_price = 0.0
-            
-            # Keep the voucher alive in the database with the leftover balance!
             coupon.discount_value = leftover_balance
             coupon.is_redeemed = False 
             
-            # Create a notification to let the user know they still have money left on the code
             db.add(Notification(
                 id=new_id(),
                 user_id=user.id,
                 title="Voucher Balance Updated",
-                message=(
-                    f"Your voucher {coupon.code} has been partially applied. A remaining balance of "
-                    f"₹{leftover_balance:,.2f} is secured on this code and remains available for your next transaction."
-                ),
+                message=f"Your voucher {coupon.code} has been partially applied. A remaining balance of ₹{leftover_balance:,.2f} is secured on this code.",
                 type="coupon_update"
             ))
         else:
-            # STANDARD SCENARIO (Order costs more than the voucher's value)
             order.coupon_discount_applied = coupon.discount_value
             order.total_price = round(total_price - coupon.discount_value, 2)
-            
-            # Fully exhaust and close out the coupon record
             coupon.discount_value = 0.0
             coupon.is_redeemed = True
             coupon.redeemed_at = datetime.utcnow()
             coupon.redeemed_by_id = user.id
             coupon.order_id = order.id
 
-    # Legacy fallback for direct shop-specific points redemptions
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
         redeem_points = max(payload.redeem_loyalty_points or 0, 0)
         discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
@@ -176,7 +181,6 @@ async def create_order(
                     )
                 )
 
-    # Calculate expected points collection metrics
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     db.add(order)
@@ -368,8 +372,10 @@ async def cancel_order(
 
     loyalty_record = await db.scalar(
         select(LoyaltyAccount).where(
-            LoyaltyAccount.customer_id == order.customer_id, 
-            LoyaltyAccount.shop_id == order.shop_id
+            select(LoyaltyAccount).where(
+                LoyaltyAccount.customer_id == order.customer_id, 
+                LoyaltyAccount.shop_id == order.shop_id
+            )
         )
     )
     
@@ -435,6 +441,7 @@ async def delete_order(
 
 
 async def _order_out(db: AsyncSession, order_id: str) -> OrderOut:
+    # 🚀 FIXED: Guarantees that items collection is eagerly loaded whenever _order_out is executed
     stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
     order = (await db.execute(stmt)).scalar_one()
     return OrderOut.model_validate(order)
