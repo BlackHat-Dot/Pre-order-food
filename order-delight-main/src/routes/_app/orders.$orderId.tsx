@@ -104,17 +104,32 @@ function OrderDetail() {
         </CardContent>
       </Card>
 
+      {/* 🚀 STEP 1 INTEGRATION: Clean & Accurate Food Item Layout Mapping */}
       <Card>
-        <CardContent className="space-y-2 p-6">
-          <h2 className="mb-2 font-semibold">Items</h2>
+        <CardContent className="space-y-3 p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 text-left">
+            Items Ordered
+          </h2>
           {safeOrder.items?.map((it: any) => (
-            <div key={it.id} className="flex items-center justify-between text-sm">
-              <span>
-                {it.quantity} × {it.item_name_snapshot ?? it.name ?? "Item"}
-              </span>
-              <span className="font-medium">
-                {formatCurrency((it.unit_price * it.quantity) || 0)}
-              </span>
+            <div key={it.id} className="flex items-start justify-between text-sm py-2 border-b border-border/20 last:border-0 last:pb-0">
+              <div className="flex flex-col text-left">
+                <span className="font-semibold text-foreground">
+                  {it.menu_item_name ?? it.item_name_snapshot ?? it.name ?? "Item"}
+                </span>
+                {it.variant_name && (
+                  <span className="text-[11px] text-muted-foreground italic mt-0.5">
+                    Option: {it.variant_name}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  ×{it.quantity}
+                </span>
+                <span className="font-medium min-w-[60px] text-right">
+                  {formatCurrency((it.unit_price * it.quantity) || it.price || 0)}
+                </span>
+              </div>
             </div>
           ))}
         </CardContent>
@@ -123,7 +138,7 @@ function OrderDetail() {
       {payments && (payments as any[]).length > 0 && (
         <Card>
           <CardContent className="space-y-2 p-6">
-            <h2 className="mb-2 font-semibold">Payments</h2>
+            <h2 className="mb-2 font-semibold text-left">Payments</h2>
             {(payments as any[]).map((p: any) => (
               <div key={p.id} className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
@@ -155,7 +170,7 @@ function OrderDetail() {
             <DialogTitle>Leave a review</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 text-left">
               <Label>Rating</Label>
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -170,7 +185,7 @@ function OrderDetail() {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 text-left">
               <Label htmlFor="cmt">Comment (optional)</Label>
               <Textarea id="cmt" value={comment} onChange={(e) => setComment(e.target.value)} />
             </div>

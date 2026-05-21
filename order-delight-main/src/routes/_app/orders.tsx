@@ -19,13 +19,10 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "pending", label: "Pending" },
   { value: "preparing", label: "Preparing" },
   { value: "ready", label: "Ready" },
-  { value: "completed", label: "Completed" }, // Aligned tab naming with State Machine
+  { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// ==========================================
-// 1. PROFESSIONAL OPTIONAL REVIEW MODAL COMPONENT
-// ==========================================
 interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,7 +41,6 @@ function ReviewModal({ isOpen, onClose, onSubmit, shopName }: ReviewModalProps) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-card border border-border text-card-foreground w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in-95 duration-200 relative">
         
-        {/* Dismiss Icon */}
         <button 
           onClick={onClose}
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground rounded-lg p-1 transition-colors"
@@ -60,7 +56,6 @@ function ReviewModal({ isOpen, onClose, onSubmit, shopName }: ReviewModalProps) 
             </p>
           </div>
 
-          {/* Interactive Star Row (Optional Click, Fluid Hover States) */}
           <div className="flex items-center justify-center gap-1.5 py-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
@@ -82,7 +77,6 @@ function ReviewModal({ isOpen, onClose, onSubmit, shopName }: ReviewModalProps) 
             ))}
           </div>
 
-          {/* Optional Content Message Text Box Area */}
           <div className="space-y-1.5 text-left">
             <label className="text-xs font-medium text-muted-foreground">
               Write a review <span className="text-[10px] opacity-60">(Optional)</span>
@@ -96,7 +90,6 @@ function ReviewModal({ isOpen, onClose, onSubmit, shopName }: ReviewModalProps) 
             />
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1 h-10 rounded-xl text-xs font-medium" onClick={onClose}>
               Skip
@@ -111,9 +104,6 @@ function ReviewModal({ isOpen, onClose, onSubmit, shopName }: ReviewModalProps) 
   );
 }
 
-// ==========================================
-// 2. MAIN ORDERS PAGE WITH LIVE TRACKING INTERCEPT
-// ==========================================
 function OrdersPage() {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -126,11 +116,9 @@ function OrdersPage() {
       ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
   });
 
-  // Automated Hook: intercept completed items and request a feedback review session
   useEffect(() => {
     if (!data || !Array.isArray(data)) return;
 
-    // Detect if an order has transitioned to completed, ignoring previously dismissed items in this window session
     const completedOrder = data.find(
       (o: any) => o.status === "completed" && !promptedOrders.includes(o.id)
     );
@@ -141,16 +129,13 @@ function OrdersPage() {
         name: completedOrder.shop_name || "the shop",
         orderId: completedOrder.id
       });
-      // Register out the layout key variant to block loop triggers
       setPromptedOrders((prev) => [...prev, completedOrder.id]);
     }
   }, [data, promptedOrders]);
 
-  // Network pipeline handler engine to submit values to database
-
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
+      <div className="text-left">
         <h1 className="text-2xl font-bold tracking-tight">My orders</h1>
         <p className="text-sm text-muted-foreground">Track and manage your pre-orders.</p>
       </div>
@@ -176,31 +161,71 @@ function OrdersPage() {
         <div className="space-y-3">
           {data.map((o) => (
             <Link key={o.id} to="/orders/$orderId" params={{ orderId: o.id }}>
-              <Card className="transition-colors hover:border-primary/40">
-                <CardContent className="flex items-center justify-between gap-4 p-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-xs text-muted-foreground">
-                        #{o.id.slice(0, 8)}
+              <Card className="transition-all hover:border-primary/40 text-left">
+                <CardContent className="p-5 space-y-4">
+                  
+                  {/* Top metadata tracking bar row context */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60">
+                          #{o.id.slice(0, 8).toUpperCase()}
+                        </span>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        {formatDate(o.created_at)}
                       </p>
-                      <StatusBadge status={o.status} />
                     </div>
-                    <p className="mt-1 text-sm">
-                      {o.items?.length ?? 0} {o.items?.length === 1 ? "item" : "items"} ·{" "}
-                      {formatDate(o.created_at)}
-                    </p>
+                    <div className="text-right">
+                      <p className="text-base font-bold text-foreground">{formatCurrency(o.total_price)}</p>
+                      {o.shop_name && (
+                        <p className="text-xs text-muted-foreground font-medium mt-0.5">{o.shop_name}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-base font-semibold">{formatCurrency(o.total_price)}</p>
+
+                  {/* Itemized Food List View Panel Container */}
+                  <div className="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
+                    {o.items && o.items.length > 0 ? (
+                      <div className="space-y-1.5 divide-y divide-border/20">
+                        {o.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-start justify-between pt-1.5 first:pt-0 gap-4">
+                            <div className="space-y-0.5">
+                              <p className="font-semibold text-foreground">
+                                {item.menu_item_name ?? item.item_name_snapshot ?? item.name ?? "Item"}
+                              </p>
+                              {item.variant_name && (
+                                <p className="text-[10px] text-muted-foreground italic">
+                                  Option: {item.variant_name}
+                                </p>
+                              )}
+                            </div>
+                            <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/60 shrink-0 font-bold">
+                              ×{item.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-muted-foreground italic">
+                        <span>Standard Basket Content</span>
+                        <span className="font-mono">
+                          {/* 🚀 FIXED: Array quantity aggregator replacement for broken items_count types */}
+                          ×{o.items && o.items.length > 0 
+                            ? o.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) 
+                            : 1}
+                        </span>
+                      </div>
+                    )}
                   </div>
+
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
       )}
-
-      {/* Review Modal Insertion Overlay */}
     </div>
   );
 }

@@ -261,26 +261,46 @@ async def list_orders_admin(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[dict]:
-    stmt = select(Order)
+    # 🚀 FIXED: Use combined joinedloads to fetch customer, shop, and line items in one step
+    stmt = (
+        select(Order)
+        .options(
+            joinedload(Order.customer),
+            joinedload(Order.shop),
+            joinedload(Order.items).joinedload(OrderItem.menu_item),
+            joinedload(Order.items).joinedload(OrderItem.variant)
+        )
+    )
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
     stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    rows = (await db.execute(stmt)).scalars().all()
+    rows = (await db.execute(stmt)).scalars().unique().all()
+    
     result = []
     for o in rows:
-        customer = await db.get(User, o.customer_id)
-        shop = await db.get(Shop, o.shop_id)
         result.append({
             "id": o.id,
             "customer_id": o.customer_id,
-            "customer_name": customer.name if customer else "Unknown",
+            "customer_name": o.customer.name if o.customer else "Unknown",
             "shop_id": o.shop_id,
-            "shop_name": shop.name if shop else "Unknown",
+            "shop_name": o.shop.name if o.shop else "Unknown",
             "status": o.status,
             "total_price": float(o.total_price),
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
             "created_at": o.created_at.isoformat() if o.created_at else None,
+            # 🚀 FIXED: Map down the explicit lines item data layout explicitly
+            "items": [
+                {
+                    "id": item.id,
+                    "menu_item_id": item.menu_item_id,
+                    "menu_item_name": item.menu_item.name if item.menu_item else (item.item_name_snapshot or "Item"),
+                    "variant_name": item.variant.name if item.variant else getattr(item, "variant_name_snapshot", None),
+                    "quantity": int(item.quantity),
+                    "unit_price": float(item.unit_price)
+                }
+                for item in o.items
+            ]
         })
     return result
 
@@ -495,42 +515,36 @@ async def revenue_by_category(
         for r in rows
     ]
 
+
 @router.put("/orders/{order_id}/status")
 async def update_order_status_admin(
     _: Annotated[User, Depends(require_roles("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     order_id: str,
     status: str = Query(...),
-    
-    
 ) -> dict:
     from app.models.order import Order
-    from app.models.notification import Notification  # 🚀 IMPORT THE NOTIFICATION MODEL
-    from app.api.v1.endpoints.notification import prune_old_notifications_stack # 🚀 IMPORT PRUNE FUNCTION
+    from app.models.notification import Notification
+    from app.api.v1.endpoints.notification import prune_old_notifications_stack
     from app.utils.ids import new_id
 
-    # 1. Fetch the target order record safely out of the database
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found")
         
-    # 2. Mutate the status state string
     order.status = status
     
-    # 3. 🚀 NEW: Automatically generate a live notification for the customer
     new_notif = Notification(
         id=new_id(),
-        user_id=order.customer_id,  # Sends it straight to the customer who placed the order
+        user_id=order.customer_id,
         message=f"Your order status has been updated to '{status}'.",
         is_read=False
     )
     db.add(new_notif)
     
-    # 4. 🚀 NEW: Push the notification data layout down to clear the stack before saving
-    await db.flush()  # Flushes out ID to baseline tracking
-    await prune_old_notifications_stack(db, order.customer_id)  # 🚀 Prunes pool immediately down to 5
+    await db.flush()
+    await prune_old_notifications_stack(db, order.customer_id)
     
-    # 5. Commit all adjustments at once safely
     await db.commit()
     await db.refresh(order)
     

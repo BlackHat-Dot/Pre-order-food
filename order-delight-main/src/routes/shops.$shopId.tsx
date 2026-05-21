@@ -264,7 +264,7 @@ function ShopDetail() {
 
                                 if (currentTotalInCart >= 10) {
                                   toast.warning("Cart Limit Reached", {
-                                    description: "You have reached the maximum allowance of 10 items per cart. Please check out your current items before adding anything else.",
+                                    description: "Your cart is capped at a maximum of 10 items. Please check out your current selection before adding more items.",
                                   });
                                   return;
                                 }
@@ -295,7 +295,7 @@ function ShopDetail() {
           <TabsContent value="reviews" className="mt-6 space-y-4">
             <div className="flex items-center justify-between border-b border-border/50 pb-3">
               <h3 className="text-sm font-semibold text-foreground">
-                Customer Feedback ({reviews?.length ?? 0})
+                Customer Reviews ({reviews?.length ?? 0})
               </h3>
               {!showReviewForm && (
                 <Button 
