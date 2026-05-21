@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy} from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -42,7 +42,7 @@ const ORDER_STATUSES: OrderStatus[] = [
   "accepted",
   "preparing",
   "ready",
-  "completed" as OrderStatus, // <-- Added type assertion to silence the error
+  "completed" as OrderStatus,
   "cancelled",
 ];
 
@@ -143,19 +143,14 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-// Replace the entire StatsTab component in src/routes/_app/owner/shops.$shopId.tsx:
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
     queryFn: () => (shopsApi as any).dashboard(shopId),
   });
 
-  console.log("DASHBOARD DATA:", data);
-  console.log("DASHBOARD ERROR:", error);
-
   if (isLoading) return <Skeleton className="h-32 w-full" />;
   
-  // If the backend fails entirely, show the fallback
   if (error || !data || Object.keys(data).length === 0) {
     return (
       <Card className="border-dashed">
@@ -166,7 +161,6 @@ function StatsTab({ shopId }: { shopId: string }) {
     );
   }
 
-  // Explicitly render the metrics returned from the backend aggregation
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
       <Stat label="Total Orders" value={data.total_orders ?? 0} />
@@ -177,6 +171,7 @@ function StatsTab({ shopId }: { shopId: string }) {
     </div>
   );
 }
+
 function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({
@@ -215,7 +210,7 @@ function MenuTab({ shopId }: { shopId: string }) {
           {items.map((it: any) => (
             <Card key={it.id}>
               <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex-1">
+                <div className="flex-1 text-left">
                   <p className="font-medium">{it.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {formatCurrency(it.price)} · {it.category ?? "—"}
@@ -338,7 +333,7 @@ function ItemDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit item" : "New item"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 text-left">
           <div className="space-y-2">
             <Label>Name</Label>
             <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -531,6 +526,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   
   const { data, isLoading } = useQuery({
     queryKey: ["shop", shopId, "orders", status],
@@ -556,10 +552,13 @@ function OrdersTab({ shopId }: { shopId: string }) {
     onSettled: () => setUpdatingOrderId(null),
   });
 
-  // 🚀 ORDER STATUS FLOW MACHINE CONSTRAINT
+  const toggleExpand = (orderId: string) => {
+    setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
+
   const VALID_TRANSITIONS: Record<string, string[]> = {
-    pending: ["accepted", "cancelled"], // Only place cancellation can happen
-    accepted: ["preparing"],            // 🚫 'cancelled' is completely locked out
+    pending: ["accepted", "cancelled"],
+    accepted: ["preparing"],
     preparing: ["ready"],
     ready: ["completed"],
     completed: [],
@@ -587,50 +586,106 @@ function OrdersTab({ shopId }: { shopId: string }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {data.map((o: any) => {
             const currentStatus = o.status.toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isTerminal = nextAllowedOptions.length === 0;
+            const isExpanded = !!expandedOrders[o.id];
 
             return (
-              <Card key={o.id}>
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-xs text-muted-foreground">
-                        #{o.id.slice(0, 8)}
+              <Card key={o.id} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border/40">
+                    <div className="flex-1 min-w-0 text-left space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono text-xs font-bold text-muted-foreground">
+                          #{o.id.slice(0, 8).toUpperCase()}
+                        </p>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(o.created_at)}
                       </p>
-                      <StatusBadge status={o.status} />
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {o.items?.length ?? 0} items · {formatDate(o.created_at)}
-                    </p>
+
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-sm">{formatCurrency(o.total_price)}</span>
+                      
+                      <Select
+                        value={o.status}
+                        disabled={isTerminal || updatingOrderId !== null}
+                        onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
+                      >
+                        <SelectTrigger className="w-36 capitalize font-medium text-xs rounded-xl h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
+                            {o.status} (Current)
+                          </SelectItem>
+                          {nextAllowedOptions.map((step) => (
+                            <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                              {step}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* 🚀 EXPANSION TRIGGER: Allow cooks to instantly unfold full variant ticket manifests */}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-xl border border-border/50 shrink-0"
+                        onClick={() => toggleExpand(o.id)}
+                      >
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
-                  <span className="font-semibold mr-2">{formatCurrency(o.total_price)}</span>
-                  
-                  {/* 🚀 WORKFLOW CONSTRAINT ENFORCED DROP-DOWN */}
-                  <Select
-                    value={o.status}
-                    disabled={isTerminal || updatingOrderId !== null}
-                    onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
-                  >
-                    <SelectTrigger className="w-40 capitalize font-medium text-xs rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Always keep current status as a visible selection entry */}
-                      <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
-                        {o.status} (Current)
-                      </SelectItem>
-                      {/* Render only the valid next progressive steps */}
-                      {nextAllowedOptions.map((step) => (
-                        <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                          Move to {step}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                  {/* 🚀 FIXED DETAILED MANIFEST BREAKDOWN FEED */}
+                  {isExpanded && (
+                    <div className="bg-muted/30 p-4 border-t border-dashed border-border/60 space-y-3 animate-in slide-in-from-top-2 duration-150">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider text-left">
+                        <ChefHat className="h-3.5 w-3.5 text-primary" />
+                        <span>Preparation Checklist Ticket</span>
+                      </div>
+
+                      <div className="space-y-1.5 rounded-xl border border-border/50 bg-background p-3 text-left shadow-inner">
+                        {o.items && o.items.length > 0 ? (
+                          <div className="space-y-2 divide-y divide-border/40">
+                            {o.items.map((item: any, idx: number) => {
+                              const itemTitle = item.item_name_snapshot || item.menu_item_name || item.name || "Dish";
+                              const variantTitle = item.variant_name_snapshot || item.variant_name || null;
+                              
+                              return (
+                                <div key={idx} className="flex items-center justify-between text-xs pt-2 first:pt-0 gap-4">
+                                  <div className="space-y-0.5">
+                                    <p className="font-bold text-foreground">
+                                      {itemTitle}
+                                    </p>
+                                    {variantTitle && (
+                                      <p className="text-[10px] font-mono font-extrabold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded max-w-fit mt-0.5 uppercase">
+                                        Option: {variantTitle}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="font-mono text-xs font-black text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border/60 shrink-0 shadow-sm">
+                                    QTY: {item.quantity}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic text-center py-2">
+                            No variant items logged inside standard snapshot schema array.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -674,10 +729,10 @@ function SettingsTab({
   
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="text-left">
         <CardTitle>Shop settings</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 text-left">
         {(["name", "cuisine", "address", "phone", "image_url"] as const).map((k) => (
           <div key={k} className="space-y-2">
             <Label className="capitalize">{k.replace("_", " ")}</Label>

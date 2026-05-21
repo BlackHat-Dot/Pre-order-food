@@ -189,29 +189,35 @@ function OrdersPage() {
                   <div className="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
                     {o.items && o.items.length > 0 ? (
                       <div className="space-y-1.5 divide-y divide-border/20">
-                        {o.items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex items-start justify-between pt-1.5 first:pt-0 gap-4">
-                            <div className="space-y-0.5">
-                              <p className="font-semibold text-foreground">
-                                {item.menu_item_name ?? item.item_name_snapshot ?? item.name ?? "Item"}
-                              </p>
-                              {item.variant_name && (
-                                <p className="text-[10px] text-muted-foreground italic">
-                                  Option: {item.variant_name}
+                        {o.items.map((item: any, idx: number) => {
+                          // Extract names with full fallback chains
+                          const baseItemName = item.item_name_snapshot || item.menu_item_name || item.name || "Dish Item";
+                          const variantChoiceName = item.variant_name_snapshot || item.variant_name || null;
+                          
+                          return (
+                            <div key={idx} className="flex items-start justify-between pt-1.5 first:pt-0 gap-4">
+                              <div className="space-y-0.5">
+                                {/* 🚀 FIXED: Displays base item concatenated with chosen variant configuration */}
+                                <p className="font-semibold text-foreground">
+                                  {variantChoiceName ? `${baseItemName} (${variantChoiceName})` : baseItemName}
                                 </p>
-                              )}
+                                {variantChoiceName && (
+                                  <p className="text-[10px] text-muted-foreground italic">
+                                    Option: {variantChoiceName}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/60 shrink-0 font-bold">
+                                ×{item.quantity}
+                              </span>
                             </div>
-                            <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/60 shrink-0 font-bold">
-                              ×{item.quantity}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-muted-foreground italic">
                         <span>Standard Basket Content</span>
                         <span className="font-mono">
-                          {/* 🚀 FIXED: Array quantity aggregator replacement for broken items_count types */}
                           ×{o.items && o.items.length > 0 
                             ? o.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) 
                             : 1}
