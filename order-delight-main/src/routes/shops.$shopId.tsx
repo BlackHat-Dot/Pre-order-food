@@ -235,7 +235,7 @@ function ShopDetail() {
                 {shop.is_open ? "Open" : "Closed"}
               </span>
 
-              {currentShopCartCount > 0 && (
+              {currentShopCartCount > 0 && !isShopOwner && (
                 <Link to="/cart">
                   <Button size="sm" className="h-7 rounded-md bg-primary hover:bg-primary/90 px-3 text-xs font-semibold gap-1.5 shadow-sm">
                     <ShoppingBag className="h-3.5 w-3.5" /> View Cart ({currentShopCartCount})
@@ -273,7 +273,6 @@ function ShopDetail() {
                         >
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
-                              {/* 🚀 FIXED: Removed the conditional red 'Sold Out' badge component from here */}
                               <h3 className="font-medium text-sm text-foreground">{item.name}</h3>
                             </div>
                             {item.description && <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
@@ -282,10 +281,16 @@ function ShopDetail() {
                               
                               {isShopOwner ? (
                                 <Button
-                                  disabled
                                   size="sm"
                                   variant="outline"
-                                  className="h-8 rounded-xl text-[11px] font-bold text-muted-foreground bg-muted/60 cursor-not-allowed border"
+                                  // 🚀 FIXED: Trigger a clean blocking alert toast message immediately on click
+                                  onClick={() => {
+                                    toast.error("Carting Restrained", {
+                                      description: "You are logged into a Shop Owner account. Owners cannot build carts. Please create a separate Customer Account to buy items.",
+                                      duration: 4000
+                                    });
+                                  }}
+                                  className="h-8 rounded-xl text-[11px] font-bold text-muted-foreground bg-muted/60 border hover:bg-destructive hover:text-white transition-colors"
                                 >
                                   Owners Blocked
                                 </Button>
@@ -349,7 +354,7 @@ function ShopDetail() {
               <h3 className="text-sm font-semibold text-foreground">
                 Customer Reviews ({reviews?.length ?? 0})
               </h3>
-              {!showReviewForm && (
+              {!showReviewForm && !isShopOwner && (
                 <Button 
                   onClick={() => setShowReviewForm(true)} 
                   variant="outline" 
@@ -517,10 +522,6 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const [qty, setQty] = useState(1);
   const { lines } = useCart();
 
-  // Gather current user role to enforce the carting guard block
-  const currentUserRole = useMemo(() => getUserRole(), []);
-  const isShopOwner = currentUserRole === "shop_owner";
-
   useEffect(() => {
     if (!item) return;
     setQty(1);
@@ -531,22 +532,11 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
   const price = selectedVariant?.price ?? item.price;
 
-  // 🚀 THIS IS WHERE WE BLOCK THE CARTING ACTION
   function add() {
     if (!item) return;
 
-    // 1. Immediately intercept if a shop owner attempts to build a basket line
-    if (isShopOwner) {
-      toast.error("Carting Restrained", {
-        description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
-        duration: 5000,
-      });
-      onClose(); // Shut the modal instantly
-      return;
-    }
-
-    // 2. Standard customer quantity capacity check limits
     const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+    
     if (currentTotalInCart + qty > 10) {
       toast.error("Maximum Cart Capacity Exceeded", {
         description: `You can only add up to ${10 - currentTotalInCart} more items. Please check out your current selection first.`,
@@ -554,7 +544,6 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
       return;
     }
     
-    // 3. Complete standard item add execution
     cart.addItem(item, (selectedVariant as any) ?? null, qty);
     toast.success(`Added ${qty} × ${item.name}`);
     onClose();
@@ -586,7 +575,6 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <RadioGroupItem value={v.id} disabled={!isVariantAvailable} /> 
                         <span>{v.name}</span>
-                        {/* 🚀 FIXED: Removed the conditional red 'Out of Stock' badge from inside the variant list */}
                       </div>
                       <span className="text-sm font-bold text-foreground">{formatCurrency(v.price)}</span>
                     </Label>
