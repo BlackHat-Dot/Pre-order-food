@@ -283,11 +283,11 @@ function ShopDetail() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  // 🚀 FIXED: Trigger a clean blocking alert toast message immediately on click
+                                  // 🚀 INTERCEPT ONE: Block right on the item list row click event directly
                                   onClick={() => {
                                     toast.error("Carting Restrained", {
-                                      description: "You are logged into a Shop Owner account. Owners cannot build carts. Please create a separate Customer Account to buy items.",
-                                      duration: 4000
+                                      description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
+                                      duration: 5000,
                                     });
                                   }}
                                   className="h-8 rounded-xl text-[11px] font-bold text-muted-foreground bg-muted/60 border hover:bg-destructive hover:text-white transition-colors"
@@ -522,6 +522,10 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
   const [qty, setQty] = useState(1);
   const { lines } = useCart();
 
+  // Extract user authentication session details to enforce internal modal safeguards
+  const currentUserRole = useMemo(() => getUserRole(), []);
+  const isShopOwner = currentUserRole === "shop_owner";
+
   useEffect(() => {
     if (!item) return;
     setQty(1);
@@ -534,6 +538,16 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
 
   function add() {
     if (!item) return;
+
+    // 🚀 INTERCEPT TWO: Hard block injection inside sub-variant selection submission events
+    if (isShopOwner) {
+      toast.error("Carting Restrained", {
+        description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
+        duration: 5000,
+      });
+      onClose(); // Instantly close out the configuration viewport layout view
+      return;
+    }
 
     const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
     
