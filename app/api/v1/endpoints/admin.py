@@ -504,16 +504,33 @@ async def update_order_status_admin(
     
     
 ) -> dict:
-    from app.models.order import Order # Assumes Order model lives here
+    from app.models.order import Order
+    from app.models.notification import Notification  # 🚀 IMPORT THE NOTIFICATION MODEL
+    from app.api.v1.endpoints.notification import prune_old_notifications_stack # 🚀 IMPORT PRUNE FUNCTION
+    from app.utils.ids import new_id
 
-    # 1. Fetch the target order record safely
+    # 1. Fetch the target order record safely out of the database
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found")
         
-    # 2. Apply the status variation modification mapping string
+    # 2. Mutate the status state string
     order.status = status
     
+    # 3. 🚀 NEW: Automatically generate a live notification for the customer
+    new_notif = Notification(
+        id=new_id(),
+        user_id=order.customer_id,  # Sends it straight to the customer who placed the order
+        message=f"Your order status has been updated to '{status}'.",
+        is_read=False
+    )
+    db.add(new_notif)
+    
+    # 4. 🚀 NEW: Push the notification data layout down to clear the stack before saving
+    await db.flush()  # Flushes out ID to baseline tracking
+    await prune_old_notifications_stack(db, order.customer_id)  # 🚀 Prunes pool immediately down to 5
+    
+    # 5. Commit all adjustments at once safely
     await db.commit()
     await db.refresh(order)
     

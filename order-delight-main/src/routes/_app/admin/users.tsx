@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Search, UserPlus, ShieldCheck, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, UserPlus, ShieldCheck, Users, ChevronLeft, ChevronRight, Key } from "lucide-react";
 import { adminApi, ApiError, type UserOut, type Role } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +26,7 @@ const ROLE_COLORS: Record<string, string> = {
 function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", role: "customer" as Role });
+  
   const create = useMutation({
     mutationFn: () => adminApi.createUser({ ...form, email: form.email || undefined }),
     onSuccess: () => {
@@ -36,6 +37,7 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to create user"),
   });
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -80,35 +82,49 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
 
 function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
   const [roleOpen, setRoleOpen] = useState(false);
+  
   const setActive = useMutation({
     mutationFn: (v: boolean) => adminApi.setUserActive(u.id, { is_active: v }),
     onSuccess: () => { toast.success("Updated"); onMutated(); },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
   });
+
   const changeRole = useMutation({
-    // FIXED: Cast adminApi to any, and pass role as an object (or just forward it safely)
     mutationFn: (role: string) => (adminApi as any).changeUserRole(u.id, { role }),
     onSuccess: () => { 
       toast.success("Role updated"); 
       setRoleOpen(false); 
       onMutated(); 
     },
-    // FIXED: Use standard Error to prevent ApiError import mismatches
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
   return (
-    <Card className="border-border/50 hover:border-border transition-colors">
+    <Card className="border-border/50 hover:border-border transition-colors text-left">
       <CardContent className="flex flex-wrap items-center gap-3 p-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold uppercase">
           {u.name.slice(0, 2)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{u.name}</p>
-            {u.role === "admin" && <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="font-medium truncate max-w-[180px] sm:max-w-none">{u.name}</p>
+            {u.role === "admin" && <ShieldCheck className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+            
+            {/* 🚀 ADDED PRECISELY HERE: Stylized Click-to-Copy User UID Badge */}
+            <span 
+              onClick={(e) => {
+                e.stopPropagation(); // Stops sub-triggers from misfiring layout dialogs
+                navigator.clipboard.writeText(u.id);
+                toast.success(`Copied UID for ${u.name}!`);
+              }}
+              className="inline-flex items-center gap-1 font-mono text-[10px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded border border-border/60 transition-colors cursor-pointer select-all shadow-sm shrink-0"
+              title="Click to copy raw Customer UID string"
+            >
+              <Key className="h-2.5 w-2.5 text-muted-foreground" />
+              <span>UID: {u.id.slice(0, 8)}...</span>
+            </span>
           </div>
-          <p className="truncate text-xs text-muted-foreground">{u.email ?? "no email"} · {u.phone}</p>
+          <p className="truncate text-xs text-muted-foreground mt-0.5">{u.email ?? "no email"} · {u.phone}</p>
         </div>
         <span className="text-xs text-muted-foreground hidden sm:block">{formatDate(u.created_at)}</span>
 
@@ -176,9 +192,9 @@ function AdminUsers() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 text-left">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Users Workspace</h1>
           <p className="text-sm text-muted-foreground">
             {counts ? `${counts.total} total · ${counts.active} active` : "Manage platform users"}
           </p>
@@ -190,12 +206,12 @@ function AdminUsers() {
       {counts && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Total", value: counts.total, icon: Users },
+            { label: "Total Users", value: counts.total, icon: Users },
             { label: "Admins", value: counts.by_role.admin ?? 0, icon: ShieldCheck },
-            { label: "Owners", value: counts.by_role.shop_owner ?? 0, icon: Users },
+            { label: "Shop Owners", value: counts.by_role.shop_owner ?? 0, icon: Users },
             { label: "Customers", value: counts.by_role.customer ?? 0, icon: Users },
           ].map(({ label, value, icon: Icon }) => (
-            <Card key={label} className="border-border/50">
+            <Card key={label} className="border-border/50 text-left">
               <CardContent className="flex items-center gap-3 p-4">
                 <Icon className="h-4 w-4 text-muted-foreground" />
                 <div>
