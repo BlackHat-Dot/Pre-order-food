@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X, Loader2 } from "lucide-react";
 import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
-import  PublicNav from "@/components/app/PublicNav";
-import { Card, CardContent } from "@/components/ui/card";
+import { PublicNav } from "@/components/app/PublicNav";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,13 +56,11 @@ function ShopDetail() {
   const qc = useQueryClient();
   const [heroImageFailed, setHeroImageFailed] = useState(false);
   
-  // Inline review writing form state
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [reviewComment, setReviewComment] = useState("");
 
-  // Queries
   const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
@@ -87,7 +85,6 @@ function ShopDetail() {
     queryFn: () => reviewsApi.list(shopId),
   });
 
-  // Inline Review Submit Mutation Engine
   const submitReview = useMutation({
     mutationFn: (payload: { rating: number | null; comment: string; order_id: string }) => 
       ordersApi.submitReview(shopId, payload),
@@ -111,7 +108,6 @@ function ShopDetail() {
 
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
 
-  // Repositioned structural loaders above property access blocks
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -238,23 +234,6 @@ function ShopDetail() {
           </CardContent>
         </Card>
 
-        {items && items.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-3">
-            {items.slice(0, 3).map((item, idx) => (
-              <div
-                key={item.id}
-                className={`rounded-2xl border border-white/10 bg-card/55 px-4 py-3 shadow-lg backdrop-blur-lg ${
-                  idx % 2 === 0 ? "sm:-translate-y-2" : "sm:translate-y-2"
-                }`}
-              >
-                <p className="text-[10px] uppercase tracking-wide text-primary/90">Popular</p>
-                <p className="text-sm font-semibold">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {shop.description && (
           <p className="mt-4 text-sm text-muted-foreground">{shop.description}</p>
         )}
@@ -317,17 +296,28 @@ function ShopDetail() {
                               variant="outline"
                               disabled={item.is_available === false || !shop.is_open}
                               onClick={() => {
-                                // 🚀 FIXED: Fallback checks to prevent users exceeding the 10 item line threshold
-                                const currentCountInCart = lines
-                                  .filter((l: any) => (l.item_id === item.id || l.menu_item_id === item.id))
-                                  .reduce((acc, curr) => acc + curr.quantity, 0);
+                                // 1. Real-time metrics calculations
+                                const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+                                const standardLineConflict = lines.find((l) => l.shop_id !== undefined && l.shop_id !== shopId);
 
-                                if (currentCountInCart >= 10) {
-                                  toast.error(`You have already added the limit of 10 units for ${item.name}.`, {
-                                    description: "To modify amounts, please adjust item values within your Cart tab panel."
+                                // 2. 🚀 THE CROSS-SHOP GUARDRAIL POPUP
+                                if (standardLineConflict) {
+                                  toast.error("Cart Conflict Detected", {
+                                    description: "Your cart already contains selections from another store. Please check out or empty your active cart before adding items from this shop.",
+                                    duration: 5000,
                                   });
                                   return;
                                 }
+
+                                // 3. 🚀 THE 10 ITEM MAXIMUM CEILING POPUP
+                                if (currentTotalInCart >= 10) {
+                                  toast.warning("Cart Limit Reached", {
+                                    description: "You have reached the maximum allowance of 10 items per cart. Please check out your current items before adding anything else.",
+                                    duration: 5000,
+                                  });
+                                  return;
+                                }
+
                                 setPicked(item);
                               }}
                               className="h-8 rounded-xl text-xs font-semibold gap-1"
@@ -376,9 +366,7 @@ function ShopDetail() {
                 <CardContent className="p-4 space-y-4">
                   <form onSubmit={handleReviewSubmit} className="space-y-3">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground block">
-                        Your Rating <span className="text-[10px] opacity-60">(Optional)</span>
-                      </label>
+                      <label className="text-xs font-medium text-muted-foreground block">Your Rating</label>
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
@@ -402,11 +390,9 @@ function ShopDetail() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground block">
-                        Review Message <span className="text-[10px] opacity-60">(Optional)</span>
-                      </label>
+                      <label className="text-xs font-medium text-muted-foreground block">Review Message</label>
                       <Textarea
-                        placeholder="Tell others about the food quality, taste, or service..."
+                        placeholder="Tell others about the food quality..."
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
                         className="resize-none min-h-[80px] text-sm bg-background rounded-xl focus-visible:ring-primary"
@@ -454,7 +440,7 @@ function ShopDetail() {
             ) : (
               <div className="space-y-2.5">
                 {reviews.map((r) => (
-                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl text-left">
+                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl">
                     <CardContent className="space-y-1.5 p-4">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-xs text-foreground">{r.customer_name || "Customer"}</span>
@@ -482,14 +468,13 @@ function ShopDetail() {
         </Tabs>
       </div>
 
-      <AddItemDialog item={picked} onClose={() => setPicked(null)} />
+      <AddItemDialog item={picked} shopId={shopId} onClose={() => setPicked(null)} />
       <div className="h-16" />
     </div>
   );
 }
 
-function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: () => void }) {
-  const { user } = useAuth();
+function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; shopId: string; onClose: () => void }) {
   const { data: variants } = useQuery({
     queryKey: ["item", item?.id, "variants"],
     queryFn: () => (item ? menuApi.listVariants(item.id) : Promise.resolve([])),
@@ -509,28 +494,17 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
   const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
   const price = selectedVariant?.price ?? item.price;
 
-  const MAX_QUANTITY_LIMIT = 10;
-
   function add() {
     if (!item) return;
 
-    const existingLine = lines.find(
-      (l: any) => (l.menu_item_id === item.id || l.item_id === item.id) && l.variant_id === (selectedVariant?.id ?? null)
-    );
-    const existingQty = existingLine ? existingLine.quantity : 0;
-    const combinedQty = existingQty + qty;
-
-    if (combinedQty > MAX_QUANTITY_LIMIT) {
-      if (existingQty > 0) {
-        toast.error(
-          `Cart capacity limit reached! You already have ${existingQty} units of this item in your cart. You can only add up to ${MAX_QUANTITY_LIMIT - existingQty} more.`,
-          { duration: 4000 }
-        );
-      } else {
-        toast.error(`Order maximum reached! You can only add a maximum of ${MAX_QUANTITY_LIMIT} units per food item.`, {
-          duration: 4000,
-        });
-      }
+    const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+    
+    // 🚀 STAGE 2 CEILING VALIDATION INSIDE DIALOG TRIGGER
+    if (currentTotalInCart + qty > 10) {
+      toast.error("Maximum Cart Capacity Exceeded", {
+        description: `You can only add up to ${10 - currentTotalInCart} more items. Please check out your current selection first.`,
+        duration: 5000,
+      });
       return;
     }
     
@@ -577,7 +551,7 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
           <div className="flex items-center justify-between border-t border-dashed pt-4 border-border/60">
             <div className="space-y-0.5 text-left">
               <Label className="text-sm font-bold text-foreground">Quantity</Label>
-              <p className="text-[11px] text-muted-foreground">Maximum limit: {MAX_QUANTITY_LIMIT} per item</p>
+              <p className="text-[11px] text-muted-foreground">Maximum limit: 10 items total per cart</p>
             </div>
             
             <div className="flex items-center gap-1.5 bg-muted/40 border border-border/50 p-1 rounded-xl">
@@ -595,8 +569,13 @@ function AddItemDialog({ item, onClose }: { item: MenuItemOut | null; onClose: (
                 size="icon" 
                 className="h-8 w-8 rounded-lg font-bold"
                 onClick={() => {
-                  if (qty >= MAX_QUANTITY_LIMIT) {
-                    toast.warning(`Each selected item profile is capped at a maximum of ${MAX_QUANTITY_LIMIT} units.`);
+                  const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+                  
+                  // Real-time counter limit guard inside modal increment
+                  if (currentTotalInCart + qty >= 10) {
+                    toast.warning("Cart Limit Reached", {
+                      description: "You cannot exceed a total of 10 items in your cart."
+                    });
                     return;
                   }
                   setQty((q) => q + 1);
