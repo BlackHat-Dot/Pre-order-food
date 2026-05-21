@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, AlertTriangle, MessageSquarePlus, X, Loader2, Trash2 } from "lucide-react";
-import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type MenuItemVariantOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
+import { ChevronLeft, Copy, MapPin, Phone, Star, ShieldCheck, Plus, ShoppingBag, MessageSquarePlus, Loader2, Trash2 } from "lucide-react";
+import { reviewsApi, menuApi, ordersApi, shopsApi, type MenuItemOut, type ShopOut, type ReviewOut, ApiError } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +41,25 @@ function getFallbackDetailImage(shopId: string, shopName: string) {
   return FALLBACK_DETAIL_IMAGES[Math.abs(hash) % FALLBACK_DETAIL_IMAGES.length];
 }
 
+function getUserRole(): string | null {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload).role || null;
+  } catch {
+    return null;
+  }
+}
+
 function ShopDetail() {
   const params = Route.useParams() as { shopId: string };
   const { shopId } = params;
@@ -63,6 +82,9 @@ function ShopDetail() {
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
   const [conflictItem, setConflictItem] = useState<MenuItemOut | null>(null);
 
+  const currentUserRole = useMemo(() => getUserRole(), []);
+  const isShopOwner = currentUserRole === "shop_owner";
+
   const { data: shop, isLoading, isError: shopError, error: shopErrorObj } = useQuery<ShopOut, Error>({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
@@ -71,8 +93,6 @@ function ShopDetail() {
   const {
     data: items,
     isLoading: itemsLoading,
-    isError: itemsError,
-    error: itemsErrorObj,
   } = useQuery<MenuItemOut[], Error>({
     queryKey: ["shop", shopId, "items"],
     queryFn: () => menuApi.listItems(shopId),
@@ -90,6 +110,7 @@ function ShopDetail() {
   const submitReview = useMutation({
     mutationFn: (payload: { rating: number | null; comment: string; order_id: string }) => 
       ordersApi.submitReview(shopId, payload),
+    // 🚀 FIXED: Changed from onShadowSuccess back to standard onSuccess to clear TS error
     onSuccess: () => {
       toast.success("Review posted successfully!");
       setReviewComment("");
@@ -242,50 +263,86 @@ function ShopDetail() {
                 <section key={cat}>
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{cat}</h2>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {list.map((item) => (
-                      <Card key={item.id} className="flex h-full flex-row gap-4 overflow-hidden p-4 hover:border-primary/40 transition-colors">
-                        <div className="flex-1 space-y-1">
-                          <h3 className="font-medium text-sm">{item.name}</h3>
-                          {item.description && <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
-                          <div className="flex items-center justify-between pt-2">
-                            <span className="font-semibold text-primary text-sm">{formatCurrency(item.price)}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={item.is_available === false || !shop.is_open}
-                              onClick={() => {
-                                const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
-                                const standardLineConflict = lines.find((l) => l.shop_id !== undefined && l.shop_id !== shopId);
+                    {list.map((item) => {
+                      const isItemAvailable = item.is_available !== false;
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className={`flex h-full flex-row gap-4 overflow-hidden p-4 hover:border-primary/40 transition-colors ${
+                            !isItemAvailable ? "opacity-60 bg-muted/20 border-dashed" : ""
+                          }`}
+                        >
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-sm text-foreground">{item.name}</h3>
+                              {!isItemAvailable && (
+                                <span className="text-[9px] bg-red-500/10 text-red-500 font-black px-1.5 py-0.5 rounded border border-red-500/20 uppercase tracking-wide">
+                                  Sold Out
+                                </span>
+                              )}
+                            </div>
+                            {item.description && <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="font-semibold text-primary text-sm">{formatCurrency(item.price)}</span>
+                              
+                              {isShopOwner ? (
+                                <Button
+                                  disabled
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 rounded-xl text-[11px] font-bold text-muted-foreground bg-muted/60 cursor-not-allowed border"
+                                >
+                                  Owners Blocked
+                                </Button>
+                              ) : !isItemAvailable ? (
+                                <Button
+                                  disabled
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 rounded-xl text-[11px] font-bold text-red-400 bg-red-500/5 cursor-not-allowed border border-red-500/10 uppercase"
+                                >
+                                  Unavailable
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!shop.is_open}
+                                  onClick={() => {
+                                    const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+                                    const standardLineConflict = lines.find((l) => l.shop_id !== undefined && l.shop_id !== shopId);
 
-                                if (standardLineConflict) {
-                                  setConflictItem(item);
-                                  return;
-                                }
+                                    if (standardLineConflict) {
+                                      setConflictItem(item);
+                                      return;
+                                    }
 
-                                if (currentTotalInCart >= 10) {
-                                  toast.warning("Cart Limit Reached", {
-                                    description: "Your cart is capped at a maximum of 10 items. Please check out your current selection before adding more items.",
-                                  });
-                                  return;
-                                }
+                                    if (currentTotalInCart >= 10) {
+                                      toast.warning("Cart Limit Reached", {
+                                        description: "Your cart is capped at a maximum of 10 items. Please check out your current selection before adding more items.",
+                                      });
+                                      return;
+                                    }
 
-                                setPicked(item);
-                              }}
-                              className="h-8 rounded-xl text-xs font-semibold gap-1"
-                            >
-                              <Plus className="h-3.5 w-3.5" /> Add
-                            </Button>
+                                    setPicked(item);
+                                  }}
+                                  className="h-8 rounded-xl text-xs font-semibold gap-1"
+                                >
+                                  <Plus className="h-3.5 w-3.5" /> Add
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                          <img
-                            src={item.image_url ?? getFallbackDetailImage(item.id, item.name)}
-                            alt={item.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      </Card>
-                    ))}
+                          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
+                            <img
+                              src={item.image_url ?? getFallbackDetailImage(item.id, item.name)}
+                              alt={item.name}
+                              className={`h-full w-full object-cover ${!isItemAvailable ? "grayscale contrast-75" : ""}`}
+                            />
+                          </div>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </section>
               ))
@@ -506,17 +563,28 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
             <div className="space-y-2 text-left">
               <Label className="text-xs font-semibold text-muted-foreground">Choose option</Label>
               <RadioGroup value={variantId} onValueChange={setVariantId}>
-                {variants.map((v) => (
-                  <Label
-                    key={v.id}
-                    className="flex cursor-pointer items-center justify-between rounded-xl border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 transition-all"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <RadioGroupItem value={v.id} /> {v.name}
-                    </div>
-                    <span className="text-sm font-bold text-foreground">{formatCurrency(v.price)}</span>
-                  </Label>
-                ))}
+                {variants.map((v) => {
+                  const isVariantAvailable = v.is_available !== false;
+                  return (
+                    <Label
+                      key={v.id}
+                      className={`flex cursor-pointer items-center justify-between rounded-xl border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 transition-all ${
+                        !isVariantAvailable ? "opacity-50 bg-muted/20 cursor-not-allowed border-dashed" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <RadioGroupItem value={v.id} disabled={!isVariantAvailable} /> 
+                        <span>{v.name}</span>
+                        {!isVariantAvailable && (
+                          <span className="text-[8px] bg-red-500/10 text-red-500 font-extrabold px-1 py-0.5 rounded ml-1 uppercase">
+                            Out of Stock
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-foreground">{formatCurrency(v.price)}</span>
+                    </Label>
+                  );
+                })}
               </RadioGroup>
             </div>
           )}

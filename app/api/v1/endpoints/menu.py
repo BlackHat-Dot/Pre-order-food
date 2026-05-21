@@ -35,12 +35,38 @@ async def create_item(
     if user.role != "admin" and shop.owner_id != user.id:
         raise HTTPException(403, "Forbidden")
 
-    item = MenuItem(id=new_id(), shop_id=shop_id, **payload.model_dump())
-    db.add(item)
+    # 🚀 FIX: Check if an item with the same name already exists in this shop
+    stmt_exist = select(MenuItem).where(
+        MenuItem.shop_id == shop_id,
+        MenuItem.name == payload.name
+    )
+    result_exist = await db.execute(stmt_exist)
+    existing_item = result_exist.scalar_one_or_none()
+
+    if existing_item:
+        # If the item exists but is unavailable, repurpose/reactivate it with the new info!
+        if not existing_item.is_available:
+            for k, v in payload.model_dump().items():
+                setattr(existing_item, k, v)
+            existing_item.is_available = True  # Make it active again
+            item_id = existing_item.id
+        else:
+            # If it's already active, prevent a messy unique constraint collision explicitly
+            raise HTTPException(
+                status_code=400, 
+                detail=f"An active menu item named '{payload.name}' already exists in this shop."
+            )
+    else:
+        # Standard flow: Create a brand new unique record
+        item_id = new_id()
+        item = MenuItem(id=item_id, shop_id=shop_id, **payload.model_dump())
+        db.add(item)
+
     await db.commit()
 
+    # Eagerly fetch with variants to return a clean payload schema
     result = await db.execute(
-        select(MenuItem).where(MenuItem.id == item.id).options(selectinload(MenuItem.variants))
+        select(MenuItem).where(MenuItem.id == item_id).options(selectinload(MenuItem.variants))
     )
     item = result.scalar_one()
 
@@ -154,8 +180,33 @@ async def create_variant(
         raise HTTPException(404, "Shop not found")
     if user.role != "admin" and shop.owner_id != user.id:
         raise HTTPException(403, "Forbidden")
-    variant = MenuItemVariant(id=new_id(), item_id=item_id, **payload.model_dump())
-    db.add(variant)
+
+    # 🚀 FIX: Check if a variant option with the same name already exists for this dish
+    stmt_exist = select(MenuItemVariant).where(
+        MenuItemVariant.item_id == item_id,
+        MenuItemVariant.name == payload.name
+    )
+    result_exist = await db.execute(stmt_exist)
+    existing_variant = result_exist.scalar_one_or_none()
+
+    if existing_variant:
+        # If it exists but is currently unavailable, reactivate and update its details
+        if not existing_variant.is_available:
+            for k, v in payload.model_dump().items():
+                setattr(existing_variant, k, v)
+            existing_variant.is_available = True  # Make it active again
+            variant = existing_variant
+        else:
+            # If it's already active, prevent a constraint collision explicitly
+            raise HTTPException(
+                status_code=400, 
+                detail=f"An active option named '{payload.name}' already exists for this item."
+            )
+    else:
+        # Standard flow: Create a brand new unique variant row record
+        variant = MenuItemVariant(id=new_id(), item_id=item_id, **payload.model_dump())
+        db.add(variant)
+
     await db.commit()
     await db.refresh(variant)
     await cache_delete_pattern(f"menu:{item.shop_id}:")
