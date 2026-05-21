@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Loader2, Key } from "lucide-react";
+import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Loader2, Key, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,14 +60,14 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
   const badgeStyle = STATUS_COLORS[currentStatus] || "bg-muted text-muted-foreground";
 
   return (
-    <Card className="border-border/50 hover:border-border transition-colors text-left">
+    <Card className="border-border/40 hover:border-amber-500/30 bg-card/40 backdrop-blur-sm transition-all duration-300 group shadow-sm text-left">
       <CardContent className="flex flex-wrap items-center gap-4 p-4">
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">#{o.id.slice(0, 10)}</span>
+            <span className="font-mono text-xs font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60">#{o.id.slice(0, 10)}</span>
             
             {availableOptions.length === 0 ? (
-              <Badge variant="outline" className={`text-xs capitalize ${badgeStyle}`}>
+              <Badge variant="outline" className={`text-xs capitalize font-bold ${badgeStyle}`}>
                 {o.status}
               </Badge>
             ) : (
@@ -75,16 +75,16 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
                 <DropdownMenuTrigger asChild>
                   <Badge 
                     variant="outline" 
-                    className={`text-xs capitalize cursor-pointer hover:opacity-80 transition-opacity ${badgeStyle} ${updateStatus.isPending ? "opacity-50 pointer-events-none" : ""}`}
+                    className={`text-xs capitalize font-bold cursor-pointer hover:opacity-80 transition-opacity shadow-sm ${badgeStyle} ${updateStatus.isPending ? "opacity-50 pointer-events-none" : ""}`}
                   >
                     {updateStatus.isPending ? "Updating..." : `${o.status} ▾`}
                   </Badge>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="rounded-xl p-1 shadow-md">
+                <DropdownMenuContent align="start" className="rounded-xl p-1 shadow-md border-border/60">
                   {availableOptions.map((status) => (
                     <DropdownMenuItem
                       key={status}
-                      className="capitalize cursor-pointer text-xs font-semibold rounded-lg"
+                      className="capitalize cursor-pointer text-xs font-bold rounded-lg m-0.5 focus:bg-muted"
                       onClick={() => updateStatus.mutate(status)}
                     >
                       Move to {status}
@@ -96,33 +96,33 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
-            {/* 🚀 ADDED PRECISELY HERE: Interactive, stylized raw User UID badge container */}
+            {/* 🚀 HIGH UTILITY: Interactive, stylized raw User UID badge container */}
             <span 
               onClick={() => {
                 navigator.clipboard.writeText(o.customer_id);
                 toast.success("User UID copied to clipboard!");
               }}
-              className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded-md border border-border/60 transition-colors cursor-pointer select-all shadow-sm"
+              className="inline-flex items-center gap-1 font-mono text-[10px] bg-muted hover:bg-amber-500/10 hover:text-amber-400 hover:border-amber-500/30 text-foreground/80 px-2 py-0.5 rounded-md border border-border/60 transition-all cursor-pointer select-all shadow-sm shrink-0"
               title="Click to copy full User UID"
             >
-              <Key className="h-3 w-3 text-muted-foreground" />
-              <span>UID: {o.customer_id}</span>
+              <Key className="h-2.5 w-2.5 text-muted-foreground/70 group-hover:text-amber-400" />
+              <span>UID: {o.customer_id.slice(0, 8)}...</span>
             </span>
 
-            <span className="flex items-center gap-1">
-              <User2 className="h-3 w-3" />{o.customer_name}
+            <span className="flex items-center gap-1 font-medium">
+              <User2 className="h-3 w-3 text-muted-foreground/70" />{o.customer_name}
             </span>
-            <span className="flex items-center gap-1">
-              <Store className="h-3 w-3" />{o.shop_name}
+            <span className="flex items-center gap-1 font-medium">
+              <Store className="h-3 w-3 text-muted-foreground/70" />{o.shop_name}
             </span>
-            <span className="flex items-center gap-1">
-              <ShoppingBag className="h-3 w-3" />{o.payment_method} · {o.payment_status}
+            <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground/60">
+              <ShoppingBag className="h-3 w-3 text-muted-foreground/70 inline mr-1" />{o.payment_method} · {o.payment_status}
             </span>
           </div>
         </div>
         <div className="text-right shrink-0 space-y-0.5">
-          <p className="text-base font-bold">{formatCurrency(o.total_price)}</p>
-          <p className="text-xs text-muted-foreground">{formatDate(o.created_at)}</p>
+          <p className="text-base font-black tracking-tight text-foreground">{formatCurrency(o.total_price)}</p>
+          <p className="text-xs font-mono text-muted-foreground/70">{formatDate(o.created_at)}</p>
         </div>
       </CardContent>
     </Card>
@@ -146,19 +146,36 @@ function AdminOrders() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 text-left">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Orders Registry (Admin)</h1>
-          <p className="text-sm text-muted-foreground">
-            {data ? `${data.length} orders shown · ${formatCurrency(total)} total` : "All platform orders"}
+      
+      {/* 🚀 ELITE VIEW UPGRADE: High-Authority Core Terminal Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4 text-left border-b border-amber-500/10 pb-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">
+              Platform Transaction Ledger
+            </h1>
+            <Badge variant="outline" className="font-mono text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest font-black shadow-[0_0_12px_-3px_rgba(245,158,11,0.2)] animate-pulse">
+              System Override Active
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground font-mono">
+            {data ? `${data.length} records buffered · ${formatCurrency(total)} aggregate transaction volume` : "All platform orders"}
           </p>
         </div>
       </div>
 
+      {/* 🚀 GLOWING AUTHORITY SUB-HEADER DECORATION BAR */}
+      <div className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-amber-600/5 to-transparent px-4 py-3 text-[11px] font-mono tracking-wider text-amber-400 uppercase shadow-[0_0_20px_-6px_rgba(245,158,11,0.15)]">
+        <ShieldCheck className="h-4 w-4 text-amber-400 waves-animation animate-spin [animation-duration:5s]" />
+        <span>Audit Privileges: Authorized to intercept and modify live state machines</span>
+      </div>
+
       <Tabs value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-        <TabsList className="flex-wrap h-auto gap-1 p-1">
+        <TabsList className="flex-wrap h-auto gap-1 p-1 rounded-xl border border-border/60">
           {STATUSES.map((s) => (
-            <TabsTrigger key={s} value={s} className="text-xs capitalize">{s}</TabsTrigger>
+            <TabsTrigger key={s} value={s} className="text-xs capitalize font-semibold rounded-lg px-3 py-1.5 data-[state=active]:bg-muted data-[state=active]:text-foreground">
+              {s}
+            </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
@@ -171,19 +188,22 @@ function AdminOrders() {
         <div className="space-y-2">
           {(data ?? []).map((o) => <OrderRow key={o.id} o={o} />)}
           {data?.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center text-muted-foreground">No orders found.</CardContent>
+            <Card className="border-dashed border-border/60 rounded-2xl">
+              <CardContent className="py-12 text-center text-muted-foreground text-sm font-medium">
+                No active transaction contracts found matching criteria.
+              </CardContent>
             </Card>
           )}
         </div>
       )}
 
+      {/* Pagination Controls */}
       <div className="flex items-center justify-center gap-2">
-        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+        <Button variant="outline" size="sm" className="h-8 rounded-xl" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="px-3 py-2 text-sm font-medium">Page {page}</span>
-        <Button variant="outline" size="sm" disabled={!data || data.length < 25} onClick={() => setPage((p) => p + 1)}>
+        <span className="px-3 py-2 text-xs font-mono font-bold bg-muted/40 border rounded-xl">PAGE {page}</span>
+        <Button variant="outline" size="sm" className="h-8 rounded-xl" disabled={!data || data.length < 25} onClick={() => setPage((p) => p + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
