@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Loader2, Key } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +43,7 @@ const STATUSES = ["all", "pending", "accepted", "preparing", "ready", "completed
 export function OrderRow({ o }: { o: AdminOrderOut }) {
   const qc = useQueryClient();
   
-  // 🚀 FIXED: Now points directly to adminApi.updateOrderStatus to leverage your custom URL queries
+  // FIXED: Points directly to adminApi.updateOrderStatus to leverage your custom URL queries
   const updateStatus = useMutation({
     mutationFn: (newStatus: string) => adminApi.updateOrderStatus(o.id, newStatus),
     onSuccess: () => {
@@ -95,7 +95,20 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+            {/* 🚀 ADDED PRECISELY HERE: Interactive, stylized raw User UID badge container */}
+            <span 
+              onClick={() => {
+                navigator.clipboard.writeText(o.customer_id);
+                toast.success("User UID copied to clipboard!");
+              }}
+              className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded-md border border-border/60 transition-colors cursor-pointer select-all shadow-sm"
+              title="Click to copy full User UID"
+            >
+              <Key className="h-3 w-3 text-muted-foreground" />
+              <span>UID: {o.customer_id}</span>
+            </span>
+
             <span className="flex items-center gap-1">
               <User2 className="h-3 w-3" />{o.customer_name}
             </span>
