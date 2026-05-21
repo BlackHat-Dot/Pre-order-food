@@ -60,7 +60,6 @@ function ShopDetail() {
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [reviewComment, setReviewComment] = useState("");
 
-  // 🚀 NEW STATE MANAGERS FOR INTERACTIVE CONFLICT HANDLING
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
   const [conflictItem, setConflictItem] = useState<MenuItemOut | null>(null);
 
@@ -109,14 +108,13 @@ function ShopDetail() {
     submitReview.mutate({ rating: reviewRating, comment: reviewComment, order_id: "" });
   };
 
-  // 🚀 NEW METHOD: Action to clear cart and immediately open item configuration dialog
   const handleClearAndReplaceCart = () => {
     if (!conflictItem) return;
-    cart.clear(); // Wipe the existing merchant items out
+    cart.clear(); 
     const targetItem = conflictItem;
     setConflictItem(null);
-    setPicked(targetItem); // Hand over to variant selector seamlessly
-    toast.success("Previous cart cleared. You can now add items from this shop.");
+    setPicked(targetItem); 
+    toast.success("Your cart has been reset. You can now add items from this shop.");
   };
 
   if (isLoading) {
@@ -259,7 +257,6 @@ function ShopDetail() {
                                 const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
                                 const standardLineConflict = lines.find((l) => l.shop_id !== undefined && l.shop_id !== shopId);
 
-                                // 🚀 FIXED: Instantly open the new interactive replacement modal instead of throwing a generic error
                                 if (standardLineConflict) {
                                   setConflictItem(item);
                                   return;
@@ -296,16 +293,131 @@ function ShopDetail() {
           </TabsContent>
           
           <TabsContent value="reviews" className="mt-6 space-y-4">
-            {/* Reviews code remains untouched and safe */}
-            <div className="py-4 text-xs text-muted-foreground">Feedback content rendered cleanly.</div>
+            <div className="flex items-center justify-between border-b border-border/50 pb-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Customer Feedback ({reviews?.length ?? 0})
+              </h3>
+              {!showReviewForm && (
+                <Button 
+                  onClick={() => setShowReviewForm(true)} 
+                  variant="outline" 
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs font-medium rounded-xl"
+                >
+                  <MessageSquarePlus className="h-3.5 w-3.5" /> Write a review
+                </Button>
+              )}
+            </div>
+
+            {showReviewForm && (
+              <Card className="border-border/60 bg-muted/20 animate-in fade-in duration-200 rounded-xl shadow-inner text-left">
+                <CardContent className="p-4 space-y-4">
+                  <form onSubmit={handleReviewSubmit} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground block">Your Rating</label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setReviewRating(star === reviewRating ? null : star)}
+                            onMouseEnter={() => setHoveredRating(star)}
+                            onMouseLeave={() => setHoveredRating(null)}
+                            className="transform transition-transform active:scale-95 p-0.5 outline-none"
+                          >
+                            <Star
+                              className={`h-5 w-5 transition-colors ${
+                                star <= (hoveredRating ?? reviewRating ?? 0)
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-muted-foreground/20"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground block">Review Message</label>
+                      <Textarea
+                        placeholder="Tell others about the food quality..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        className="resize-none min-h-[80px] text-sm bg-background rounded-xl focus-visible:ring-primary"
+                        maxLength={300}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs font-medium rounded-lg"
+                        onClick={() => { setShowReviewForm(false); setReviewRating(null); setReviewComment(""); }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        size="sm" 
+                        className="h-8 text-xs font-medium rounded-lg"
+                        disabled={submitReview.isPending}
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {reviewsError ? (
+              <Card className="border-destructive/40 bg-destructive/10">
+                <CardContent className="py-10 text-center text-destructive">
+                  <p className="text-sm font-bold">Unable to load reviews.</p>
+                  <p className="text-xs mt-1">{reviewsErrorObj instanceof Error ? reviewsErrorObj.message : "Please try again later."}</p>
+                </CardContent>
+              </Card>
+            ) : !reviews || reviews.length === 0 ? (
+              <Card className="border-dashed bg-muted/5 rounded-xl">
+                <CardContent className="py-12 text-center text-muted-foreground text-xs font-medium">
+                  No reviews yet. Be the first to share your experience!
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2.5 text-left">
+                {reviews.map((r) => (
+                  <Card key={r.id} className="border-border/40 shadow-none rounded-xl">
+                    <CardContent className="space-y-1.5 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-foreground">{r.customer_name || "Customer"}</span>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {formatDateShort(r.created_at)}
+                        </span>
+                      </div>
+                      {r.rating > 0 && (
+                        <div className="flex items-center gap-0.5 text-primary">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={`h-3 w-3 ${i < r.rating ? "fill-current text-amber-400" : "text-muted-foreground/10"}`} 
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {r.comment && <p className="text-xs text-muted-foreground/90 leading-relaxed">{r.comment}</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* ITEM VARIANT PICKER DIALOG */}
       <AddItemDialog item={picked} shopId={shopId} onClose={() => setPicked(null)} />
 
-      {/* 🚀 NEW CLEAN INTERACTIVE CART CONFLICT REPLACEMENT DIALOG */}
       <Dialog open={!!conflictItem} onOpenChange={(o) => !o && setConflictItem(null)}>
         <DialogContent className="sm:max-w-[400px] rounded-2xl p-6 text-center">
           <DialogHeader className="flex flex-col items-center gap-2">
