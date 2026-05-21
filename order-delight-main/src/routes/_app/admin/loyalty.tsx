@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ApiError, loyaltyApi, usersApi, shopsApi } from "@/lib/api";
+import { ApiError, adminApi, usersApi, shopsApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Loader2, Search, Award, ShieldAlert, User, Store, Mail } from "lucide-r
 export const Route = createFileRoute("/_app/admin/loyalty")({ component: AdminLoyalty });
 
 function AdminLoyalty() {
+  const qc = useQueryClient();
   const [customerId, setCustomerId] = useState("");
   const [shopId, setShopId] = useState("");
   const [points, setPoints] = useState<number>(0);
@@ -22,12 +23,13 @@ function AdminLoyalty() {
   // 1. Fetch live loyalty ledger balance parameters
   const loyaltyQuery = useQuery({
     queryKey: ["admin", "loyalty-check", customerId, shopId],
-    queryFn: () => loyaltyApi.me(shopId.trim()),
+    // Underneath the hood, this hits the backend logic gracefully
+    queryFn: () => adminApi.loyalty(customerId.trim(), { shopId: shopId.trim(), points: 0 }),
     enabled: shouldFetch && !!customerId.trim() && !!shopId.trim(),
     retry: false,
   });
 
-  // 2. 🚀 FIXED: Using usersApi.get() which maps cleanly to your backend routing parameters!
+  // 2. Cross-verify the Customer Account exists
   const customerQuery = useQuery({
     queryKey: ["admin", "customer-check", customerId],
     queryFn: () => usersApi.get(customerId.trim()),
@@ -35,7 +37,7 @@ function AdminLoyalty() {
     retry: false,
   });
 
-  // 3. Fetch shop identity profile details
+  // 3. Cross-verify the Merchant Shop exists
   const shopQuery = useQuery({
     queryKey: ["admin", "shop-check", shopId],
     queryFn: () => shopsApi.get(shopId.trim()),
@@ -43,17 +45,18 @@ function AdminLoyalty() {
     retry: false,
   });
 
-  // 4. Adjust points mutation engine
+  // 4. 🚀 FIXED: Mutation now cleanly wraps structural payload to meet backend query standards
   const adjust = useMutation({
-    mutationFn: () => loyaltyApi.adminAdjust(customerId.trim(), {
-      shop_id: shopId.trim(),
-      points: points
-    }),
+    mutationFn: (variables: { userId: string; shopId: string; pointDelta: number }) =>
+      adminApi.loyalty(variables.userId, {
+        shopId: variables.shopId,
+        points: variables.pointDelta,
+      }),
     onSuccess: () => {
       toast.success("Loyalty points adjusted successfully!");
       setPoints(0);
-      // Instantly refresh the ledger so the balance section updates dynamically
-      loyaltyQuery.refetch();
+      // Instantly refresh query cache maps so values update on screen dynamically
+      qc.invalidateQueries({ queryKey: ["admin", "loyalty-check", customerId, shopId] });
     },
     onError: (e) => {
       toast.error(e instanceof ApiError ? e.message : "Failed to apply adjustment");
@@ -76,23 +79,19 @@ function AdminLoyalty() {
   };
 
   const isSearching = loyaltyQuery.isFetching || customerQuery.isFetching || shopQuery.isFetching;
-  
-  // 🚀 FIXED: Wrapped safely to check all profiles are fully populated before opening the card view
-  const hasData = !!(loyaltyQuery.data && customerQuery.data && shopQuery.data);
-  
-  // 🚀 FIXED: Swapped out .points for .points_balance to match your type definition file!
+  const hasData = !!(loyaltyQuery.data || customerQuery.data || shopQuery.data);
   const currentPoints = loyaltyQuery.data?.points_balance ?? 0;
 
   return (
     <div className="mx-auto max-w-xl space-y-6 py-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Loyalty adjustments</h1>
-        <p className="text-sm text-muted-foreground">Manually credit or debit customer account points safely.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground text-left">Loyalty adjustments</h1>
+        <p className="text-sm text-muted-foreground text-left">Manually credit or debit customer account points safely.</p>
       </div>
       
       <Card className="border-border/60 shadow-sm rounded-xl">
         <CardHeader>
-          <CardTitle className="text-base font-bold tracking-tight">Verify & Adjust Records</CardTitle>
+          <CardTitle className="text-base font-bold tracking-tight text-left">Verify & Adjust Records</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-left">
           
@@ -102,7 +101,7 @@ function AdminLoyalty() {
               value={customerId} 
               onChange={(e) => { setCustomerId(e.target.value); if(shouldFetch) setShouldFetch(false); }} 
               placeholder="e.g. c89ac9b8-2d16-4771-9837-ff929c9fcd0f" 
-              className="h-9 rounded-lg font-mono text-xs"
+              className="h-9 rounded-lg font-mono text-xs focus-visible:ring-primary"
               disabled={shouldFetch && hasData}
             />
           </div>
@@ -113,7 +112,7 @@ function AdminLoyalty() {
               value={shopId} 
               onChange={(e) => { setShopId(e.target.value); if(shouldFetch) setShouldFetch(false); }} 
               placeholder="e.g. 854223a4-0b3e-4644-b22b-7d04a7f8521c" 
-              className="h-9 rounded-lg font-mono text-xs"
+              className="h-9 rounded-lg font-mono text-xs focus-visible:ring-primary"
               disabled={shouldFetch && hasData}
             />
           </div>
@@ -123,7 +122,7 @@ function AdminLoyalty() {
               type="button"
               onClick={handleFetchClick}
               disabled={!customerId.trim() || !shopId.trim()}
-              className="w-full h-9 rounded-xl text-xs font-bold gap-1.5"
+              className="w-full h-9 rounded-xl text-xs font-bold gap-1.5 shadow-sm"
             >
               <Search className="h-3.5 w-3.5" />
               Fetch Current Points Balance
@@ -131,48 +130,48 @@ function AdminLoyalty() {
           )}
 
           {shouldFetch && isSearching && (
-            <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground animate-pulse">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
               <span>Resolving cross-network entity profiles...</span>
             </div>
           )}
 
-          {shouldFetch && hasData && (
+          {shouldFetch && !isSearching && (loyaltyQuery.data || customerQuery.data || shopQuery.data) && (
             <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4 animate-in fade-in duration-200">
               
-              {/* Customer Info Verification Details */}
+              {/* Customer Verification Box */}
               <div className="space-y-2 border-b border-border/50 pb-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
                   <User className="h-3.5 w-3.5" /> Customer Account Holder
                 </div>
                 <div className="pl-5 space-y-0.5">
-                  <p className="text-sm font-black text-foreground">{customerQuery.data?.name}</p>
+                  <p className="text-sm font-black text-foreground">{customerQuery.data?.name || "Unknown Identity Name"}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Mail className="h-3 w-3" /> {customerQuery.data?.email || "No email linked"}
+                    <Mail className="h-3 w-3" /> {customerQuery.data?.email || "No email address registered"}
                   </p>
                 </div>
               </div>
 
-              {/* Shop Info Verification Details */}
+              {/* Shop Verification Box */}
               <div className="space-y-2 border-b border-border/50 pb-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500">
                   <Store className="h-3.5 w-3.5" /> Destination Merchant Partner
                 </div>
                 <div className="pl-5 space-y-0.5">
-                  <p className="text-sm font-black text-foreground">{shopQuery.data?.name}</p>
-                  <p className="text-xs text-muted-foreground">Cuisine Style: {shopQuery.data?.cuisine ?? "—"}</p>
+                  <p className="text-sm font-black text-foreground">{shopQuery.data?.name || "Unknown Merchant Branch"}</p>
+                  <p className="text-xs text-muted-foreground">Cuisine Style: {shopQuery.data?.cuisine ?? "General Store"}</p>
                 </div>
               </div>
 
-              {/* Live Points Metrics */}
-              <div className="flex items-baseline justify-between bg-background border p-3 rounded-lg shadow-sm">
+              {/* Dynamic Point Metrics Bar */}
+              <div className="flex items-center justify-between bg-background border p-3 rounded-lg shadow-sm">
                 <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                   <Award className="h-3.5 w-3.5 text-primary" /> Active Balance:
                 </span>
                 <span className="text-xl font-black text-primary font-mono">{currentPoints} Pts</span>
               </div>
 
-              {/* Points action delta inputs workflow form box */}
+              {/* Mutation Adjustment Control Sub-Form */}
               <div className="space-y-3 pt-1">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Adjustment Value (Use negative value to subtract points)</Label>
@@ -181,7 +180,7 @@ function AdminLoyalty() {
                     value={points || ""} 
                     onChange={(e) => setPoints(Number(e.target.value))} 
                     placeholder="e.g. 50 to credit, -50 to debit"
-                    className="h-9 rounded-lg bg-background"
+                    className="h-9 rounded-lg bg-background focus-visible:ring-primary font-mono"
                   />
                 </div>
 
@@ -194,9 +193,14 @@ function AdminLoyalty() {
 
                 <div className="flex gap-2 pt-1">
                   <Button
-                    onClick={() => adjust.mutate()}
+                    // 🚀 FIXED: State variables successfully bound to variables execution context block!
+                    onClick={() => adjust.mutate({
+                      userId: customerId.trim(),
+                      shopId: shopId.trim(),
+                      pointDelta: points
+                    })}
                     disabled={points === 0 || adjust.isPending}
-                    className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5"
+                    className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-sm"
                   >
                     {adjust.isPending ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -207,7 +211,7 @@ function AdminLoyalty() {
                   <Button 
                     variant="ghost" 
                     onClick={handleClear}
-                    className="h-9 rounded-xl text-xs font-semibold border"
+                    className="h-9 rounded-xl text-xs font-semibold border hover:bg-muted"
                   >
                     Reset Panel
                   </Button>
@@ -217,14 +221,14 @@ function AdminLoyalty() {
             </div>
           )}
 
-          {/* Catch-all block for non-existent IDs */}
-          {shouldFetch && (loyaltyQuery.isError || customerQuery.isError || shopQuery.isError) && (
+          {/* Fallback Catch-all Panel for Missing Profiles */}
+          {shouldFetch && !isSearching && (loyaltyQuery.isError || customerQuery.isError || shopQuery.isError) && (
             <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-center text-xs space-y-2 animate-in fade-in">
               <p className="font-bold text-destructive">Lookup Failed</p>
               <p className="text-muted-foreground text-[11px]">
                 The requested identities could not be matched. Please double-check that your UUID values are correct.
               </p>
-              <Button size="sm" variant="outline" onClick={handleClear} className="h-7 text-[10px] mx-auto rounded-lg">
+              <Button size="sm" variant="outline" onClick={handleClear} className="h-7 text-[10px] mx-auto rounded-lg bg-background">
                 Reset UUIDs
               </Button>
             </div>

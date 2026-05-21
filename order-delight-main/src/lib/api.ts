@@ -754,8 +754,18 @@ export const adminApi = {
     apiRequest<AdminOrderOut[]>("/api/v1/admin/orders", { query: params }),
   orders: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/admin/orders", { query: params }),
-  loyalty: (userId: string, body: { delta: number; reason: string }) =>
-    apiRequest<LoyaltyAccountOut>(`/api/v1/admin/loyalty/${userId}`, { method: "POST", body }),
+  // 🚀 FIXED: Fixed path mapping rules and transformed variables into query parameters
+  loyalty: (userId: string, body: { shopId: string; points: number }) =>
+    apiRequest<LoyaltyAccountOut>(
+      `/api/v1/loyalty/admin/adjust/${userId}`, 
+      { 
+        method: "POST", 
+        query: { 
+          shop_id: body.shopId, 
+          points: body.points 
+        } 
+      }
+    ),
 };
 
 // ── Health ─────────────────────────────────────────────────────────────────────
