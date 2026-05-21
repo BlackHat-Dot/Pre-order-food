@@ -255,6 +255,8 @@ async def set_shop_active(
 
 # ─── Orders ───────────────────────────────────────────────────────────────────
 
+# ─── Orders ───────────────────────────────────────────────────────────────────
+
 @router.get("/orders")
 async def list_orders_admin(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -263,7 +265,7 @@ async def list_orders_admin(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[dict]:
-    # 1. First get the distinct base order IDs for the requested page segment
+    # 1. Gather distinct base IDs to ensure perfect pagination structure
     id_stmt = select(Order.id)
     if status_filter:
         id_stmt = id_stmt.where(Order.status == status_filter)
@@ -274,13 +276,13 @@ async def list_orders_admin(
     if not order_ids:
         return []
 
-    # 2. Complete a single eager collection pass targeting ONLY those specific base order IDs
+    # 2. 🚀 FIXED: Changed relationship targets to 'item' to match your true OrderItem model schemas
     stmt = (
         select(Order)
         .options(
             joinedload(Order.customer),
             joinedload(Order.shop),
-            joinedload(Order.items).joinedload(OrderItem.menu_item),
+            joinedload(Order.items).joinedload(OrderItem.item), # Changed from menu_item to item
             joinedload(Order.items).joinedload(OrderItem.variant)
         )
         .where(Order.id.in_(order_ids))
@@ -305,11 +307,12 @@ async def list_orders_admin(
             "items": [
                 {
                     "id": item.id,
-                    "menu_item_id": item.menu_item_id,
-                    "menu_item_name": item.menu_item.name if item.menu_item else (item.item_name_snapshot or "Item"),
+                    "menu_item_id": item.menu_item_id if hasattr(item, "menu_item_id") else getattr(item, "item_id", None),
+                    # 🚀 FIXED: Pull safely from the .item property or fallback to snapshot text lines
+                    "menu_item_name": item.item.name if item.item else (getattr(item, "item_name_snapshot", None) or "Item"),
                     "variant_name": item.variant.name if item.variant else getattr(item, "variant_name_snapshot", None),
                     "quantity": int(item.quantity),
-                    "unit_price": float(item.unit_price)
+                    "unit_price": float(item.unit_price if hasattr(item, "unit_price") else getattr(item, "price", 0))
                 }
                 for item in o.items
             ]
