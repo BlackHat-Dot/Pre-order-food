@@ -273,12 +273,8 @@ function ShopDetail() {
                         >
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
+                              {/* 🚀 FIXED: Removed the conditional red 'Sold Out' badge component from here */}
                               <h3 className="font-medium text-sm text-foreground">{item.name}</h3>
-                              {!isItemAvailable && (
-                                <span className="text-[9px] bg-red-500/10 text-red-500 font-black px-1.5 py-0.5 rounded border border-red-500/20 uppercase tracking-wide">
-                                  Sold Out
-                                </span>
-                              )}
                             </div>
                             {item.description && <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
                             <div className="flex items-center justify-between pt-2">
@@ -574,11 +570,7 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <RadioGroupItem value={v.id} disabled={!isVariantAvailable} /> 
                         <span>{v.name}</span>
-                        {!isVariantAvailable && (
-                          <span className="text-[8px] bg-red-500/10 text-red-500 font-extrabold px-1 py-0.5 rounded ml-1 uppercase">
-                            Out of Stock
-                          </span>
-                        )}
+                        {/* 🚀 FIXED: Removed the conditional red 'Out of Stock' badge from inside the variant list */}
                       </div>
                       <span className="text-sm font-bold text-foreground">{formatCurrency(v.price)}</span>
                     </Label>
