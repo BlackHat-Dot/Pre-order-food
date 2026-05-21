@@ -544,23 +544,30 @@ async def update_order_status_admin(
     from app.api.v1.endpoints.notification import prune_old_notifications_stack
     from app.utils.ids import new_id
 
+    # 1. Look up the designated order row record
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found")
         
+    # 2. Mutate target status value properties
     order.status = status
     
+    # 3. 🚀 FIXED: Pass explicit non-null tracking text into the database fields
     new_notif = Notification(
         id=new_id(),
         user_id=order.customer_id,
+        title="Order Status Update",  # 🚀 ADDED: Fulfills the strict NOT NULL constraints rule
         message=f"Your order status has been updated to '{status}'.",
+        type="order_update",          # Added a sensible default placeholder string type
         is_read=False
     )
     db.add(new_notif)
     
+    # 4. Flush the state memory to process local pruning execution lines
     await db.flush()
     await prune_old_notifications_stack(db, order.customer_id)
     
+    # 5. Save transaction modifications out to the database securely
     await db.commit()
     await db.refresh(order)
     
