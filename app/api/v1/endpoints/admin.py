@@ -253,6 +253,8 @@ async def set_shop_active(
 
 # ─── Orders ───────────────────────────────────────────────────────────────────
 
+# ─── Orders ───────────────────────────────────────────────────────────────────
+
 @router.get("/orders")
 async def list_orders_admin(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -261,7 +263,18 @@ async def list_orders_admin(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[dict]:
-    # 🚀 FIXED: Use combined joinedloads to fetch customer, shop, and line items in one step
+    # 1. First get the distinct base order IDs for the requested page segment
+    id_stmt = select(Order.id)
+    if status_filter:
+        id_stmt = id_stmt.where(Order.status == status_filter)
+    id_stmt = id_stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    
+    order_ids = (await db.execute(id_stmt)).scalars().all()
+    
+    if not order_ids:
+        return []
+
+    # 2. Complete a single eager collection pass targeting ONLY those specific base order IDs
     stmt = (
         select(Order)
         .options(
@@ -270,10 +283,10 @@ async def list_orders_admin(
             joinedload(Order.items).joinedload(OrderItem.menu_item),
             joinedload(Order.items).joinedload(OrderItem.variant)
         )
+        .where(Order.id.in_(order_ids))
+        .order_by(Order.created_at.desc())
     )
-    if status_filter:
-        stmt = stmt.where(Order.status == status_filter)
-    stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    
     rows = (await db.execute(stmt)).scalars().unique().all()
     
     result = []
@@ -289,7 +302,6 @@ async def list_orders_admin(
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
             "created_at": o.created_at.isoformat() if o.created_at else None,
-            # 🚀 FIXED: Map down the explicit lines item data layout explicitly
             "items": [
                 {
                     "id": item.id,
@@ -303,7 +315,6 @@ async def list_orders_admin(
             ]
         })
     return result
-
 
 # ─── Analytics ────────────────────────────────────────────────────────────────
 
