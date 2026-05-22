@@ -27,6 +27,7 @@ class OrderCreate(BaseModel):
     instructions: str | None = None
     payment_method: str = Field(pattern="^(cod|online)$")
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
+    coupon_id: str | None = None
 
 
 class OrderStatusUpdate(BaseModel):
@@ -57,6 +58,7 @@ class OrderOut(BaseModel):
     instructions: str | None
     payment_method: str
     payment_status: str
+    coupon_discount_applied: float = 0.0
     loyalty_points_used: int = 0
     loyalty_discount_amount: float = 0
     loyalty_points_earned: int = 0
@@ -64,4 +66,3 @@ class OrderOut(BaseModel):
     items: list[OrderItemOut]
 
     model_config = {"from_attributes": True}
-

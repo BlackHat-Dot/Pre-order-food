@@ -31,7 +31,6 @@ async def create_order(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("customer", "admin"))],
 ) -> OrderOut:
-    # 🚀 CRITICAL FIX: Explicit guard block to stop shop owners from placing orders
     if user.role == "shop_owner":
         raise HTTPException(
             status_code=403, 
@@ -54,7 +53,6 @@ async def create_order(
                 raise HTTPException(400, "Invalid variant_id")
             variant = await db.get(MenuItemVariant, entry.variant_id)
             
-            # 🚀 FIXED: Clearly inform the client if a specific choice option is temporarily unlisted
             if not variant or not variant.is_available:
                 raise HTTPException(
                     status_code=400, 
@@ -86,7 +84,6 @@ async def create_order(
                 raise HTTPException(400, "Item ID is required for base item orders")
             item = await db.get(MenuItem, entry.item_id)
             
-            # 🚀 FIXED: Explicit validation catch to showcase item availability block clearly
             if not item or item.shop_id != shop.id or not item.is_available:
                 raise HTTPException(
                     status_code=400, 
@@ -152,13 +149,11 @@ async def create_order(
             coupon.redeemed_by_id = user.id
             coupon.order_id = order.id
             
-        # 🚀 FIXED: Register the updated coupon state changes with the Unit of Work explicitly
         db.add(coupon)
 
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
         redeem_points = max(payload.redeem_loyalty_points or 0, 0)
         
-        # 🚀 FIXED: Enforce absolute maximum cap limit of 5,000 points per order placement
         if redeem_points > 5000:
             raise HTTPException(
                 status_code=400,
@@ -195,7 +190,6 @@ async def create_order(
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     
-    # 🚀 FIXED: Executed after all structural entity updates to write cohesive transactional state changes
     db.add(order)
     await db.flush()
     
@@ -416,7 +410,7 @@ async def cancel_order(
                 order_id=order.id,
                 points=-order.loyalty_points_earned,
                 action="deducted"
-            ))
+                ))
             db.add(Notification(
                 id=new_id(),
                 user_id=order.customer_id,
