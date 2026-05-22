@@ -190,14 +190,14 @@ function OrdersPage() {
                     {o.items && o.items.length > 0 ? (
                       <div className="space-y-1.5 divide-y divide-border/20">
                         {o.items.map((item: any, idx: number) => {
-  // 1. Gather our baseline snapshot strings
+  // 1. Gather baseline naming properties
   const baseItemName = item.item_name_snapshot || item.menu_item_name || item.name || "Dish Item";
   const variantChoiceName = item.variant_name_snapshot || item.variant_name || null;
   
-  // 🚀 FIXED: Check if the base name already includes the variant name to prevent double rendering
+  // 2. Evaluate string containment
   const isVariantAlreadyInTitle = variantChoiceName && baseItemName.toLowerCase().includes(`(${variantChoiceName.toLowerCase()})`);
   
-  // Only concatenate if it's a completely distinct sub-variant subtitle name string
+  // Conditionally format the master display string block
   const displayTitle = variantChoiceName && !isVariantAlreadyInTitle 
     ? `${baseItemName} (${variantChoiceName})` 
     : baseItemName;
@@ -208,7 +208,8 @@ function OrdersPage() {
         <p className="font-semibold text-foreground">
           {displayTitle}
         </p>
-        {variantChoiceName && (
+        {/* 🚀 FIXED: Hidden completely if the variant name is already embedded in the parent name */}
+        {variantChoiceName && !isVariantAlreadyInTitle && (
           <p className="text-[10px] text-muted-foreground italic">
             Option: {variantChoiceName}
           </p>
