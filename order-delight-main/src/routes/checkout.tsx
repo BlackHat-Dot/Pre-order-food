@@ -354,7 +354,6 @@ function CheckoutPage() {
         scheduled_at: pickup || undefined,
         delivery_address_id: selectedAddressId, 
         coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
-        // 🚀 FIXED: Bypasses regex errors on the Pydantic model block by defaulting to "online" for FREE vouchers
         payment_method: "online",
       };
       
@@ -362,24 +361,12 @@ function CheckoutPage() {
     },
 
     onSuccess: async (order: any) => {
+      // 🚀 FIXED: Settle the client state instantly without running conflicting gateway mutations
       if (payableTotal === 0) {
-        try {
-          await paymentsApi.create({ order_id: order.id });
-          await paymentsApi.verify({
-            order_id: order.id,
-            provider_order_id: `coupon_free_${order.id}`,
-            provider_payment_id: `coupon_pay_${order.id}`,
-            signature: "free_coupon_signature",
-          } as any);
-
-          setFreeOrderShopName((shop as any)?.name ?? "the shop");
-          setFreeOrderId(order.id);
-          cart.clear();
-          qc.invalidateQueries({ queryKey: ["my-orders"] });
-        } catch (err) {
-          await ordersApi.cancel(order.id).catch(() => {});
-          toast.error("Failed to complete free voucher adjustment authorization.");
-        }
+        setFreeOrderShopName((shop as any)?.name ?? "the shop");
+        setFreeOrderId(order.id);
+        cart.clear();
+        qc.invalidateQueries({ queryKey: ["my-orders"] });
         return;
       }
 
