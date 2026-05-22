@@ -361,12 +361,16 @@ function CheckoutPage() {
     },
 
     onSuccess: async (order: any) => {
-      // 🚀 FIXED: Wipe out cached coupon validation objects so frontend fetches fresh, reduced balances!
+      // 1. Wipe out cached coupon query states immediately
       qc.invalidateQueries({ queryKey: ["coupons"] });
       qc.invalidateQueries({ queryKey: ["coupon"] });
       if (appliedCoupon?.code) {
         qc.invalidateQueries({ queryKey: ["coupons", "validate", appliedCoupon.code] });
       }
+
+      // 🚀 FIXED: Hard reset the local component states so the UI doesn't read stale memory!
+      setAppliedCoupon(null);
+      setCouponCode("");
 
       if (payableTotal === 0) {
         setFreeOrderShopName((shop as any)?.name ?? "the shop");
