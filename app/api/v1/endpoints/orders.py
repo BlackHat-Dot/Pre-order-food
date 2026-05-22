@@ -16,7 +16,7 @@ from app.models.notification import Notification
 from app.models.order import Order, OrderItem
 from app.models.shop import Shop
 from app.models.user import User
-from app.models.coupon import Coupon  # 🚀 IMPORTED: New coupon model reference dependency
+from app.models.coupon import Coupon 
 from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
 from app.services.sms import send_sms
 from app.utils.ids import new_id
@@ -31,7 +31,6 @@ async def create_order(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("customer", "admin"))],
 ) -> OrderOut:
-    # 🚀 CRITICAL FIX: Explicit guard block to stop shop owners from placing orders
     if user.role == "shop_owner":
         raise HTTPException(
             status_code=403, 
@@ -54,11 +53,10 @@ async def create_order(
                 raise HTTPException(400, "Invalid variant_id")
             variant = await db.get(MenuItemVariant, entry.variant_id)
             
-            # 🚀 FIXED: Clearly inform the client if a specific choice option is temporarily unlisted
             if not variant or not variant.is_available:
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"The selected option configuration is currently unavailable."
+                    detail="The selected option configuration is currently unavailable."
                 )
                 
             item = await db.get(MenuItem, variant.item_id)
@@ -86,7 +84,6 @@ async def create_order(
                 raise HTTPException(400, "Item ID is required for base item orders")
             item = await db.get(MenuItem, entry.item_id)
             
-            # 🚀 FIXED: Explicit validation catch to showcase item availability block clearly
             if not item or item.shop_id != shop.id or not item.is_available:
                 raise HTTPException(
                     status_code=400, 
@@ -154,6 +151,14 @@ async def create_order(
 
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
         redeem_points = max(payload.redeem_loyalty_points or 0, 0)
+        
+        # 🚀 FIXED: Enforce absolute maximum cap limit of 5,000 points per order placement
+        if redeem_points > 5000:
+            raise HTTPException(
+                status_code=400,
+                detail="Redemption limit exceeded! You can only redeem a maximum of 5,000 loyalty points per single order transaction."
+            )
+
         discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
         if redeem_points > 0:
             account_stmt = select(LoyaltyAccount).where(
@@ -372,10 +377,8 @@ async def cancel_order(
 
     loyalty_record = await db.scalar(
         select(LoyaltyAccount).where(
-            select(LoyaltyAccount).where(
-                LoyaltyAccount.customer_id == order.customer_id, 
-                LoyaltyAccount.shop_id == order.shop_id
-            )
+            LoyaltyAccount.customer_id == order.customer_id, 
+            LoyaltyAccount.shop_id == order.shop_id
         )
     )
     
@@ -441,7 +444,6 @@ async def delete_order(
 
 
 async def _order_out(db: AsyncSession, order_id: str) -> OrderOut:
-    # 🚀 FIXED: Guarantees that items collection is eagerly loaded whenever _order_out is executed
     stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
     order = (await db.execute(stmt)).scalar_one()
     return OrderOut.model_validate(order)
