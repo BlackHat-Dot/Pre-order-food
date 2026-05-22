@@ -116,6 +116,7 @@ async def create_order(
         payment_method=payload.payment_method,
     )
 
+    coupon_to_update = None
     coupon_id = getattr(payload, "coupon_id", None)
     if coupon_id:
         coupon = await db.get(Coupon, coupon_id)
@@ -149,7 +150,7 @@ async def create_order(
             coupon.redeemed_by_id = user.id
             coupon.order_id = order.id
             
-        db.add(coupon)
+        coupon_to_update = coupon
 
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
         redeem_points = max(payload.redeem_loyalty_points or 0, 0)
@@ -191,11 +192,17 @@ async def create_order(
     order.loyalty_points_earned = max(points_earned, 0)
     
     db.add(order)
+    # 🚀 Step 1: Write order parent instance to guarantee foreign key safety profiles exist!
     await db.flush()
+    
+    # 🚀 Step 2: Now add the updated coupon to the unit of work layout securely
+    if coupon_to_update:
+        db.add(coupon_to_update)
     
     for oi in order_items:
         oi.order_id = order.id
         db.add(oi)
+        
     await db.commit()
 
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
