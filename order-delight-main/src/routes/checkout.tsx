@@ -361,7 +361,13 @@ function CheckoutPage() {
     },
 
     onSuccess: async (order: any) => {
-      // 🚀 FIXED: Settle the client state instantly without running conflicting gateway mutations
+      // 🚀 FIXED: Wipe out cached coupon validation objects so frontend fetches fresh, reduced balances!
+      qc.invalidateQueries({ queryKey: ["coupons"] });
+      qc.invalidateQueries({ queryKey: ["coupon"] });
+      if (appliedCoupon?.code) {
+        qc.invalidateQueries({ queryKey: ["coupons", "validate", appliedCoupon.code] });
+      }
+
       if (payableTotal === 0) {
         setFreeOrderShopName((shop as any)?.name ?? "the shop");
         setFreeOrderId(order.id);
