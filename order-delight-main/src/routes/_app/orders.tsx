@@ -190,37 +190,37 @@ function OrdersPage() {
                     {o.items && o.items.length > 0 ? (
                       <div className="space-y-1.5 divide-y divide-border/20">
                         {o.items.map((item: any, idx: number) => {
-  // 1. Gather baseline naming properties
-  const baseItemName = item.item_name_snapshot || item.menu_item_name || item.name || "Dish Item";
-  const variantChoiceName = item.variant_name_snapshot || item.variant_name || null;
-  
-  // 2. Evaluate string containment
-  const isVariantAlreadyInTitle = variantChoiceName && baseItemName.toLowerCase().includes(`(${variantChoiceName.toLowerCase()})`);
-  
-  // Conditionally format the master display string block
-  const displayTitle = variantChoiceName && !isVariantAlreadyInTitle 
-    ? `${baseItemName} (${variantChoiceName})` 
-    : baseItemName;
+                          // 1. Gather baseline naming properties across snapshot models seamlessly
+                          const baseItemName = item.item_name_snapshot || item.menu_item_name || item.name || "Dish Item";
+                          const variantChoiceName = item.variant_name_snapshot || item.variant_name || null;
+                          
+                          // 2. Evaluate string containment to avoid double-printing identical parenthetical strings
+                          const isVariantAlreadyInTitle = variantChoiceName && baseItemName.toLowerCase().includes(`(${variantChoiceName.toLowerCase()})`);
+                          
+                          // Conditionally format master string block titles
+                          const displayTitle = variantChoiceName && !isVariantAlreadyInTitle 
+                            ? `${baseItemName} (${variantChoiceName})` 
+                            : baseItemName;
 
-  return (
-    <div key={idx} className="flex items-start justify-between pt-1.5 first:pt-0 gap-4">
-      <div className="space-y-0.5">
-        <p className="font-semibold text-foreground">
-          {displayTitle}
-        </p>
-        {/* 🚀 FIXED: Hidden completely if the variant name is already embedded in the parent name */}
-        {variantChoiceName && !isVariantAlreadyInTitle && (
-          <p className="text-[10px] text-muted-foreground italic">
-            Option: {variantChoiceName}
-          </p>
-        )}
-      </div>
-      <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/60 shrink-0 font-bold">
-        ×{item.quantity}
-      </span>
-    </div>
-  );
-})}
+                          return (
+                            <div key={idx} className="flex items-start justify-between pt-1.5 first:pt-0 gap-4 text-left">
+                              <div className="space-y-0.5">
+                                <p className="font-semibold text-foreground">
+                                  {displayTitle}
+                                </p>
+                                {/* 🚀 FIXED: Sub-details row hidden entirely if variant choice string tokens exist inside title */}
+                                {variantChoiceName && !isVariantAlreadyInTitle && (
+                                  <p className="text-[10px] text-muted-foreground italic">
+                                    Option: {variantChoiceName}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/60 shrink-0 font-bold">
+                                ×{item.quantity}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-muted-foreground italic">
