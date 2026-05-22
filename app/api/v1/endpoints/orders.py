@@ -116,8 +116,9 @@ async def create_order(
         payment_method=payload.payment_method,
     )
 
-    coupon_to_update = None
+    # 🚀 STEP 1: If points or a lesser coupon code are present, compute initial total price tracking
     coupon_id = getattr(payload, "coupon_id", None)
+    coupon = None
     if coupon_id:
         coupon = await db.get(Coupon, coupon_id)
         if not coupon:
@@ -128,33 +129,14 @@ async def create_order(
             raise HTTPException(410, "This voucher code has already been completely exhausted")
 
         if coupon.discount_value >= total_price:
-            leftover_balance = round(coupon.discount_value - total_price, 2)
             order.coupon_discount_applied = total_price
             order.total_price = 0.0
-            coupon.discount_value = leftover_balance
-            coupon.is_redeemed = False 
-            
-            db.add(Notification(
-                id=new_id(),
-                user_id=user.id,
-                title="Voucher Balance Updated",
-                message=f"Your voucher {coupon.code} has been partially applied. A remaining balance of ₹{leftover_balance:,.2f} is secured on this code.",
-                type="coupon_update"
-            ))
         else:
             order.coupon_discount_applied = coupon.discount_value
             order.total_price = round(total_price - coupon.discount_value, 2)
-            coupon.discount_value = 0.0
-            coupon.is_redeemed = True
-            coupon.redeemed_at = datetime.utcnow()
-            coupon.redeemed_by_id = user.id
-            coupon.order_id = order.id
-            
-        coupon_to_update = coupon
 
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
         redeem_points = max(payload.redeem_loyalty_points or 0, 0)
-        
         if redeem_points > 5000:
             raise HTTPException(
                 status_code=400,
@@ -191,13 +173,33 @@ async def create_order(
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     
+    # 🚀 STEP 2: Explicitly persist the parent Order row now!
+    # This forces Postgres to create the row immediately, making its order_id safe for foreign keys.
     db.add(order)
-    # 🚀 Step 1: Write order parent instance to guarantee foreign key safety profiles exist!
     await db.flush()
-    
-    # 🚀 Step 2: Now add the updated coupon to the unit of work layout securely
-    if coupon_to_update:
-        db.add(coupon_to_update)
+
+    # 🚀 STEP 3: Now apply coupon updates safely since order.id is verified by Postgres
+    if coupon:
+        if coupon.discount_value >= total_price:
+            leftover_balance = round(coupon.discount_value - total_price, 2)
+            coupon.discount_value = leftover_balance
+            coupon.is_redeemed = False 
+            
+            db.add(Notification(
+                id=new_id(),
+                user_id=user.id,
+                title="Voucher Balance Updated",
+                message=f"Your voucher {coupon.code} has been partially applied. A remaining balance of ₹{leftover_balance:,.2f} is secured on this code.",
+                type="coupon_update"
+            ))
+        else:
+            coupon.discount_value = 0.0
+            coupon.is_redeemed = True
+            coupon.redeemed_at = datetime.utcnow()
+            coupon.redeemed_by_id = user.id
+            coupon.order_id = order.id
+            
+        db.add(coupon)
     
     for oi in order_items:
         oi.order_id = order.id
