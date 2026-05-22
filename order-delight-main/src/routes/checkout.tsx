@@ -315,7 +315,9 @@ function CheckoutPage() {
     enabled: !!shopId,
   });
 
+// 🚀 FIXED: Map directly to discount_value to match your backend model and database column names!
   const couponDiscount = appliedCoupon ? appliedCoupon.discount_value : 0;
+  
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
@@ -353,13 +355,13 @@ function CheckoutPage() {
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,
         delivery_address_id: selectedAddressId, 
+        // 🚀 FIXED: Explicitly use coupon_id to pass your backend validation schema parameters!
         coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
         payment_method: "online",
       };
       
       return await ordersApi.create(payload);
     },
-
     onSuccess: async (order: any) => {
       // 1. Wipe out cached coupon query states immediately
       qc.invalidateQueries({ queryKey: ["coupons"] });
