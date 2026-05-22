@@ -466,4 +466,146 @@ function CheckoutPage() {
                     id="pickup"
                     type="datetime-local"
                     value={pickup}
-                    onChange={(e) => setPickup(e.ta
+                    onChange={(e) => setPickup(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes for the kitchen (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Allergies, extra spicy, etc."
+                  />
+                </div>
+                {shop && !(shop as any).is_verified && (
+                  <p className="text-sm text-destructive">
+                    Warning: This shop is not admin-verified. Order at your own risk.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Tag className="h-4 w-4 text-primary" />
+                  <h3 className="font-bold text-sm tracking-tight text-foreground">Gift Voucher / Coupon</h3>
+                </div>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      <div>
+                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{appliedCoupon.code}</p>
+                        <p className="text-[11px] text-muted-foreground">−{formatCurrency(appliedCoupon.discount_value)} discount applied</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Enter voucher code"
+                      className="h-9 rounded-xl text-xs font-mono tracking-wider uppercase"
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={isValidatingCoupon || !couponCode.trim()}
+                      className="h-9 rounded-xl text-xs font-semibold px-4 shrink-0"
+                    >
+                      {isValidatingCoupon ? "Checking..." : "Apply"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="space-y-3 p-6">
+                <h2 className="font-semibold">Order Summary</h2>
+                {lines.map((l) => (
+                  <div key={l.item_id + (l.variant_id ?? "")} className="flex justify-between text-sm">
+                    <span>{l.name} × {l.quantity}</span>
+                    <span>{formatCurrency(l.price * l.quantity)}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(total)}</span>
+                  </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                      <span>Coupon Discount</span>
+                      <span>−{formatCurrency(couponDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base pt-1">
+                    <span>Total</span>
+                    <span>{formatCurrency(payableTotal)}</span>
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={placeOrder.isPending}
+                  onClick={() => placeOrder.mutate()}
+                >
+                  {placeOrder.isPending ? "Placing…" : payableTotal === 0 ? "Place Free Order" : `Pay ${formatCurrency(payableTotal)}`}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={!!pendingOrderId} onOpenChange={handleDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogDescription>
+              Complete your payment of {formatCurrency(finalAmount)} to place the order.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => verify.mutate()}
+              disabled={verify.isPending}
+            >
+              {verify.isPending ? "Verifying…" : "Verify Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {freeOrderId && (
+        <FreeOrderSuccessModal
+          isOpen={!!freeOrderId}
+          onClose={() => {
+            const id = freeOrderId!;
+            setFreeOrderId(null);
+            navigate({ to: "/orders/$orderId", params: { orderId: id } });
+          }}
+          shopName={freeOrderShopName ?? "the shop"}
+          couponCode={appliedCoupon?.code}
+          couponDiscountUsed={couponDiscount}
+          leftoverBalance={Math.max(couponDiscount - total, 0)}
+        />
+      )}
+    </div>
+  );
+}
