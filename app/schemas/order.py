@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
+from typing import Optional
+
 
 class OrderItemInput(BaseModel):
     item_id: str | None = None
@@ -32,7 +34,12 @@ class OrderCreate(BaseModel):
     payment_confirmed: bool | None = False
 
 class OrderStatusUpdate(BaseModel):
-    status: str = Field(pattern="^(pending|accepted|preparing|ready|completed|cancelled)$")
+    # 🚀 FIXED: Injected cancel_requested into the validation pattern to pass Pydantic parsing
+    status: Optional[str] = Field(
+        None, 
+        pattern="^(pending|accepted|preparing|ready|completed|cancelled|cancel_requested)$"
+    )
+    reason: Optional[str] = None
 
 
 class OrderItemOut(BaseModel):
