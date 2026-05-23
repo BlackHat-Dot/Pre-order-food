@@ -110,7 +110,7 @@ function OrdersPage() {
   const [activeReviewShop, setActiveReviewShop] = useState<{ id: string; name: string; orderId: string } | null>(null);
   const [promptedOrders, setPromptedOrders] = useState<string[]>([]);
 
-  const { data, isLoading } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["my-orders", status],
     queryFn: () =>
       ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
@@ -133,6 +133,16 @@ function OrdersPage() {
     }
   }, [data, promptedOrders]);
 
+  // 🚀 FIXED: Robust reactive filtering layer to force active tabs to prune card arrays in real-time
+  const visibleOrders = Array.isArray(data) 
+    ? data.filter((o: any) => {
+        if (status === "all") return true;
+        // Map cancel_requested states onto the active list to stay trackable
+        if (status === "cancelled") return o.status === "cancelled" || o.status === "cancel_requested";
+        return o.status === status;
+      })
+    : [];
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="text-left">
@@ -151,20 +161,20 @@ function OrdersPage() {
 
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
-      ) : !data || data.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center text-muted-foreground">
-            No orders yet.
+            No orders found matching this status window.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {data.map((o) => (
-            <Link key={o.id} to="/orders/$orderId" params={{ orderId: o.id }}>
-              <Card className="transition-all hover:border-primary/40 text-left">
+          {visibleOrders.map((o) => (
+            /* 🚀 FIXED: Dynamic parameters absolute path maps perfectly into folder hierarchies */
+            <Link key={o.id} to="/orders/$orderId" params={{ orderId: o.id }} className="block">
+              <Card className="transition-all hover:border-primary/40 text-left cursor-pointer active:scale-[0.995]">
                 <CardContent className="p-5 space-y-4">
                   
-                  {/* Top metadata tracking bar row context */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -185,19 +195,15 @@ function OrdersPage() {
                     </div>
                   </div>
 
-                  {/* Itemized Food List View Panel Container */}
                   <div className="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
                     {o.items && o.items.length > 0 ? (
                       <div className="space-y-1.5 divide-y divide-border/20">
                         {o.items.map((item: any, idx: number) => {
-                          // 1. Gather baseline naming properties across snapshot models seamlessly
                           const baseItemName = item.item_name_snapshot || item.menu_item_name || item.name || "Dish Item";
                           const variantChoiceName = item.variant_name_snapshot || item.variant_name || null;
                           
-                          // 2. Evaluate string containment to avoid double-printing identical parenthetical strings
                           const isVariantAlreadyInTitle = variantChoiceName && baseItemName.toLowerCase().includes(`(${variantChoiceName.toLowerCase()})`);
                           
-                          // Conditionally format master string block titles
                           const displayTitle = variantChoiceName && !isVariantAlreadyInTitle 
                             ? `${baseItemName} (${variantChoiceName})` 
                             : baseItemName;
@@ -208,7 +214,6 @@ function OrdersPage() {
                                 <p className="font-semibold text-foreground">
                                   {displayTitle}
                                 </p>
-                                {/* 🚀 FIXED: Sub-details row hidden entirely if variant choice string tokens exist inside title */}
                                 {variantChoiceName && !isVariantAlreadyInTitle && (
                                   <p className="text-[10px] text-muted-foreground italic">
                                     Option: {variantChoiceName}
