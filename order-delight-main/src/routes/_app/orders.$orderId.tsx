@@ -10,14 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
-// 🚀 FIXED: Register and export the route instance cleanly
+// 🚀 FIXED: Updated definition path string to integrate with nested folders perfectly
 export const Route = createFileRoute("/_app/orders/$orderId")({
   component: OrderDetailsPage,
 });
 
-// ==========================================
-// CANCELLATION ACTION COMPONENT
-// ==========================================
 export function CustomerOrderActionModule({ order }: { order: any }) {
   const qc = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,15 +49,15 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   if (!canInstantlyCancel && !canRequestCancel) return null;
 
   return (
-    <div className="mt-4 p-4 border border-destructive/20 bg-destructive/5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div className="space-y-1 text-center sm:text-left">
-        <p className="text-xs font-bold flex items-center gap-1.5 justify-center sm:justify-start text-foreground">
-          <AlertTriangle className="h-4 w-4 text-destructive" /> Need to cancel this meal ticket request?
+    <div className="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="space-y-1 text-left">
+        <p className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+          <AlertTriangle className="h-4 w-4 text-destructive" /> Manage Order Lifecycle
         </p>
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
           {canInstantlyCancel 
-            ? "Since this purchase is still pending kitchen processing authorization metrics, you are entitled to execute an instant order tear-down down here."
-            : "The kitchen is actively processing your order. You can submit a cancellation request to the shop owner along with a short message."}
+            ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
+            : "The kitchen is preparing your food. Submitting a request allows the store owner to cancel the order for you."}
         </p>
       </div>
 
@@ -68,7 +65,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
         <Button
           variant="destructive"
           size="sm"
-          className="rounded-xl text-xs font-semibold gap-1.5 shrink-0 px-4 transition-transform active:scale-95"
+          className="rounded-xl text-xs font-semibold gap-1.5 shrink-0 px-4"
           disabled={updateStatusMutation.isPending}
           onClick={() => updateStatusMutation.mutate({ status: "cancelled" })}
         >
@@ -78,42 +75,41 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
         <Button
           variant="outline"
           size="sm"
-          className="rounded-xl text-xs font-medium gap-1.5 shrink-0 border-destructive/30 hover:bg-destructive/10 text-destructive bg-transparent"
+          className="rounded-xl text-xs font-medium gap-1.5 shrink-0 border-destructive/20 text-destructive bg-transparent hover:bg-destructive/10"
           onClick={() => setIsModalOpen(true)}
         >
           <HelpCircle className="h-4 w-4" /> Request Cancellation
         </Button>
       )}
 
-      {/* 🚀 FIXED: Set onOpenChange directly to the functional state setter callback function */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
-            <DialogDescription className="text-xs leading-normal pt-1">
-              Please tell the shop owner why you need to cancel this order. They will view your explanation inside their live order tracker lines to approve the change.
+            <DialogDescription className="text-xs pt-1">
+              Please let the shop owner know why you need to drop this pre-order.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Textarea
-              placeholder="e.g., Changed my mind / Selected wrong pickup storefront location..."
+              placeholder="e.g., Selected wrong address / Pickup delays..."
               value={reasonText}
               onChange={(e) => setReasonText(e.target.value)}
-              className="text-xs rounded-xl min-h-[90px] focus-visible:ring-destructive"
+              className="text-xs rounded-xl min-h-[90px]"
               maxLength={250}
             />
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="ghost" className="text-xs rounded-xl h-9" onClick={() => setIsModalOpen(false)}>
               Back
             </Button>
             <Button
               variant="destructive"
-              className="text-xs rounded-xl h-9 font-semibold px-4"
+              className="text-xs rounded-xl h-9 font-semibold"
               disabled={!reasonText.trim() || updateStatusMutation.isPending}
               onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
             >
-              {updateStatusMutation.isPending ? "Submitting..." : "Send Request Line"}
+              Submit Request
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -122,9 +118,6 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   );
 }
 
-// ==========================================
-// PARENT DETAILED PAGE COMPONENT
-// ==========================================
 function OrderDetailsPage() {
   const { orderId } = Route.useParams();
 
@@ -133,50 +126,34 @@ function OrderDetailsPage() {
     queryFn: () => apiRequest<any>(`/api/v1/orders/${orderId}`, { method: "GET" }),
   });
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center text-xs text-muted-foreground animate-pulse">
-        Loading purchase itinerary specifications...
-      </div>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center text-xs text-destructive">
-        Failed to pull up this order file profile record.
-      </div>
-    );
-  }
+  if (isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading details...</div>;
+  if (error || !order) return <div className="p-8 text-center text-xs text-destructive">Failed to find order record.</div>;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-2xl px-4 py-8">
       <Link to="/orders" className="mb-4 inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-4 w-4" /> View full purchase log history
+        <ChevronLeft className="h-4 w-4" /> Back to My Orders
       </Link>
 
-      <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">
+      <Card className="rounded-2xl border shadow-sm overflow-hidden">
         <CardContent className="p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-4">
+          <div className="flex justify-between items-center border-b pb-4">
             <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Order Reference ID</p>
-              <h2 className="font-mono text-xs font-bold text-foreground truncate max-w-xs">{order.id}</h2>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Order Reference ID</p>
+              <h2 className="font-mono text-xs font-bold">{order.id}</h2>
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary self-start uppercase tracking-tight">
+            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase">
               <Clock className="h-3.5 w-3.5" /> {order.status.replace("_", " ")}
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-bold text-foreground">Selected Cart Selections</p>
+            <p className="text-xs font-bold">Items Ordered</p>
             <div className="divide-y rounded-xl border bg-muted/20 px-3.5 py-1">
               {order.items?.map((l: any) => (
                 <div key={l.id} className="flex justify-between items-center py-2.5 text-xs">
-                  <span className="text-muted-foreground">
-                    {l.quantity} × <span className="font-semibold text-foreground">{l.item_name_snapshot}</span>
-                    {l.variant_name_snapshot && ` (${l.variant_name_snapshot})`}
-                  </span>
-                  <span className="font-medium text-foreground">{formatCurrency(l.unit_price * l.quantity)}</span>
+                  <span>{l.quantity} × {l.item_name_snapshot}</span>
+                  <span className="font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
                 </div>
               ))}
             </div>
@@ -184,16 +161,12 @@ function OrderDetailsPage() {
 
           <div className="space-y-1.5 border-t pt-3 text-xs">
             <div className="flex justify-between text-muted-foreground">
-              <span>Total Price Invoice Sum</span>
+              <span>Total Bill</span>
               <span className="font-medium text-foreground">{formatCurrency(order.total_price)}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <span>Payment Type Channel</span>
-              <span className="font-mono uppercase text-foreground">{order.payment_method}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Settlement Network Status</span>
-              <span className="font-bold text-emerald-600 uppercase tracking-tight">{order.payment_status}</span>
+              <span>Payment Status</span>
+              <span className="font-bold text-emerald-600 uppercase">{order.payment_status}</span>
             </div>
           </div>
 
