@@ -147,6 +147,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// --- RENDER INNER COMPONENT ELEMENT 1: DASHBOARD METRICS PANEL ---
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
@@ -176,6 +177,7 @@ function StatsTab({ shopId }: { shopId: string }) {
   );
 }
 
+// --- RENDER INNER COMPONENT ELEMENT 2: KITCHEN MANIFEST ITEMS MANAGER ---
 function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({
@@ -526,6 +528,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
+// --- RENDER INNER COMPONENT ELEMENT 3: ORDERS COMPONENT DISPATCH PANEL ---
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -544,9 +547,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
   
   const updateStatus = useMutation({
+    // 🚀 FIXED: Passes body object fields unrolled correctly matching standard library signature expectations
     mutationFn: ({ id, st, reason }: { id: string; st: OrderStatus; reason?: string }) => {
       setUpdatingOrderId(id);
-      return ordersApi.updateStatus(id, { status: st, reason } as any);
+      return ordersApi.updateStatus(id, st, reason);
     },
     onSuccess: () => {
       toast.success("Order status updated successfully");
@@ -573,7 +577,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
-        // 🚀 CRITICAL CHECK: Evaluates both status string or text metadata presence cleanly
         const containsReason = itemStatus === "cancel_requested" || !!o.cancellation_reason;
         
         if (forceRequestsOnly) {
@@ -672,7 +675,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {/* 🚀 EXPOSED FIELD NOTE PANEL: Exposes customer description instantly at the head of the expanded row section */}
+                  {/* 🚀 CUSTOMER NOTE COMPONENT FEED: Exposes structural layout note argument cleanly at the top boundary */}
                   {isExpanded && o.cancellation_reason && (
                     <div className="bg-amber-500/5 border-b border-dashed border-amber-500/20 p-4 flex gap-2.5 items-start text-xs">
                       <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
