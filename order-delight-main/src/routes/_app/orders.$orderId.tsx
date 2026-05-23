@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
-// 🚀 FIXED: Route path string configured exactly as expected by your filesystem architecture
 export const Route = createFileRoute("/_app/orders/$orderId")({
   component: OrderDetailsPage,
 });
@@ -21,18 +20,19 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   const [reasonText, setReasonText] = useState("");
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (payload: { status: string; reason?: string }) => {
+    mutationFn: async (payload: { status?: string; reason?: string }) => {
+      // 🚀 FIXED: Submits cancellation arguments seamlessly via metadata patches to avoid validation clashes
       return await apiRequest(`/api/v1/orders/${order.id}/status`, {
         method: "PATCH",
         body: payload,
       });
     },
     onSuccess: (updatedOrder: any) => {
-      toast.success(
-        updatedOrder.status === "cancelled" 
-          ? "Order cancelled instantly. Vouchers and points have been restored."
-          : "Cancellation request forwarded to store management tracking view lines."
-      );
+      if (updatedOrder.status === "cancelled") {
+        toast.success("Order cancelled instantly. Vouchers and points have been restored.");
+      } else {
+        toast.success("Cancellation request successfully submitted to the store manager.");
+      }
       setIsModalOpen(false);
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
@@ -44,7 +44,23 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status);
+  // Check if the order can be cancelled or if a request has already been logged to the metadata fields
+  const isAlreadyRequested = !!order.cancellation_reason;
+  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !isAlreadyRequested;
+
+  if (isAlreadyRequested) {
+    return (
+      <div className="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl text-left flex items-start gap-3">
+        <Clock className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-xs font-bold text-amber-500">Cancellation Request Pending Approval</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            You requested to cancel this order with reason: <span className="italic text-foreground">"{order.cancellation_reason}"</span>. The store owner is reviewing your request.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!canInstantlyCancel && !canRequestCancel) return null;
 
@@ -85,12 +101,12 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
-            <DialogDescription className="text-xs pt-1">
+            <DialogTitle className="text-sm font-black tracking-tight text-left">Specify Cancellation Reason</DialogTitle>
+            <DialogDescription className="text-xs pt-1 text-left">
               Please let the shop owner know why you need to drop this pre-order.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
+          <div className="py-2 text-left">
             <Textarea
               placeholder="e.g., Selected wrong address / Pickup delays..."
               value={reasonText}
@@ -107,7 +123,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
               disabled={!reasonText.trim() || updateStatusMutation.isPending}
-              onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
+              onClick={() => updateStatusMutation.mutate({ reason: reasonText.trim() })}
             >
               Submit Request
             </Button>
@@ -135,7 +151,7 @@ function OrderDetailsPage() {
         <ChevronLeft className="h-4 w-4" /> Back to My Orders
       </Link>
 
-      <Card className="rounded-2xl border shadow-sm overflow-hidden">
+      <Card className="rounded-2xl border shadow-sm overflow-hidden text-left">
         <CardContent className="p-6 space-y-4">
           <div className="flex justify-between items-center border-b pb-4">
             <div>
@@ -152,7 +168,7 @@ function OrderDetailsPage() {
             <div className="divide-y rounded-xl border bg-muted/20 px-3.5 py-1">
               {order.items?.map((l: any) => (
                 <div key={l.id} className="flex justify-between items-center py-2.5 text-xs">
-                  <span>{l.quantity} × {l.item_name_snapshot}</span>
+                  <span>{l.quantity} × {l.item_name_snapshot || l.name}</span>
                   <span className="font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
                 </div>
               ))}
