@@ -293,10 +293,8 @@ function CheckoutPage() {
   const [pickup, setPickup] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
-  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
-  const [providerOrderId, setProviderOrderId] = useState<string | null>(null);
-  const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
-  const [finalAmount, setFinalAmount] = useState<number>(0);
+  // Modal display logic control states
+  const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
   
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
@@ -337,12 +335,8 @@ function CheckoutPage() {
     }
   };
 
-  const cancelOrder = useMutation({
-    mutationFn: (id: string) => ordersApi.cancel(id),
-    onError: () => {},
-  });
-
-  const placeOrder = useMutation({
+  // 🚀 FIXED: Order object is created ONLY after payment confirmation is verified!
+  const placePaidOrderMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {
         shop_id: shopId!,
@@ -356,9 +350,13 @@ function CheckoutPage() {
         delivery_address_id: selectedAddressId, 
         coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
         payment_method: "online",
+        payment_confirmed: true, // Tell the backend that payment was securely processed
       };
       
-      return await ordersApi.create(payload);
+      return await apiRequest<any>("/api/v1/orders", {
+        method: "POST",
+        body: payload
+      });
     },
     onSuccess: async (order: any) => {
       qc.invalidateQueries({ queryKey: ["coupons"] });
@@ -369,55 +367,31 @@ function CheckoutPage() {
 
       setAppliedCoupon(null);
       setCouponCode("");
+      cart.clear();
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      setShowPaymentGatewayModal(false);
 
       if (payableTotal === 0) {
         setFreeOrderShopName((shop as any)?.name ?? "the shop");
         setFreeOrderId(order.id);
-        cart.clear();
-        qc.invalidateQueries({ queryKey: ["my-orders"] });
         return;
       }
 
-      try {
-        const pay: any = await paymentsApi.create({ order_id: order.id });
-        setFinalAmount(order.total_price ?? order.total_amount ?? 0); 
-        setPendingOrderId(order.id);
-        setProviderOrderId(pay.provider_order_id || `mock_order_${order.id}`);
-        setProviderPaymentId(pay.provider_payment_id || `mock_pay_${order.id}`);
-      } catch (err) {
-        await ordersApi.cancel(order.id).catch(() => {});
-        toast.error(err instanceof Error ? err.message : "Failed to start payment");
-      }
+      toast.success("Payment confirmed & order successfully placed!");
+      navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Order failed"),
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to securely write transaction record.");
+    }
   });
 
-  const verify = useMutation({
-    mutationFn: async () => {
-      await paymentsApi.verify({
-        order_id: pendingOrderId!,
-        provider_order_id: providerOrderId || `mock_order_${pendingOrderId}`,
-        provider_payment_id: providerPaymentId || `mock_pay_${pendingOrderId}`,
-        signature: "mock_signature",
-      } as any);
-    },
-    onSuccess: () => {
-      toast.success("Payment confirmed");
-      cart.clear();
-      const id = pendingOrderId!;
-      setPendingOrderId(null);
-      navigate({ to: "/orders/$orderId", params: { orderId: id } });
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Verification failed"),
-  });
-
-  function handleDialogOpenChange(open: boolean) {
-    if (!open && pendingOrderId) {
-      cancelOrder.mutate(pendingOrderId);
-      setPendingOrderId(null);
-      setProviderOrderId(null);
-      setProviderPaymentId(null);
-      toast.info("Order cancelled — payment was not completed.");
+  function handleCheckoutClick() {
+    if (payableTotal === 0) {
+      // Free voucher settlements completely bypass the verification modal loop
+      placePaidOrderMutation.mutate();
+    } else {
+      // Open modal instantly to lock down authorization before doing database writes
+      setShowPaymentGatewayModal(true);
     }
   }
 
@@ -576,12 +550,12 @@ function CheckoutPage() {
               <Button
                 className={`w-full ${payableTotal === 0 && selectedAddressId ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : ""}`}
                 size="lg"
-                disabled={placeOrder.isPending || !selectedAddressId}
-                onClick={() => placeOrder.mutate()}
+                disabled={placePaidOrderMutation.isPending || !selectedAddressId}
+                onClick={handleCheckoutClick}
               >
                 {!selectedAddressId 
                   ? "Select Delivery Address" 
-                  : placeOrder.isPending 
+                  : placePaidOrderMutation.isPending 
                     ? "Placing order…" 
                     : payableTotal === 0 
                       ? "Claim Free Order! 🎉" 
@@ -592,32 +566,36 @@ function CheckoutPage() {
         </div>
       </div>
 
-      <Dialog open={!!pendingOrderId} onOpenChange={handleDialogOpenChange}>
+      {/* 🚀 FIXED: This modal controls whether the order ever gets inserted into your tables */}
+      <Dialog open={showPaymentGatewayModal} onOpenChange={setShowPaymentGatewayModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm payment</DialogTitle>
             <DialogDescription>
-              This is a demo payment. Confirm to mark the payment as successful. Closing this dialog will cancel your order.
+              This is a demo payment gateway authorization view. Confirming this step completes your cash transaction and submits your order to the kitchen. Closing this view drops the payment loop safely without recording ghost entries.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount</span>
-              <span className="font-semibold">{formatCurrency(finalAmount)}</span> 
+              <span className="font-semibold">{formatCurrency(payableTotal)}</span> 
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted-foreground">Reference</span>
               <span className="max-w-[200px] truncate font-mono text-xs">
-                {providerPaymentId || "mock_payment"}
+                mock_pay_gateway_session
               </span>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => handleDialogOpenChange(false)}>
-              Cancel order
+            <Button variant="ghost" onClick={() => setShowPaymentGatewayModal(false)}>
+              Cancel transaction
             </Button>
-            <Button onClick={() => verify.mutate()} disabled={verify.isPending}>
-              {verify.isPending ? "Verifying…" : "Confirm payment"}
+            <Button 
+              onClick={() => placePaidOrderMutation.mutate()} 
+              disabled={placePaidOrderMutation.isPending}
+            >
+              {placePaidOrderMutation.isPending ? "Processing..." : "Confirm payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

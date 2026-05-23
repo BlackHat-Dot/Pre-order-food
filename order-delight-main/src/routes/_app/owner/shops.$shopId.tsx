@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -534,15 +534,16 @@ function OrdersTab({ shopId }: { shopId: string }) {
       ordersApi.shopOrders(shopId, {
         page: 1,
         page_size: 100,
-        status: status === "all" ? undefined : (status as OrderStatus),
+        status: ["all", "cancel_requested"].includes(status) ? undefined : (status as OrderStatus),
       }),
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
   
   const updateStatus = useMutation({
-    mutationFn: ({ id, st }: { id: string; st: OrderStatus }) => {
+    // 🚀 FIXED: Wrapped cleanly inside single schema property casts to meet ordersApi signatures precisely
+    mutationFn: ({ id, st, reason }: { id: string; st: OrderStatus; reason?: string }) => {
       setUpdatingOrderId(id);
-      return ordersApi.updateStatus(id, st);
+      return ordersApi.updateStatus(id, { status: st, reason } as any);
     },
     onSuccess: () => {
       toast.success("Order status transitioned successfully");
@@ -558,44 +559,93 @@ function OrdersTab({ shopId }: { shopId: string }) {
 
   const VALID_TRANSITIONS: Record<string, string[]> = {
     pending: ["accepted", "cancelled"],
-    accepted: ["preparing"],
-    preparing: ["ready"],
-    ready: ["completed"],
+    accepted: ["preparing", "cancelled"],
+    preparing: ["ready", "cancelled"],
+    ready: ["completed", "cancelled"],
+    cancel_requested: ["cancelled", "accepted", "preparing", "ready"],
     completed: [],
     cancelled: []
   };
 
+  const visibleOrders = Array.isArray(data)
+    ? data.filter((o: any) => {
+        if (status === "all") return true;
+        if (status === "cancel_requested") return o.status === "cancel_requested" || !!o.cancellation_reason;
+        return o.status === status;
+      })
+    : [];
+
   return (
     <div className="space-y-4">
       <Tabs value={status} onValueChange={setStatus}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="all">All</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl">
+          <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
           {ORDER_STATUSES.map((s) => (
-            <TabsTrigger key={s} value={s} className="capitalize">
+            <TabsTrigger key={s} value={s} className="capitalize text-xs">
               {s}
             </TabsTrigger>
           ))}
+          <TabsTrigger value="cancel_requested" className="text-xs text-red-500 font-bold bg-red-500/5 data-[state=active]:bg-red-600 data-[state=active]:text-white">
+            Requests ⚠️
+          </TabsTrigger>
         </TabsList>
       </Tabs>
+
       {isLoading ? (
-        <Skeleton className="h-32 w-full" />
-      ) : !data || data.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No orders found.
+        <Skeleton className="h-32 w-full rounded-2xl" />
+      ) : visibleOrders.length === 0 ? (
+        <Card className="border-dashed rounded-2xl">
+          <CardContent className="py-12 text-center text-muted-foreground text-sm">
+            No orders found under this view criteria.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {data.map((o: any) => {
-            const currentStatus = o.status.toLowerCase();
+          {visibleOrders.map((o: any) => {
+            const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isTerminal = nextAllowedOptions.length === 0;
             const isExpanded = !!expandedOrders[o.id];
+            const hasActiveRequest = !!o.cancellation_reason && o.status !== "cancelled";
 
             return (
-              <Card key={o.id} className="overflow-hidden">
+              <Card key={o.id} className={`overflow-hidden rounded-2xl border transition-all ${hasActiveRequest ? "border-red-500/40 shadow-sm shadow-red-500/5 bg-red-500/[0.01]" : ""}`}>
                 <CardContent className="p-0">
+                  
+                  {hasActiveRequest && (
+                    <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="h-4 w-4 text-white mt-0.5 shrink-0 animate-bounce" />
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wide">Cancellation Request Pending Approval</p>
+                          <p className="text-[11px] text-white/90 font-medium mt-0.5">
+                            Reason: <span className="italic font-bold">"{o.cancellation_reason}"</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="text-[10px] h-7 px-3 bg-white text-red-700 hover:bg-white/90 font-bold rounded-lg"
+                          onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
+                          disabled={updateStatus.isPending}
+                        >
+                          Approve & Refund
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-[10px] h-7 px-2.5 text-white hover:bg-white/10 hover:text-white font-medium rounded-lg"
+                          onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", reason: "" })}
+                          disabled={updateStatus.isPending}
+                        >
+                          Reject Request
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border/40">
                     <div className="flex-1 min-w-0 text-left space-y-1">
                       <div className="flex items-center gap-2">
@@ -614,7 +664,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                       
                       <Select
                         value={o.status}
-                        disabled={isTerminal || updatingOrderId !== null}
+                        disabled={isTerminal || updatingOrderId !== null || hasActiveRequest}
                         onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus })}
                       >
                         <SelectTrigger className="w-36 capitalize font-medium text-xs rounded-xl h-8">
@@ -632,7 +682,6 @@ function OrdersTab({ shopId }: { shopId: string }) {
                         </SelectContent>
                       </Select>
 
-                      {/* 🚀 EXPANSION TRIGGER: Allow cooks to instantly unfold full variant ticket manifests */}
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -644,7 +693,6 @@ function OrdersTab({ shopId }: { shopId: string }) {
                     </div>
                   </div>
 
-                  {/* 🚀 FIXED DETAILED MANIFEST BREAKDOWN FEED */}
                   {isExpanded && (
                     <div className="bg-muted/30 p-4 border-t border-dashed border-border/60 space-y-3 animate-in slide-in-from-top-2 duration-150">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider text-left">
@@ -680,7 +728,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground italic text-center py-2">
-                            No variant items logged inside standard snapshot schema array.
+                            No items found inside ticket manifest snapshot.
                           </p>
                         )}
                       </div>

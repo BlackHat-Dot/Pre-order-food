@@ -1,205 +1,192 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronLeft, Star } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { ordersApi, paymentsApi, reviewsApi } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/app/StatusBadge";
-import { formatCurrency, formatDate } from "@/lib/format";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/format";
 
-export const Route = createFileRoute("/_app/orders/$orderId")({ component: OrderDetail });
+export const Route = createFileRoute("/_app/orders/$orderId")({
+  component: OrderDetailsPage,
+});
 
-function OrderDetail() {
-  const { orderId } = Route.useParams();
+export function CustomerOrderActionModule({ order }: { order: any }) {
   const qc = useQueryClient();
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reasonText, setReasonText] = useState("");
 
-  const { data: order, isLoading } = useQuery({
-    queryKey: ["order", orderId],
-    queryFn: () => ordersApi.get(orderId!),
-    enabled: !!orderId,
-    refetchInterval: 15_000,
-  });
-  const { data: payments } = useQuery({
-    queryKey: ["order", orderId, "payments"],
-    queryFn: () => (paymentsApi as any).get(orderId!), // Bypass strict type
-    enabled: !!orderId,
-  });
-
-  const cancel = useMutation({
-    mutationFn: () => ordersApi.cancel(orderId),
-    onSuccess: () => {
-      toast.success("Order cancelled");
-      qc.invalidateQueries({ queryKey: ["order", orderId] });
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Cancel failed"),
-  });
-
-  const submitReview = useMutation({
-    mutationFn: () => {
-      if (!order) throw new Error("No order available");
-      // Cast to any to prevent schema mismatch errors
-      return (reviewsApi as any).create({ 
-        order_id: order.id, 
-        rating, 
-        comment: comment || undefined 
+  const updateStatusMutation = useMutation({
+    mutationFn: async (payload: { status: string; reason?: string }) => {
+      return await apiRequest(`/api/v1/orders/${order.id}/status`, {
+        method: "PATCH",
+        body: payload,
       });
     },
-    onSuccess: () => {
-      toast.success("Review submitted");
-      setReviewOpen(false);
-      setComment("");
-      if (order) qc.invalidateQueries({ queryKey: ["shop", order.shop_id, "reviews"] });
+    onSuccess: (updatedOrder: any) => {
+      if (updatedOrder.status === "cancelled") {
+        toast.success("Order cancelled instantly. Vouchers and points have been restored.");
+      } else {
+        toast.success("Cancellation request successfully submitted to the store manager.");
+      }
+      setIsModalOpen(false);
+      setReasonText("");
+      qc.invalidateQueries({ queryKey: ["order", order.id] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
+    onError: (err: any) => {
+      toast.error(err?.message || "Lifecycle status alteration error occurred.");
+    }
   });
 
-  if (isLoading) return <Skeleton className="h-64 w-full" />;
-  if (!order) return null;
+  const canInstantlyCancel = order.status === "pending";
+  const isAlreadyRequested = order.status === "cancel_requested" || !!order.cancellation_reason;
+  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !isAlreadyRequested;
 
-  // Safe fallback casts to prevent TypeScript from panicking
-  const safeOrder = order as any;
-  const priceToDisplay = safeOrder.total_price ?? safeOrder.total_amount ?? 0;
-  const notesToDisplay = safeOrder.instructions ?? safeOrder.notes;
+  if (isAlreadyRequested) {
+    return (
+      <div className="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl text-left flex items-start gap-3">
+        <Clock className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-xs font-bold text-amber-500">Cancellation Request Pending Approval</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            You requested to cancel this order. The store owner is currently reviewing your request details.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // Updated "delivered" to "completed" to match our standardized OrderStatus
-  const canCancel = safeOrder.status === "pending" || safeOrder.status === "accepted";
-  const canReview = safeOrder.status === "completed" || safeOrder.status === "ready" || safeOrder.payment?.status === "paid" || safeOrder.payment_status === "paid";
+  if (!canInstantlyCancel && !canRequestCancel) return null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link to="/orders" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-4 w-4" /> All orders
-      </Link>
-
-      <Card>
-        <CardContent className="space-y-3 p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="font-mono text-xs text-muted-foreground">#{safeOrder.id.slice(0, 8)}</p>
-              <h1 className="text-2xl font-bold">{formatCurrency(priceToDisplay)}</h1>
-              <p className="text-sm text-muted-foreground">{formatDate(safeOrder.created_at)}</p>
-            </div>
-            <StatusBadge status={safeOrder.status} />
-          </div>
-          {notesToDisplay && (
-            <p className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-              <span className="text-muted-foreground">Notes:</span> {notesToDisplay}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 🚀 STEP 1 INTEGRATION: Clean & Accurate Food Item Layout Mapping */}
-      <Card>
-        <CardContent className="space-y-3 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 text-left">
-            Items Ordered
-          </h2>
-          {safeOrder.items?.map((it: any) => (
-            <div key={it.id} className="flex items-start justify-between text-sm py-2 border-b border-border/20 last:border-0 last:pb-0">
-              <div className="flex flex-col text-left">
-                <span className="font-semibold text-foreground">
-                  {it.menu_item_name ?? it.item_name_snapshot ?? it.name ?? "Item"}
-                </span>
-                {it.variant_name && (
-                  <span className="text-[11px] text-muted-foreground italic mt-0.5">
-                    Option: {it.variant_name}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  ×{it.quantity}
-                </span>
-                <span className="font-medium min-w-[60px] text-right">
-                  {formatCurrency((it.unit_price * it.quantity) || it.price || 0)}
-                </span>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {payments && (payments as any[]).length > 0 && (
-        <Card>
-          <CardContent className="space-y-2 p-6">
-            <h2 className="mb-2 font-semibold text-left">Payments</h2>
-            {(payments as any[]).map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {p.provider ?? "Payment"} · {p.status}
-                </span>
-                <span className="font-medium">{formatCurrency(p.amount)}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {canCancel && (
-          <Button variant="outline" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-            Cancel order
-          </Button>
-        )}
-        {canReview && (
-          <Button onClick={() => setReviewOpen(true)} disabled={submitReview.isPending}>
-            <Star className="mr-2 h-4 w-4" /> Leave a review
-          </Button>
-        )}
+    <div className="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="space-y-1 text-left">
+        <p className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+          <AlertTriangle className="h-4 w-4 text-destructive" /> Manage Order Lifecycle
+        </p>
+        <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
+          {canInstantlyCancel 
+            ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
+            : "The kitchen is preparing your food. Submitting a request allows the store owner to cancel the order for you."}
+        </p>
       </div>
 
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent>
+      {canInstantlyCancel ? (
+        <Button
+          variant="destructive"
+          size="sm"
+          className="rounded-xl text-xs font-semibold gap-1.5 shrink-0 px-4"
+          disabled={updateStatusMutation.isPending}
+          onClick={() => updateStatusMutation.mutate({ status: "cancelled" })}
+        >
+          <XCircle className="h-4 w-4" /> Cancel Order
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl text-xs font-medium gap-1.5 shrink-0 border-destructive/20 text-destructive bg-transparent hover:bg-destructive/10"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <HelpCircle className="h-4 w-4" /> Request Cancellation
+        </Button>
+      )}
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Leave a review</DialogTitle>
+            <DialogTitle className="text-sm font-black tracking-tight text-left">Specify Cancellation Reason</DialogTitle>
+            <DialogDescription className="text-xs pt-1 text-left">
+              Please let the shop owner know why you need to drop this pre-order.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2 text-left">
-              <Label>Rating</Label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setRating(n)}
-                    className={n <= rating ? "text-primary" : "text-muted-foreground"}
-                  >
-                    <Star className={`h-7 w-7 ${n <= rating ? "fill-current" : ""}`} />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2 text-left">
-              <Label htmlFor="cmt">Comment (optional)</Label>
-              <Textarea id="cmt" value={comment} onChange={(e) => setComment(e.target.value)} />
-            </div>
+          <div className="py-2 text-left">
+            <Textarea
+              placeholder="e.g., Selected wrong address / Pickup delays..."
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              className="text-xs rounded-xl min-h-[90px]"
+              maxLength={250}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setReviewOpen(false)}>
-              Cancel
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="text-xs rounded-xl h-9" onClick={() => setIsModalOpen(false)}>
+              Back
             </Button>
-            <Button onClick={() => submitReview.mutate()} disabled={submitReview.isPending}>
-              Submit
+            <Button
+              variant="destructive"
+              className="text-xs rounded-xl h-9 font-semibold px-4"
+              disabled={!reasonText.trim() || updateStatusMutation.isPending}
+              onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
+            >
+              Submit Request
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function OrderDetailsPage() {
+  const { orderId } = Route.useParams();
+
+  const { data: order, isLoading, error } = useQuery({
+    queryKey: ["order", orderId],
+    queryFn: () => apiRequest<any>(`/api/v1/orders/${orderId}`, { method: "GET" }),
+  });
+
+  if (isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading details...</div>;
+  if (error || !order) return <div className="p-8 text-center text-xs text-destructive">Failed to find order record.</div>;
+
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <Link to="/orders" className="mb-4 inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="h-4 w-4" /> Back to My Orders
+      </Link>
+
+      <Card className="rounded-2xl border shadow-sm overflow-hidden text-left">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex justify-between items-center border-b pb-4">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Order Reference ID</p>
+              <h2 className="font-mono text-xs font-bold">{order.id}</h2>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase">
+              <Clock className="h-3.5 w-3.5" /> {order.status.replace("_", " ")}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-bold">Items Ordered</p>
+            <div className="divide-y rounded-xl border bg-muted/20 px-3.5 py-1">
+              {order.items?.map((l: any) => (
+                <div key={l.id} className="flex justify-between items-center py-2.5 text-xs">
+                  <span>{l.quantity} × {l.item_name_snapshot || l.name}</span>
+                  <span className="font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-3 text-xs">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Total Bill</span>
+              <span className="font-medium text-foreground">{formatCurrency(order.total_price)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Payment Status</span>
+              <span className="font-bold text-emerald-600 uppercase">{order.payment_status}</span>
+            </div>
+          </div>
+
+          <CustomerOrderActionModule order={order} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

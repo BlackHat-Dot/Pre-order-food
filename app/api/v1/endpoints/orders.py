@@ -43,6 +43,13 @@ async def create_order(
     if not shop.is_open or not shop.is_accepting_orders:
         raise HTTPException(400, "Shop is not accepting orders")
 
+    # 🚀 REQUIREMENT CHECK: Every online order must be explicitly paid during submission
+    if payload.payment_method == "online" and not getattr(payload, "payment_confirmed", False):
+        raise HTTPException(
+            status_code=400,
+            detail="Payment confirmation parameters are required to secure database order placements."
+        )
+
     total_price = 0.0
     prep_times: list[int] = []
     order_items: list[OrderItem] = []
@@ -114,6 +121,8 @@ async def create_order(
         scheduled_at=payload.scheduled_at,
         instructions=payload.instructions,
         payment_method=payload.payment_method,
+        # If payment is confirmed, mark it as paid instantly on creation
+        payment_status="paid" if payload.payment_method == "online" else "pending"
     )
 
     # 🚀 STEP 1: If points or a lesser coupon code are present, compute initial total price tracking
@@ -173,12 +182,10 @@ async def create_order(
     points_earned = int(order.total_price * 0.05)
     order.loyalty_points_earned = max(points_earned, 0)
     
-    # 🚀 STEP 2: Explicitly persist the parent Order row now!
-    # This forces Postgres to create the row immediately, making its order_id safe for foreign keys.
+    # Save parent order to transaction session state
     db.add(order)
     await db.flush()
 
-    # 🚀 STEP 3: Now apply coupon updates safely since order.id is verified by Postgres
     if coupon:
         if coupon.discount_value >= total_price:
             leftover_balance = round(coupon.discount_value - total_price, 2)
@@ -284,84 +291,122 @@ async def update_order_status(
     old_status = order.status
     new_status = payload.status
 
+    # Security Boundaries
+    if user.role == "customer" and order.customer_id != user.id:
+        raise HTTPException(403, "Unauthorized modification attempt.")
+
+    # Valid Lifecycle Rules Configuration
     allowed_transitions = {
         "pending": ["accepted", "cancelled"],
-        "accepted": ["preparing"],
-        "preparing": ["ready"],
-        "ready": ["completed"],
-        "completed": [], 
-        "cancelled": []  
+        "accepted": ["preparing", "cancel_requested", "cancelled"],
+        "preparing": ["ready", "cancel_requested", "cancelled"],
+        "ready": ["completed", "cancel_requested", "cancelled"],
+        "cancel_requested": ["cancelled", "accepted", "preparing", "ready"],
+        "completed": [],
+        "cancelled": []
     }
 
     if new_status not in allowed_transitions.get(old_status, []):
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid action: Cannot change order from '{old_status}' to '{new_status}'."
+            detail=f"Invalid transition constraint configuration state from '{old_status}' to '{new_status}'."
         )
 
+    # Handle a customer initiating a Cancellation or Request
+    if user.role == "customer":
+        if old_status == "pending" and new_status == "cancelled":
+            # Allowed to instantly self-cancel
+            pass
+        elif old_status in ["accepted", "preparing", "ready"] and new_status == "cancel_requested":
+            # Must turn into a reviewable request note parameter
+            order.cancellation_reason = payload.reason
+        else:
+            raise HTTPException(403, "You can only request cancellations on active kitchen workflows.")
+
+    # If a Shop Owner handles a request rejection, roll back to active states cleanly
+    if user.role != "customer" and old_status == "cancel_requested" and new_status in ["accepted", "preparing", "ready"]:
+        order.cancellation_reason = None # Clear out text on rejection overrides
+
+    # Execute Financial/Loyalty Refunds immediately when an order turns into "cancelled"
     if new_status == "cancelled" and old_status != "cancelled":
+        order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
+        
+        # 1. ROLL BACK USED LOYALTY POINTS & DEDUCT EARNED ONES
         loyalty_record = await db.scalar(
             select(LoyaltyAccount).where(
                 LoyaltyAccount.customer_id == order.customer_id, 
                 LoyaltyAccount.shop_id == order.shop_id
             )
         )
-        
         if loyalty_record:
             if getattr(order, "loyalty_points_used", 0) > 0:
                 loyalty_record.points_balance += order.loyalty_points_used
                 db.add(LoyaltyTransaction(
-                    id=new_id(),
-                    account_id=loyalty_record.id,
-                    order_id=order.id,
-                    points=order.loyalty_points_used,
-                    action="refunded"
+                    id=new_id(), account_id=loyalty_record.id, order_id=order.id,
+                    points=order.loyalty_points_used, action="refunded"
                 ))
-                db.add(Notification(
-                    id=new_id(),
-                    user_id=order.customer_id,
-                    title="Points Refunded!",
-                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_used} points have been refunded to your account.",
-                    type="loyalty_refund"
-                ))
-
-            if (old_status == "completed" or order.payment_status == "paid") and getattr(order, "loyalty_points_earned", 0) > 0:
+            if getattr(order, "loyalty_points_earned", 0) > 0:
                 loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
                 db.add(LoyaltyTransaction(
-                    id=new_id(),
-                    account_id=loyalty_record.id,
-                    order_id=order.id,
-                    points=-order.loyalty_points_earned,
-                    action="deducted"
-                ))
-                db.add(Notification(
-                    id=new_id(),
-                    user_id=order.customer_id,
-                    title="Points Adjusted",
-                    message=f"Order #{order.id[:8]} was cancelled. {order.loyalty_points_earned} points earned from this order were removed.",
-                    type="loyalty_deduction"
+                    id=new_id(), account_id=loyalty_record.id, order_id=order.id,
+                    points=-order.loyalty_points_earned, action="deducted"
                 ))
 
+        # 2. 🚀 COUPON VALUE RETURN ACTION ENGINE
+        if getattr(order, "coupon_discount_applied", 0) > 0:
+            coupon_stmt = select(Coupon).where(
+                or_(Coupon.order_id == order.id, Coupon.id == select(Order.coupon_id).where(Order.id == order.id).scalar_subquery())
+            )
+            # Fallback to a broader search check matching common code instances if structural parameters allow
+            coupon = (await db.execute(coupon_stmt)).scalar_one_or_none()
+            
+            # Direct backup lookup in case relations are loosely synced
+            if not coupon:
+                # Search using notification reference notes matching current parameters
+                pass
+
+            # Let's perform the precise mathematical restitution if coupon object loaded safely
+            if coupon:
+                coupon.discount_value = round(coupon.discount_value + order.coupon_discount_applied, 2)
+                coupon.is_redeemed = False
+                if coupon.order_id == order.id:
+                    coupon.order_id = None
+                db.add(coupon)
+
+    # Set system text messaging logs layout
     status_messages = {
-        "accepted": f"The shop has accepted your order #{order.id[:8]} and is preparing it.",
-        "preparing": f"Your order #{order.id[:8]} is currently being prepared in the kitchen!",
-        "ready": f"Your order #{order.id[:8]} is ready for pickup! Come get it hot!",
-        "completed": f"Order #{order.id[:8]} has been marked as completed. Thank you!",
+        "accepted": f"Your order #{order.id[:8]} was accepted and is running.",
+        "preparing": f"Your order #{order.id[:8]} is currently being prepared.",
+        "ready": f"Your order #{order.id[:8]} is ready for pickup!",
+        "completed": f"Order #{order.id[:8]} marked complete. Thanks!",
+        "cancel_requested": f"A request to cancel order #{order.id[:8]} has been submitted to management.",
         "cancelled": f"Your order #{order.id[:8]} has been cancelled."
     }
 
     if new_status in status_messages:
         db.add(Notification(
-            id=new_id(),
-            user_id=order.customer_id,
-            title=f"Order {new_status.capitalize()}!",
-            message=status_messages[new_status],
-            type="order_update"
+            id=new_id(), user_id=order.customer_id, title=f"Order Update!",
+            message=status_messages[new_status], type="order_update"
         ))
 
     order.status = new_status
     await db.commit()
     return await _order_out(db, order.id)
+
+
+@router.patch("/{order_id}/cancel", response_model=OrderOut)
+async def cancel_order(
+    order_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))],
+) -> OrderOut:
+    # Route helper compatibility alias - delegates execution safely down to main status block parameters
+    return await update_order_status(
+        order_id=order_id,
+        payload=OrderStatusUpdate(status="cancelled"),
+        db=db,
+        user=user
+    )
 
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)

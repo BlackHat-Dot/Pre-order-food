@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime,timezone
+from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,11 +24,16 @@ class Order(Base):
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"))
+    coupon_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    coupon_discount_applied: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
     loyalty_points_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     loyalty_discount_amount: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
     loyalty_points_earned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     redeem_loyalty_points: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     
+    # 🚀 FIXED: Standardized to modern Mapped type definitions to fix system initialization crashes
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -76,4 +82,3 @@ Index("ix_orders_shop_id_status", Order.shop_id, Order.status)
 Index("ix_orders_payment_status_created_at", Order.payment_status, Order.created_at)
 Index("ix_order_items_order_id", OrderItem.order_id)
 Index("ix_payments_order_id", Payment.order_id)
-
