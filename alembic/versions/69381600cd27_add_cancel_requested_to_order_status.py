@@ -17,9 +17,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 🚀 NO SQL NEEDED: The status column is a text field and accepts new values natively.
-    pass
+    # 🚀 FIXED: Safely append the cancellation_reason text column directly into your live orders table layout
+    # Using batch_alter_table ensures cross-dialect schema alterations run seamlessly
+    with op.batch_alter_table('orders', schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column('cancellation_reason', sa.String(length=500), nullable=True)
+        )
 
 
 def downgrade() -> None:
-    pass
+    with op.batch_alter_table('orders', schema=None) as batch_op:
+        batch_op.drop_column('cancellation_reason')

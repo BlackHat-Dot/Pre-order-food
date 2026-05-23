@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, Info } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -108,13 +108,11 @@ function OwnerShop() {
         </CardContent>
       </Card>
 
-      {/* 🚀 FIXED TOP LEVEL TABS MANIFEST CONFIGURATION */}
       <Tabs defaultValue="stats">
         <TabsList>
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
-          {/* 🚀 MOVED REQUESTS HERE: Exposes real-time cancellations cleanly as a major top-tier subpage module view */}
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -127,7 +125,6 @@ function OwnerShop() {
         <TabsContent value="orders" className="mt-6">
           <OrdersTab shopId={shopId} forceRequestsOnly={false} />
         </TabsContent>
-        {/* 🚀 NEW TAB GATEWAY ROUTING FOR CANCELLATIONS FILTER BLOCK */}
         <TabsContent value="requests" className="mt-6">
           <OrdersTab shopId={shopId} forceRequestsOnly={true} />
         </TabsContent>
@@ -573,18 +570,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     cancelled: []
   };
 
-  // 🚀 FIXED ARCHITECTURE: Separates requests entirely from regular workflow dashboard feeds
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
+        // 🚀 CRITICAL CHECK: Evaluates both status string or text metadata presence cleanly
         const containsReason = itemStatus === "cancel_requested" || !!o.cancellation_reason;
         
-        // Target 1: The designated top level "Requests" workspace displays ONLY user cancellations
         if (forceRequestsOnly) {
           return containsReason;
         }
         
-        // Target 2: Standard pipelines (All, Pending, etc.) completely skip custom client request items
         if (containsReason) {
           return false;
         }
@@ -596,7 +591,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
   return (
     <div className="space-y-4">
-      {/* Render sub-status toolbar bar only when browsing standard order statuses pipelines */}
       {!forceRequestsOnly && (
         <Tabs value={status} onValueChange={setStatus}>
           <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl max-w-fit">
@@ -678,8 +672,19 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
+                  {/* 🚀 EXPOSED FIELD NOTE PANEL: Exposes customer description instantly at the head of the expanded row section */}
+                  {isExpanded && o.cancellation_reason && (
+                    <div className="bg-amber-500/5 border-b border-dashed border-amber-500/20 p-4 flex gap-2.5 items-start text-xs">
+                      <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-foreground">Why the customer wants to cancel:</span>
+                        <p className="text-muted-foreground italic font-medium">"{o.cancellation_reason}"</p>
+                      </div>
+                    </div>
+                  )}
+
                   {isExpanded && (
-                    <div className="bg-muted/10 p-4 border-t border-border/40 space-y-3.5 animate-in slide-in-from-top-2 duration-150">
+                    <div className="bg-muted/10 p-4 space-y-3.5 animate-in slide-in-from-top-2 duration-150">
                       
                       <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider">
                         <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
@@ -718,18 +723,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           </p>
                         )}
                       </div>
-
-                      {/* 🚀 EXPOSED FIELD: Cancellation text outputs clean and structured directly below checklist card wrappers */}
-                      {o.cancellation_reason && (
-                        <div className="p-3.5 rounded-xl border border-border/80 bg-muted/40 text-xs flex gap-2 items-start mt-2">
-                          <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-foreground">Customer Cancellation Note:</span>
-                            <p className="text-muted-foreground italic font-medium">"{o.cancellation_reason}"</p>
-                          </div>
-                        </div>
-                      )}
-
                     </div>
                   )}
                 </CardContent>

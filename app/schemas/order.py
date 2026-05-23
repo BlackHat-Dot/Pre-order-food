@@ -72,5 +72,5 @@ class OrderOut(BaseModel):
     loyalty_points_earned: int = 0
     created_at: datetime
     items: list[OrderItemOut]
-
+    cancellation_reason: Optional[str] = None
     model_config = {"from_attributes": True}
