@@ -7,6 +7,7 @@ import {
   menuApi,
   ordersApi,
   shopsApi,
+  apiRequest,
   type OrderStatus,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,7 +148,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-// --- RENDER INNER COMPONENT ELEMENT 1: DASHBOARD METRICS PANEL ---
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
@@ -177,7 +177,6 @@ function StatsTab({ shopId }: { shopId: string }) {
   );
 }
 
-// --- RENDER INNER COMPONENT ELEMENT 2: KITCHEN MANIFEST ITEMS MANAGER ---
 function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({
@@ -528,7 +527,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-// --- RENDER INNER COMPONENT ELEMENT 3: ORDERS COMPONENT DISPATCH PANEL ---
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -547,10 +545,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
   
   const updateStatus = useMutation({
-    // 🚀 FIXED: Passes body object fields unrolled correctly matching standard library signature expectations
-    mutationFn: ({ id, st, reason }: { id: string; st: OrderStatus; reason?: string }) => {
+    // 🚀 FIXED: Bypasses the strict 2-argument limitation of ordersApi by hitting apiRequest directly with the exact body payload object
+    mutationFn: async ({ id, st, reason }: { id: string; st: string; reason?: string }) => {
       setUpdatingOrderId(id);
-      return ordersApi.updateStatus(id, st, reason);
+      return await apiRequest(`/api/v1/orders/${id}/status`, {
+        method: "PATCH",
+        body: { status: st, reason },
+      });
     },
     onSuccess: () => {
       toast.success("Order status updated successfully");
@@ -562,16 +563,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
   const toggleExpand = (orderId: string) => {
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
-  };
-
-  const VALID_TRANSITIONS: Record<string, string[]> = {
-    pending: ["accepted", "cancelled"],
-    accepted: ["preparing", "cancelled"],
-    preparing: ["ready", "cancelled"],
-    ready: ["completed", "cancelled"],
-    cancel_requested: ["cancelled", "accepted", "preparing", "ready"],
-    completed: [],
-    cancelled: []
   };
 
   const visibleOrders = Array.isArray(data)
@@ -619,9 +610,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       ) : (
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
-            const currentStatus = (o.status || "pending").toLowerCase();
-            const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
-            const isTerminal = nextAllowedOptions.length === 0;
             const isExpanded = !!expandedOrders[o.id];
 
             return (
@@ -644,25 +632,59 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     <div className="flex items-center gap-4">
                       <span className="font-bold text-sm">{formatCurrency(o.total_price)}</span>
                       
-                      <Select
-                        value={o.status}
-                        disabled={isTerminal || updatingOrderId !== null}
-                        onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v as OrderStatus, reason: o.cancellation_reason })}
-                      >
-                        <SelectTrigger className="w-44 capitalize font-semibold text-xs rounded-xl h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
-                            {o.status.replace("_", " ")} (Current)
-                          </SelectItem>
-                          {nextAllowedOptions.map((step) => (
-                            <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                              {step.replace("_", " ")}
+                      {forceRequestsOnly ? (
+                        /* 🚀 STREAMLINED: Restricts choices strictly to Accept Request or Decline Request */
+                        <Select
+                          value={o.status}
+                          disabled={updatingOrderId !== null}
+                          onValueChange={(v) => {
+                            // If owner selects "accepted", it clears the request text field on the backend
+                            updateStatus.mutate({ 
+                              id: o.id, 
+                              st: v, 
+                              reason: v === "accepted" ? "" : o.cancellation_reason 
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-48 capitalize font-semibold text-xs rounded-xl h-8">
+                            <SelectValue placeholder="Action Requested" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cancel_requested" disabled className="text-muted-foreground text-xs font-bold">
+                              Select Resolution
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            <SelectItem value="cancelled" className="text-xs font-medium text-destructive">
+                              Accept Request (Cancel)
+                            </SelectItem>
+                            <SelectItem value="accepted" className="text-xs font-medium text-emerald-600">
+                              Decline Request (Resume)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        /* Standard core order processing drop-down loop list */
+                        <Select
+                          value={o.status}
+                          disabled={updatingOrderId !== null}
+                          onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
+                        >
+                          <SelectTrigger className="w-44 capitalize font-semibold text-xs rounded-xl h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
+                              {o.status.replace("_", " ")} (Current)
+                            </SelectItem>
+                            {["pending", "accepted", "preparing", "ready", "completed", "cancelled"]
+                              .filter(step => step !== o.status)
+                              .map((step) => (
+                                <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                                  {step.replace("_", " ")}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
 
                       <Button 
                         variant="ghost" 
@@ -675,7 +697,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {/* 🚀 CUSTOMER NOTE COMPONENT FEED: Exposes structural layout note argument cleanly at the top boundary */}
                   {isExpanded && o.cancellation_reason && (
                     <div className="bg-amber-500/5 border-b border-dashed border-amber-500/20 p-4 flex gap-2.5 items-start text-xs">
                       <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
