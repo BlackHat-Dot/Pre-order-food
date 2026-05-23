@@ -27,7 +27,9 @@ class OrderCreate(BaseModel):
     instructions: str | None = None
     payment_method: str = Field(pattern="^(cod|online)$")
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
-
+    coupon_id: str | None = None
+    # 🚀 FIXED: Allow the incoming schema to verify payment confirmations dynamically
+    payment_confirmed: bool | None = False
 
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(pending|accepted|preparing|ready|completed|cancelled)$")
