@@ -108,11 +108,14 @@ function OwnerShop() {
         </CardContent>
       </Card>
 
+      {/* 🚀 FIXED TOP LEVEL TABS MANIFEST CONFIGURATION */}
       <Tabs defaultValue="stats">
         <TabsList>
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          {/* 🚀 MOVED REQUESTS HERE: Exposes real-time cancellations cleanly as a major top-tier subpage module view */}
+          <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-6">
@@ -122,7 +125,11 @@ function OwnerShop() {
           <MenuTab shopId={shopId} />
         </TabsContent>
         <TabsContent value="orders" className="mt-6">
-          <OrdersTab shopId={shopId} />
+          <OrdersTab shopId={shopId} forceRequestsOnly={false} />
+        </TabsContent>
+        {/* 🚀 NEW TAB GATEWAY ROUTING FOR CANCELLATIONS FILTER BLOCK */}
+        <TabsContent value="requests" className="mt-6">
+          <OrdersTab shopId={shopId} forceRequestsOnly={true} />
         </TabsContent>
         <TabsContent value="settings" className="mt-6">
           <SettingsTab shopId={shopId} initial={shop} />
@@ -522,19 +529,19 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-function OrdersTab({ shopId }: { shopId: string }) {
+function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   
   const { data, isLoading } = useQuery({
-    queryKey: ["shop", shopId, "orders", status],
+    queryKey: ["shop", shopId, "orders", status, forceRequestsOnly],
     queryFn: () =>
       ordersApi.shopOrders(shopId, {
         page: 1,
         page_size: 100,
-        status: ["all", "cancel_requested"].includes(status) ? undefined : (status as OrderStatus),
+        status: forceRequestsOnly ? undefined : (status === "all" ? undefined : (status as OrderStatus)),
       }),
     refetchInterval: 10_000,
   });
@@ -566,18 +573,18 @@ function OrdersTab({ shopId }: { shopId: string }) {
     cancelled: []
   };
 
-  // 🚀 FIXED: Custom evaluation constraints hide request items from All/Pending lifecycle lists entirely
+  // 🚀 FIXED ARCHITECTURE: Separates requests entirely from regular workflow dashboard feeds
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
-        const containsReason = !!o.cancellation_reason || itemStatus === "cancel_requested";
+        const containsReason = itemStatus === "cancel_requested" || !!o.cancellation_reason;
         
-        // Far right independent target window filtering configuration
-        if (status === "cancel_requested") {
+        // Target 1: The designated top level "Requests" workspace displays ONLY user cancellations
+        if (forceRequestsOnly) {
           return containsReason;
         }
         
-        // Strict boundary line: Prune request models out of standard list sequences
+        // Target 2: Standard pipelines (All, Pending, etc.) completely skip custom client request items
         if (containsReason) {
           return false;
         }
@@ -589,28 +596,27 @@ function OrdersTab({ shopId }: { shopId: string }) {
 
   return (
     <div className="space-y-4">
-      <Tabs value={status} onValueChange={setStatus}>
-        <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl max-w-fit">
-          <TabsTrigger value="all" className="text-xs px-3.5 py-1.5 rounded-lg">All</TabsTrigger>
-          <TabsTrigger value="pending" className="text-xs px-3.5 py-1.5 rounded-lg">Pending</TabsTrigger>
-          <TabsTrigger value="accepted" className="text-xs px-3.5 py-1.5 rounded-lg">Accepted</TabsTrigger>
-          <TabsTrigger value="preparing" className="text-xs px-3.5 py-1.5 rounded-lg">Preparing</TabsTrigger>
-          <TabsTrigger value="ready" className="text-xs px-3.5 py-1.5 rounded-lg">Ready</TabsTrigger>
-          <TabsTrigger value="completed" className="text-xs px-3.5 py-1.5 rounded-lg">Completed</TabsTrigger>
-          <TabsTrigger value="cancelled" className="text-xs px-3.5 py-1.5 rounded-lg">Cancelled</TabsTrigger>
-          {/* 🚀 REMOVED WARNING COLOR LAYOUT STYLES: Standard clean look placed directly on the far right */}
-          <TabsTrigger value="cancel_requested" className="text-xs px-3.5 py-1.5 rounded-lg font-medium">
-            Requests
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Render sub-status toolbar bar only when browsing standard order statuses pipelines */}
+      {!forceRequestsOnly && (
+        <Tabs value={status} onValueChange={setStatus}>
+          <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl max-w-fit">
+            <TabsTrigger value="all" className="text-xs px-3.5 py-1.5 rounded-lg">All</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs px-3.5 py-1.5 rounded-lg">Pending</TabsTrigger>
+            <TabsTrigger value="accepted" className="text-xs px-3.5 py-1.5 rounded-lg">Accepted</TabsTrigger>
+            <TabsTrigger value="preparing" className="text-xs px-3.5 py-1.5 rounded-lg">Preparing</TabsTrigger>
+            <TabsTrigger value="ready" className="text-xs px-3.5 py-1.5 rounded-lg">Ready</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs px-3.5 py-1.5 rounded-lg">Completed</TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs px-3.5 py-1.5 rounded-lg">Cancelled</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {isLoading ? (
         <Skeleton className="h-32 w-full rounded-2xl" />
       ) : visibleOrders.length === 0 ? (
         <Card className="border-dashed rounded-2xl">
           <CardContent className="py-12 text-center text-muted-foreground text-sm">
-            No orders found under this view criteria.
+            {forceRequestsOnly ? "No cancellation requests found." : "No orders found matching this tab."}
           </CardContent>
         </Card>
       ) : (
@@ -713,7 +719,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                         )}
                       </div>
 
-                      {/* 🚀 EXPOSED REASON NOTE FIELD: Renders clean layout containing the explanation text reason */}
+                      {/* 🚀 EXPOSED FIELD: Cancellation text outputs clean and structured directly below checklist card wrappers */}
                       {o.cancellation_reason && (
                         <div className="p-3.5 rounded-xl border border-border/80 bg-muted/40 text-xs flex gap-2 items-start mt-2">
                           <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
