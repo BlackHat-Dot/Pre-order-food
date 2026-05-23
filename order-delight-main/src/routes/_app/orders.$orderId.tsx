@@ -21,7 +21,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { status?: string; reason?: string }) => {
-      // 🚀 FIXED: Submits cancellation arguments seamlessly via metadata patches to avoid validation clashes
+      // 🚀 FIXED: Passes payload containing metadata safely directly down to backend patches
       return await apiRequest(`/api/v1/orders/${order.id}/status`, {
         method: "PATCH",
         body: payload,
@@ -44,7 +44,6 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   });
 
   const canInstantlyCancel = order.status === "pending";
-  // Check if the order can be cancelled or if a request has already been logged to the metadata fields
   const isAlreadyRequested = !!order.cancellation_reason;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !isAlreadyRequested;
 

@@ -540,7 +540,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
   });
   
   const updateStatus = useMutation({
-    // 🚀 FIXED: Pass the body values packed cleanly inside an object matching your api handler structure parameters
+    // 🚀 FIXED: Wrapped cleanly inside single schema property casts to meet ordersApi signatures precisely
     mutationFn: ({ id, st, reason }: { id: string; st: OrderStatus; reason?: string }) => {
       setUpdatingOrderId(id);
       return ordersApi.updateStatus(id, { status: st, reason } as any);
