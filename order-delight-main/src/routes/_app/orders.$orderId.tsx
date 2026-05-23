@@ -20,8 +20,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   const [reasonText, setReasonText] = useState("");
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (payload: { status?: string; reason?: string }) => {
-      // 🚀 FIXED: Passes payload containing metadata safely directly down to backend patches
+    mutationFn: async (payload: { status: string; reason?: string }) => {
       return await apiRequest(`/api/v1/orders/${order.id}/status`, {
         method: "PATCH",
         body: payload,
@@ -44,7 +43,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const isAlreadyRequested = !!order.cancellation_reason;
+  const isAlreadyRequested = order.status === "cancel_requested" || !!order.cancellation_reason;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !isAlreadyRequested;
 
   if (isAlreadyRequested) {
@@ -54,7 +53,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
         <div>
           <p className="text-xs font-bold text-amber-500">Cancellation Request Pending Approval</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            You requested to cancel this order with reason: <span className="italic text-foreground">"{order.cancellation_reason}"</span>. The store owner is reviewing your request.
+            You requested to cancel this order. The store owner is currently reviewing your request details.
           </p>
         </div>
       </div>
@@ -122,7 +121,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
               disabled={!reasonText.trim() || updateStatusMutation.isPending}
-              onClick={() => updateStatusMutation.mutate({ reason: reasonText.trim() })}
+              onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
             >
               Submit Request
             </Button>
