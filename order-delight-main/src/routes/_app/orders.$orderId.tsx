@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
-// 🚀 FIXED: Updated definition path string to integrate with nested folders perfectly
+// 🚀 FIXED: Route path string configured exactly as expected by your filesystem architecture
 export const Route = createFileRoute("/_app/orders/$orderId")({
   component: OrderDetailsPage,
 });
@@ -105,7 +105,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
             </Button>
             <Button
               variant="destructive"
-              className="text-xs rounded-xl h-9 font-semibold"
+              className="text-xs rounded-xl h-9 font-semibold px-4"
               disabled={!reasonText.trim() || updateStatusMutation.isPending}
               onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
             >
