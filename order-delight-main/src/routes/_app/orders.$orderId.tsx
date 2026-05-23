@@ -43,6 +43,8 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
   });
 
   const canInstantlyCancel = order.status === "pending";
+  
+  // 🚀 FIXED: Explicitly captures either a state change string or metadata presence properties
   const isAlreadyRequested = order.status === "cancel_requested" || !!order.cancellation_reason;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !isAlreadyRequested;
 
@@ -53,7 +55,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
         <div>
           <p className="text-xs font-bold text-amber-500">Cancellation Request Pending Approval</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            You requested to cancel this order. The store owner is currently reviewing your request details.
+            You requested to cancel this pre-order. The store owner is currently reviewing your submission details.
           </p>
         </div>
       </div>
@@ -123,7 +125,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
               disabled={!reasonText.trim() || updateStatusMutation.isPending}
               onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
             >
-              Submit Request
+              {updateStatusMutation.isPending ? "Submitting..." : "Submit Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
