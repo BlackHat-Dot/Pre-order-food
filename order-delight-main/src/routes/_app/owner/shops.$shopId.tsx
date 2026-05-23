@@ -37,7 +37,6 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
-// 🚀 FIXED: Sub-menu array ordering sequence updated to clean presentation filters
 const ORDER_STATUSES: OrderStatus[] = [
   "pending",
   "accepted",
@@ -523,7 +522,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-// --- RENDER INNER COMPONENT ELEMENT 3: ORDERS TAB SYSTEM CONTROLLER ---
 function OrdersTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -568,23 +566,23 @@ function OrdersTab({ shopId }: { shopId: string }) {
     cancelled: []
   };
 
-  // 🚀 FIXED: Filter criteria array checks prevent custom cancellation entries from populating standard active workflows
+  // 🚀 FIXED: Custom evaluation constraints hide request items from All/Pending lifecycle lists entirely
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
+        const containsReason = !!o.cancellation_reason || itemStatus === "cancel_requested";
         
-        if (status === "all") return true;
-        
-        // Isolate custom request tracking data streams explicitly
+        // Far right independent target window filtering configuration
         if (status === "cancel_requested") {
-          return itemStatus === "cancel_requested" || !!o.cancellation_reason;
+          return containsReason;
         }
         
-        // Clean pruning: Hide request states from active checklist feeds like "all" or "pending"
-        if (["pending", "accepted", "preparing", "ready"].includes(status) && itemStatus === "cancel_requested") {
+        // Strict boundary line: Prune request models out of standard list sequences
+        if (containsReason) {
           return false;
         }
         
+        if (status === "all") return true;
         return itemStatus === status;
       })
     : [];
@@ -600,8 +598,8 @@ function OrdersTab({ shopId }: { shopId: string }) {
           <TabsTrigger value="ready" className="text-xs px-3.5 py-1.5 rounded-lg">Ready</TabsTrigger>
           <TabsTrigger value="completed" className="text-xs px-3.5 py-1.5 rounded-lg">Completed</TabsTrigger>
           <TabsTrigger value="cancelled" className="text-xs px-3.5 py-1.5 rounded-lg">Cancelled</TabsTrigger>
-          {/* 🚀 MOVED & CLEANED: Placed cleanly at the end of the line with uniform, muted secondary styles */}
-          <TabsTrigger value="cancel_requested" className="text-xs px-3.5 py-1.5 rounded-lg font-medium data-[state=active]:bg-background data-[state=active]:text-foreground">
+          {/* 🚀 REMOVED WARNING COLOR LAYOUT STYLES: Standard clean look placed directly on the far right */}
+          <TabsTrigger value="cancel_requested" className="text-xs px-3.5 py-1.5 rounded-lg font-medium">
             Requests
           </TabsTrigger>
         </TabsList>
@@ -715,7 +713,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
                         )}
                       </div>
 
-                      {/* 🚀 EXPOSED FIELD: Clean, uniform reason descriptor containing customer inputs context */}
+                      {/* 🚀 EXPOSED REASON NOTE FIELD: Renders clean layout containing the explanation text reason */}
                       {o.cancellation_reason && (
                         <div className="p-3.5 rounded-xl border border-border/80 bg-muted/40 text-xs flex gap-2 items-start mt-2">
                           <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
