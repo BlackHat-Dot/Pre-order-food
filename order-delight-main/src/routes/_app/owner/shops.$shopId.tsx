@@ -541,24 +541,25 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       ordersApi.shopOrders(shopId, {
         page: 1,
         page_size: 100,
-        status: forceRequestsOnly ? undefined : (status === "all" ? undefined : (status as OrderStatus)),
+        status: undefined, // 🚀 Pull clean master lines so status checks can look inside both scopes
       }),
-    refetchInterval: 10_000,
+    refetchInterval: 5000, // Accelerated polling loop to keep counts completely dynamic
   });
   
   const updateStatus = useMutation({
-    mutationFn: async ({ id, st, reason }: { id: string; st: string; reason?: string }) => {
+    mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
       setUpdatingOrderId(id);
       return await apiRequest(`/api/v1/orders/${id}/status`, {
         method: "PATCH",
-        body: { status: st, reason },
+        body: { status: st, decline_action, reason },
       });
     },
     onSuccess: () => {
-      toast.success("Order status updated successfully");
+      toast.success("Order status synchronized successfully");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
+      qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to update status"),
+    onError: (e: any) => toast.error(e?.message || "Action restricted by active state interlock constraints."),
     onSettled: () => setUpdatingOrderId(null),
   });
 
@@ -566,19 +567,18 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
+  // 🚀 FIX 1: DUAL VISIBILITY ALGORITHM
+  // Keeps the order row active inside BOTH tabs until explicitly approved or rejected by the manager
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
-        const containsReason = itemStatus === "cancel_requested" || !!o.cancellation_reason;
+        const isDisputed = itemStatus === "cancel_requested" || o.is_cancellation_pending === true || !!o.cancellation_reason;
         
         if (forceRequestsOnly) {
-          return containsReason;
+          return isDisputed;
         }
         
-        if (containsReason) {
-          return false;
-        }
-        
+        // Inside Main Orders panel: show the entry if it matches the current status tab filters, or show all
         if (status === "all") return true;
         return itemStatus === status;
       })
@@ -613,12 +613,15 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = (o.status || "pending").toLowerCase();
-            
-            // 🚀 DYNAMIC STATE MATCHING DEFINITION
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
+            
+            // Safe boolean flag mapping evaluation checks
+            const isAwaitingResolution = currentStatus === "cancel_requested" || o.is_cancellation_pending === true;
 
             return (
-              <Card key={o.id} className="overflow-hidden rounded-2xl border border-border/70 text-left shadow-sm bg-card">
+              <Card key={o.id} className={`overflow-hidden rounded-2xl border transition-all text-left shadow-sm bg-card ${
+                isAwaitingResolution ? "border-rose-500/40 ring-1 ring-rose-500/20" : "border-border/70"
+              }`}>
                 <CardContent className="p-0">
                   
                   <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border/40">
@@ -634,38 +637,42 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
                       <span className="font-bold text-sm">{formatCurrency(o.total_price)}</span>
                       
-                      {forceRequestsOnly ? (
-                        <Select
-                          value={o.status}
-                          disabled={updatingOrderId !== null}
-                          onValueChange={(v) => {
-                            updateStatus.mutate({ 
-                              id: o.id, 
-                              st: v, 
-                              reason: v === "accepted" ? "" : o.cancellation_reason 
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-48 capitalize font-semibold text-xs rounded-xl h-8">
-                            <SelectValue placeholder="Action Requested" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cancel_requested" disabled className="text-muted-foreground text-xs font-bold">
-                              Select Resolution
-                            </SelectItem>
-                            <SelectItem value="cancelled" className="text-xs font-medium text-destructive">
-                              Accept Request (Cancel)
-                            </SelectItem>
-                            <SelectItem value="accepted" className="text-xs font-medium text-emerald-600">
-                              Decline Request (Resume)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                      {/* 🚀 FIX 2: HARD FLOW INTERLOCK BOUNDARY */}
+                      {/* If the customer is on hold waiting for an update, completely strip drop-downs and swap with single action panels */}
+                      {isAwaitingResolution ? (
+                        <div className="flex items-center gap-2 bg-rose-500/15 border border-rose-500/30 px-3 py-1.5 rounded-xl animate-in fade-in duration-200">
+                          <div className="text-xs font-black text-rose-600 animate-pulse tracking-wide mr-2 uppercase">
+                            ⚠️ Action Required
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 rounded-lg text-[11px] font-black tracking-wide bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                            disabled={updatingOrderId !== null}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-lg text-[11px] font-bold border-rose-500/30 text-rose-600 bg-background hover:bg-rose-500/10"
+                            disabled={updatingOrderId !== null}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      ) : forceRequestsOnly ? (
+                        /* Fallback safety for fully closed requests elements context rows tracking */
+                        <Badge variant="secondary" className="text-xs font-semibold rounded-xl px-3 py-1">
+                          Resolved & Locked
+                        </Badge>
                       ) : (
-                        /* 🚀 DYNAMIC FILTER ENGINE: Renders ONLY valid transition options */
+                        /* 🏪 RENDER STANDARD WORKFLOW BUTTONS ONLY IF DISPUTE LINE IS COMPLETELY CLEAR */
                         <Select
                           value={o.status}
                           disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
@@ -698,19 +705,23 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {isExpanded && o.cancellation_reason && (
-                    <div className="bg-amber-500/5 border-b border-dashed border-amber-500/20 p-4 flex gap-2.5 items-start text-xs">
-                      <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-foreground">Why the customer wants to cancel:</span>
-                        <p className="text-muted-foreground italic font-medium">"{o.cancellation_reason}"</p>
+                  {/* Active context alerts overlay message for descriptive panel parameters */}
+                  {isExpanded && (isAwaitingResolution || o.cancellation_reason) && (
+                    <div className="bg-rose-500/[0.04] border-b border-dashed border-rose-500/10 p-4 flex gap-2.5 items-start text-xs">
+                      <HelpCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
+                      <div className="space-y-1">
+                        <span className="font-black text-rose-700 uppercase tracking-tight block animate-pulse">
+                          Customer Cancellation Query Pending
+                        </span>
+                        <p className="text-muted-foreground font-medium italic">
+                          Reason given: "{o.cancellation_reason || "No explicit reason submitted."}"
+                        </p>
                       </div>
                     </div>
                   )}
 
                   {isExpanded && (
                     <div className="bg-muted/10 p-4 space-y-3.5 animate-in slide-in-from-top-2 duration-150">
-                      
                       <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider">
                         <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Preparation Checklist Ticket</span>

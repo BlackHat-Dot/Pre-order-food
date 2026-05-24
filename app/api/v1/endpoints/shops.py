@@ -219,18 +219,18 @@ async def list_shop_orders_owner(
     id_stmt = select(Order.id).where(Order.shop_id == shop_id)
     
     # 🚀 DUAL-FEED FIX: Ensure 'cancel_requested' orders show under both generic active workflows and requests tabs
+    # Inside list_shop_orders_owner inside app/api/v1/endpoints/shops.py
+    id_stmt = select(Order.id).where(Order.shop_id == shop_id)
+    
     if status and status != "all":
         if status == "cancel_requested":
             id_stmt = id_stmt.where(Order.status == "cancel_requested")
         else:
             id_stmt = id_stmt.where(Order.status == status)
     else:
-        # If looking at the master layout stream feed, ALWAYS keep cancel_requested orders mixed in live!
-        active_statuses = [
-            "pending", "accepted", "preparing", "ready", 
-            "completed", "cancelled", "cancel_requested"
-        ]
-        id_stmt = id_stmt.where(Order.status.in_(active_statuses))
+        # 🚀 DUAL TAB VISIBILITY: Order stays cleanly inside the main page feed
+        active_lanes = ["pending", "accepted", "preparing", "ready", "completed", "cancelled", "cancel_requested"]
+        id_stmt = id_stmt.where(Order.status.in_(active_lanes))
         
     id_stmt = id_stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     
