@@ -304,26 +304,28 @@ async def update_order_status(
             detail=f"Invalid transition constraint state from '{old_status}' to '{new_status}'."
         )
 
-    # 🚀 ONE REQUEST POLICY GATEWAY RULE
-    # 🚀 UPDATED CEILING: Checks if the cancellation rejections count is strictly greater than 3
+    # 🚀 STRICT CUSTOMER COUNT ATTEMPTS GATEWAY
     if user.role == "customer":
         if old_status == "pending" and new_status == "cancelled":
             pass
         elif old_status in ["accepted", "preparing", "ready"] and new_status == "cancel_requested":
-            # 🚨 Automatically blocks the 4th attempt from processing on the server state
-            if getattr(order, "cancellation_rejections", 0) > 3:
+            # 🚨 HARD LOCK: If they already submitted 3 requests, block any further entries
+            requests_count = getattr(order, "cancellation_requests_sent", 0)
+            if requests_count >= 3:
                 raise HTTPException(
                     status_code=400,
-                    detail="Maximum cancellation attempts reached! Please contact the shop owner directly using their credentials."
+                    detail="Cancellation limit reached. You cannot submit more than 3 requests. Please contact the shop owner directly."
                 )
+            
+            # ✅ Count +1 when the actual cancellation request is sent
+            order.cancellation_requests_sent = requests_count + 1
             order.cancellation_reason = payload.reason
         else:
             raise HTTPException(403, "You can only request cancellations on active kitchen workflows.")
 
-    # 🚀 INCREMENT REJECTIONS AUTOMATICALLY: If the shop owner returns the order to active status
+    # Shop Owner clears text notes on a rejection drop
     if user.role != "customer" and old_status == "cancel_requested" and new_status in ["accepted", "preparing", "ready"]:
         order.cancellation_reason = None
-        order.cancellation_rejections = getattr(order, "cancellation_rejections", 0) + 1
 
     # Financial / Loyalty Refunds Execution
     if new_status == "cancelled" and old_status != "cancelled":
@@ -359,11 +361,11 @@ async def update_order_status(
                 db.add(coupon)
 
     status_messages = {
-        "accepted": f"Your order #{order.id[:8]} was accepted and is running.",
-        "preparing": f"Your order #{order.id[:8]} is currently being prepared.",
+        "accepted": f"Your order #{order.id[:8]} was accepted.",
+        "preparing": f"Your order #{order.id[:8]} is being prepared.",
         "ready": f"Your order #{order.id[:8]} is ready for pickup!",
-        "completed": f"Order #{order.id[:8]} marked complete. Thanks!",
-        "cancel_requested": f"A request to cancel order #{order.id[:8]} has been submitted to management.",
+        "completed": f"Order #{order.id[:8]} marked complete.",
+        "cancel_requested": f"Cancellation request {order.cancellation_requests_sent}/3 has been submitted.",
         "cancelled": f"Your order #{order.id[:8]} has been cancelled."
     }
 

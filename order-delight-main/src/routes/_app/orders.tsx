@@ -25,7 +25,7 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// --- RENDER COMPONENT 1: ORDER DETAILS VIEW (WHEN FLAT DETAIL TRACKING IS ACTIVE) ---
+// --- RENDER COMPONENT 1: ORDER DETAILS VIEW ---
 function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack: () => void }) {
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["order", orderId],
@@ -83,7 +83,7 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
   );
 }
 
-// --- RENDER COMPONENT 2: CANCELLATION ENGINE ACTIONS BUTTONS MODULE ---
+// --- RENDER COMPONENT 2: CANCELLATION ENGINE ACTIONS MODULE ---
 export function CustomerOrderActionModule({ order, onActionComplete }: { order: any; onActionComplete?: () => void }) {
   const qc = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -91,9 +91,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 
   const { data: shopDetails } = useQuery({
     queryKey: ["shop-contact", order.shop_id],
-    queryFn: async () => {
-      return await apiRequest<any>(`/api/v1/shops/${order.shop_id}`, { method: "GET" });
-    },
+    queryFn: () => apiRequest<any>(`/api/v1/shops/${order.shop_id}`, { method: "GET" }),
     enabled: !!order?.shop_id,
   });
 
@@ -108,7 +106,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
       toast.success(
         updatedOrder.status === "cancelled" 
           ? "Order cancelled instantly. Vouchers and points have been restored."
-          : "Cancellation request forwarded to store management tracking view lines."
+          : `Cancellation request ${updatedOrder.cancellation_requests_sent}/3 forwarded to store.`
       );
       setIsModalOpen(false);
       setReasonText("");
@@ -123,20 +121,20 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 
   const canInstantlyCancel = order.status === "pending";
   
-  // 🚀 TIGHT LOCKDOWN TARGET: Evaluates immediately from local cached database object parameter properties
-  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) >= 3;
-  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !hasExceededRequestLimit;
+  // 🚀 FIXED: Hard-locks interface options when sent requests are exactly >= 3 attempts
+  const hasExceededRequestLimit = (order.cancellation_requests_sent ?? 0) >= 3;
+  const canRequestCancel = ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚀 FALLBACK CONTACT DETAILS SCREEN OVERLAY IF LIMIT EXCEEDED
+  // 🚨 DISPLAY LOCKDOWN BANNER & MERCHANT CREDENTIALS WHEN LIMIT REACHED
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
       <div className="mt-4 p-4 border border-destructive/20 bg-destructive/[0.02] rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
         <div className="flex items-center gap-2 text-destructive">
           <Lock className="h-4 w-4 shrink-0 animate-bounce" />
-          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Cap Limit Exceeded</span>
+          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Request Limit Reached</span>
         </div>
         <p className="text-xs text-muted-foreground leading-normal">
-          You have requested cancellation for this order 3 or more times, and the store manager has proceeded with your food preparation. Automated system requests are now locked. Please use the options below to contact the shop owner directly:
+          You have already submitted **{order.cancellation_requests_sent} cancellation requests** for this order. Future automated digital system attempts are locked out. Please use the options below to directly contact the shop owner via phone or email to coordinate your resolution:
         </p>
         <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:gap-4 text-xs font-semibold border-t border-border/60">
           {shopDetails?.phone && (
@@ -168,12 +166,12 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     <div className="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
       <div className="space-y-1 text-left">
         <p className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-          <AlertTriangle className="h-4 w-4 text-destructive" /> Manage Order Lifecycle
+          <AlertTriangle className="h-4 w-4 text-destructive" /> Manage Order Cancellation
         </p>
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
           {canInstantlyCancel 
             ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
-            : "The kitchen is preparing your food. Submitting a request allows the store owner to cancel the order for you."}
+            : `Active kitchen queue workflow. Request attempts context: (${order.cancellation_requests_sent ?? 0}/3 used).`}
         </p>
       </div>
 
@@ -203,7 +201,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <DialogHeader>
             <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
             <DialogDescription className="text-xs pt-1">
-              Please let the shop owner know why you need to drop this pre-order.
+              Attempt { (order.cancellation_requests_sent ?? 0) + 1 } of 3. Let the owner know why you need to drop this order.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 text-left">
@@ -222,12 +220,11 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
             <Button
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
-              // 🚀 CRITICAL INTERCEPT UPGRADE: Disables button click action completely if rejections count dynamically meets criteria
-              disabled={!reasonText.trim() || updateStatusMutation.isPending || (order.cancellation_rejections ?? 0) >= 3}
+              // 🚀 AIRTIGHT FRONTLINE INTERCEPT GUARD: Hard disables submit actions immediately if counter meets cutoff parameters
+              disabled={!reasonText.trim() || updateStatusMutation.isPending || (order.cancellation_requests_sent ?? 0) >= 3}
               onClick={() => {
-                // 🚀 HARD CORED BACKUP DOUBLE CHECK: Intercepts action flow dynamically on click trigger
-                if ((order.cancellation_rejections ?? 0) >= 3) {
-                  toast.error("Action denied: This order has hit the maximum cancellation limit.");
+                if ((order.cancellation_requests_sent ?? 0) >= 3) {
+                  toast.error("Action denied: Maximum request limits reached.");
                   setIsModalOpen(false);
                   return;
                 }
@@ -243,7 +240,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   );
 }
 
-// --- RENDER COMPONENT 3: MAIN TRACKING ORDERS LISTING DASHBOARD ---
+// --- RENDER COMPONENT 3: MAIN DASHBOARD ---
 function OrdersPage() {
   const [status, setStatus] = useState<string>("all");
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
