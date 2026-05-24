@@ -31,8 +31,10 @@ class Order(Base):
     loyalty_points_earned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     redeem_loyalty_points: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     
-    # 🚀 FIXED: Standardized to modern Mapped type definitions to fix system initialization crashes
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # 🚀 FIXED: Standardized to standard 2.0 notation format
+    cancellation_requests_sent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
