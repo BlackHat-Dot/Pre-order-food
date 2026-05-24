@@ -529,6 +529,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
+
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -541,9 +542,9 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       ordersApi.shopOrders(shopId, {
         page: 1,
         page_size: 100,
-        status: undefined, // 🚀 Pull clean master lines so status checks can look inside both scopes
+        status: undefined, 
       }),
-    refetchInterval: 5000, // Accelerated polling loop to keep counts completely dynamic
+    refetchInterval: 5000, 
   });
   
   const updateStatus = useMutation({
@@ -555,11 +556,11 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       });
     },
     onSuccess: () => {
-      toast.success("Order status synchronized successfully");
+      toast.success("Order state updated");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Action restricted by active state interlock constraints."),
+    onError: (e: any) => toast.error(e?.message || "Action restricted by state machine constraints."),
     onSettled: () => setUpdatingOrderId(null),
   });
 
@@ -567,8 +568,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
-  // 🚀 FIX 1: DUAL VISIBILITY ALGORITHM
-  // Keeps the order row active inside BOTH tabs until explicitly approved or rejected by the manager
+  // Dual filtration sync logic to securely maintain persistent rendering across tabs
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
@@ -578,7 +578,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
           return isDisputed;
         }
         
-        // Inside Main Orders panel: show the entry if it matches the current status tab filters, or show all
         if (status === "all") return true;
         return itemStatus === status;
       })
@@ -609,127 +608,107 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             
-            // Safe boolean flag mapping evaluation checks
             const isAwaitingResolution = currentStatus === "cancel_requested" || o.is_cancellation_pending === true;
 
             return (
-              <Card key={o.id} className={`overflow-hidden rounded-2xl border transition-all text-left shadow-sm bg-card ${
-                isAwaitingResolution ? "border-rose-500/40 ring-1 ring-rose-500/20" : "border-border/70"
-              }`}>
+              <Card key={o.id} className="overflow-hidden rounded-xl border border-border/70 text-left shadow-none bg-card hover:bg-muted/5 transition-colors">
                 <CardContent className="p-0">
                   
-                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border/40">
+                  <div className="flex items-center justify-between gap-4 p-4">
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-mono text-xs font-bold text-muted-foreground">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-xs font-semibold text-muted-foreground">
                           #{o.id.slice(0, 8).toUpperCase()}
-                        </p>
+                        </span>
                         <StatusBadge status={o.status} />
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         {formatDate(o.created_at)}
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4">
-                      <span className="font-bold text-sm">{formatCurrency(o.total_price)}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="font-semibold text-sm text-foreground">{formatCurrency(o.total_price)}</span>
                       
-                      {/* 🚀 FIX 2: HARD FLOW INTERLOCK BOUNDARY */}
-                      {/* If the customer is on hold waiting for an update, completely strip drop-downs and swap with single action panels */}
-                      {/* Find the conditional action controller block near lines 375-430 inside your OrdersTab component mappings */}
-
-{isAwaitingResolution ? (
-  <div className="flex items-center gap-2 animate-in fade-in duration-150">
-    {/* Subtle inline text indicator replacing bulky red alert modules */}
-    <span className="text-xs font-semibold text-rose-500 border-r pr-3 border-border mr-1">
-      Respond to Request:
-    </span>
-    <Button
-      size="sm"
-      variant="destructive"
-      className="h-8 rounded-xl text-xs font-medium px-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors"
-      disabled={updatingOrderId !== null}
-      onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
-    >
-      Accept
-    </Button>
-    <Button
-      size="sm"
-      variant="outline"
-      className="h-8 rounded-xl text-xs font-medium px-4 border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 transition-colors"
-      disabled={updatingOrderId !== null}
-      onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
-    >
-      Decline
-    </Button>
-  </div>
-) : forceRequestsOnly ? (
-  <Badge variant="secondary" className="text-xs font-medium text-muted-foreground rounded-xl px-3 h-8 flex items-center border shadow-none bg-muted/40">
-    Resolved & Locked
-  </Badge>
-) : (
-  /* Standard workflow selectors drop renders natively when item status transitions are clear */
-  <Select
-    value={o.status}
-    disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
-    onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
-  >
-    <SelectTrigger className="w-44 capitalize font-medium text-xs rounded-xl h-8 border-border/80 shadow-none">
-      <SelectValue />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
-        {o.status.replace("_", " ")} (Current)
-      </SelectItem>
-      {nextAllowedOptions.map((step) => (
-        <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-          {step.replace("_", " ")}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-)}
+                      {/* 🚀 THE PREMIUM ENTERPRISE ACTION ROW: Completely minimalist, clean text-buttons instead of flashy panels */}
+                      {isAwaitingResolution ? (
+                        <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg text-xs font-medium px-3 text-rose-600 border-rose-500/20 hover:bg-rose-500/10 transition-colors"
+                            disabled={updatingOrderId !== null}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
+                          >
+                            Accept Cancellation
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 rounded-lg text-xs font-medium px-3 text-muted-foreground hover:text-foreground transition-colors"
+                            disabled={updatingOrderId !== null}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
+                          >
+                            Decline Request
+                          </Button>
+                        </div>
+                      ) : (
+                        <Select
+                          value={o.status}
+                          disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
+                          onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
+                        >
+                          <SelectTrigger className="w-40 capitalize font-medium text-xs rounded-lg h-8 border-border/80 shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
+                              {o.status.replace("_", " ")}
+                            </SelectItem>
+                            {nextAllowedOptions.map((step) => (
+                              <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                                {step.replace("_", " ")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
 
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 rounded-xl border border-border/50 shrink-0"
+                        className="h-8 w-8 rounded-lg border border-border/60 shrink-0"
                         onClick={() => toggleExpand(o.id)}
                       >
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
                   </div>
 
-                  {/* Active context alerts overlay message for descriptive panel parameters */}
-                  {isExpanded && (isAwaitingResolution || o.cancellation_reason) && (
-                    <div className="bg-rose-500/[0.04] border-b border-dashed border-rose-500/10 p-4 flex gap-2.5 items-start text-xs">
-                      <HelpCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
-                      <div className="space-y-1">
-                        <span className="font-black text-rose-700 uppercase tracking-tight block animate-pulse">
-                          Customer Cancellation Query Pending
-                        </span>
-                        <p className="text-muted-foreground font-medium italic">
-                          Reason given: "{o.cancellation_reason || "No explicit reason submitted."}"
-                        </p>
-                      </div>
+                  {/* Clean inline details panel block */}
+                  {isExpanded && o.cancellation_reason && (
+                    <div className="bg-muted/30 border-t border-dashed border-border p-4 text-xs">
+                      <p className="text-muted-foreground font-normal">
+                        <span className="font-medium text-foreground mr-1">Cancellation Reason:</span> 
+                        "{o.cancellation_reason}"
+                      </p>
                     </div>
                   )}
 
                   {isExpanded && (
-                    <div className="bg-muted/10 p-4 space-y-3.5 animate-in slide-in-from-top-2 duration-150">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                    <div className="bg-muted/10 border-t border-border/40 p-4 space-y-3 animate-in slide-in-from-top-1 duration-150">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>Preparation Checklist Ticket</span>
+                        <span>Items Ticket</span>
                       </div>
 
-                      <div className="space-y-1.5 rounded-xl border border-border/50 bg-background p-3">
+                      <div className="space-y-1.5 rounded-lg border border-border/60 bg-background p-3">
                         {o.items && o.items.length > 0 ? (
                           <div className="space-y-2 divide-y divide-border/40">
                             {o.items.map((item: any, idx: number) => {
@@ -739,26 +718,22 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                               return (
                                 <div key={idx} className="flex items-center justify-between text-xs pt-2 first:pt-0 gap-4">
                                   <div className="space-y-0.5">
-                                    <p className="font-bold text-foreground">
-                                      {itemTitle}
-                                    </p>
+                                    <p className="font-medium text-foreground">{itemTitle}</p>
                                     {variantTitle && (
-                                      <p className="text-[10px] font-mono font-bold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded max-w-fit mt-0.5 uppercase">
-                                        Option: {variantTitle}
+                                      <p className="text-[10px] font-medium text-amber-700 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded max-w-fit mt-0.5 capitalize">
+                                        {variantTitle}
                                       </p>
                                     )}
                                   </div>
-                                  <span className="font-mono text-xs font-black text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border/60 shrink-0">
-                                    QTY: {item.quantity}
+                                  <span className="font-mono text-xs text-muted-foreground bg-muted/40 px-2 py-0.5 rounded border shrink-0">
+                                    ×{item.quantity}
                                   </span>
                                 </div>
                               );
                             })}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground italic text-center py-2">
-                            No items found inside ticket snapshot.
-                          </p>
+                          <p className="text-xs text-muted-foreground italic text-center py-1">No items listed.</p>
                         )}
                       </div>
                     </div>
