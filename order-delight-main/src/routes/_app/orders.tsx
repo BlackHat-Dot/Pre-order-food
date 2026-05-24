@@ -89,7 +89,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reasonText, setReasonText] = useState("");
 
-  // 🚀 METRIC LOOKUP: Fetch merchant parameters to output support contact lines
   const { data: shopDetails } = useQuery({
     queryKey: ["shop-contact", order.shop_id],
     queryFn: async () => {
@@ -123,31 +122,39 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) >= 1;
+  
+  // 🚀 CRITICAL RE-ROUTE TRIGGER: Hardlocked once rejections are strictly greater than 3 attempts
+  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) > 3;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚀 FALLBACK CONTACT CONTAINER: Render store attributes explicitly if they are locked down
+  // 🚀 4TH STRIKE INTERVENTION INTERFACE
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
-      <div className="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
-        <div className="flex items-center gap-2 text-amber-700">
-          <Lock className="h-4 w-4 shrink-0" />
-          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Actions Restricted</span>
+      <div className="mt-4 p-4 border border-destructive/20 bg-destructive/[0.02] rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-destructive">
+          <Lock className="h-4 w-4 shrink-0 animate-bounce" />
+          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Cap Limit Exceeded</span>
         </div>
         <p className="text-xs text-muted-foreground leading-normal">
-          Your previous request was declined by the kitchen team as your meal was already actively being prepared. Future automated attempts are restricted. Please reach out to the storefront directly to coordinate an update:
+          You have requested cancellation for this order more than 3 times and the kitchen team has proceeded with your food preparation. Automated system requests are now locked. Please use the options below to contact the shop owner directly:
         </p>
-        <div className="pt-1 flex flex-col gap-y-2 sm:flex-row sm:gap-x-6 text-xs font-semibold text-foreground border-t border-amber-500/10 pt-2.5">
+        <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:gap-4 text-xs font-semibold border-t border-border/60">
           {shopDetails?.phone && (
-            <a href={`tel:${shopDetails.phone}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
+            <a 
+              href={`tel:${shopDetails.phone}`} 
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-foreground transition-all shadow-sm"
+            >
               <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>{shopDetails.phone}</span>
+              <span>Call Merchant: {shopDetails.phone}</span>
             </a>
           )}
           {(shopDetails?.email || (shopDetails as any).owner_email) && (
-            <a href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
+            <a 
+              href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} 
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-foreground transition-all shadow-sm"
+            >
               <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>{shopDetails.email || (shopDetails as any).owner_email}</span>
+              <span>Email Merchant: {shopDetails.email || (shopDetails as any).owner_email}</span>
             </a>
           )}
         </div>

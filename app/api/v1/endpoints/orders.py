@@ -305,15 +305,16 @@ async def update_order_status(
         )
 
     # 🚀 ONE REQUEST POLICY GATEWAY RULE
+    # 🚀 UPDATED CEILING: Checks if the cancellation rejections count is strictly greater than 3
     if user.role == "customer":
         if old_status == "pending" and new_status == "cancelled":
             pass
         elif old_status in ["accepted", "preparing", "ready"] and new_status == "cancel_requested":
-            # Check if the customer has already used their single allowed request attempt
-            if getattr(order, "cancellation_rejections", 0) >= 1:
+            # 🚨 Automatically blocks the 4th attempt from processing on the server state
+            if getattr(order, "cancellation_rejections", 0) > 3:
                 raise HTTPException(
                     status_code=400,
-                    detail="Cancellations are restricted! Your previous request was declined by the kitchen. Please contact the shop owner directly."
+                    detail="Maximum cancellation attempts reached! Please contact the shop owner directly using their credentials."
                 )
             order.cancellation_reason = payload.reason
         else:
