@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
-
+from sqlalchemy import text
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -33,10 +33,24 @@ async def create_database_tables() -> None:
     try:
         logger.info(f"Attempting to create/verify database tables. DB URL: {settings.DATABASE_URL[:50]}...")
         async with async_engine.begin() as conn:
+            # 1. Run default structural checks for missing tables
             await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created/verified successfully")
+            
+            # 2. 🚀 THE FORCE MIGRATION REMEDY: Explicitly alter the live table structure
+            # This safely injects the missing column rows if they don't exist, without breaking existing rows.
+            logger.info("Injecting missing operational workflow tracking columns to 'orders' table...")
+            await conn.execute(text("""
+                ALTER TABLE orders 
+                ADD COLUMN IF NOT EXISTS is_cancellation_pending BOOLEAN NOT NULL DEFAULT FALSE;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE orders 
+                ADD COLUMN IF NOT EXISTS cancellation_requests_sent INTEGER NOT NULL DEFAULT 0;
+            """))
+            
+        logger.info("Database tables and production column tracking structures verified successfully.")
     except Exception as e:
-        logger.error(f"Failed to create database tables: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"Failed to create/alter database tables: {type(e).__name__}: {e}", exc_info=True)
         raise
 
 
