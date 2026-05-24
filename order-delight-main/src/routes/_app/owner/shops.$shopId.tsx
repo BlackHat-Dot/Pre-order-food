@@ -546,26 +546,34 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     refetchInterval: 5000, 
   });
   
+  // 🚀 FIXED MUTATION CONTROLLER: Clean state parsing across all tabs
   const updateStatus = useMutation({
     mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
       setUpdatingOrderId(id);
       return await apiRequest(`/api/v1/orders/${id}/status`, {
         method: "PATCH",
-        body: { status: st, decline_action, reason },
+        body: { 
+          status: st, 
+          decline_action: decline_action || undefined, 
+          reason: reason || undefined 
+        },
       });
     },
     onSuccess: () => {
-      toast.success("Order state synchronized");
+      toast.success("Order status updated successfully");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
     onError: (e: any) => {
-      const errorMsg = e?.message || "";
-      if (errorMsg.includes("Action Lockout") || errorMsg.includes("processed and resolved")) {
-        qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
-        qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
+      // Force an immediate refresh to align client data views with your PostgreSQL instance state
+      qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
+      qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
+      
+      const serverMessage = e?.message || "";
+      if (serverMessage.includes("Action Lockout") || serverMessage.includes("processed")) {
+        toast.info("This request was already updated in another window.");
       } else {
-        toast.error(errorMsg || "Action restricted by state machine constraints.");
+        toast.error(serverMessage || "Fulfillment update failed. View refreshed.");
       }
     },
     onSettled: () => setUpdatingOrderId(null),

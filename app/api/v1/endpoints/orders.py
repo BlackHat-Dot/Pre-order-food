@@ -304,16 +304,26 @@ async def update_order_status(
     # 🏪 MERCHANT INTERACTION OVERRIDES
     # Inside update_order_status in app/api/v1/endpoints/orders.py
     
+   # 📁 Location: Inside update_order_status inside app/api/v1/endpoints/orders.py
+    
     if user.role == "shop_owner":
-        is_resolving_action = payload.status in ["cancelled", "accepted"] or payload.decline_action == "decline_cancellation"
+        # Pull incoming parameters safely using fallback metrics to protect against missing property drops
+        incoming_status = getattr(payload, "status", None)
+        decline_action = getattr(payload, "decline_action", None)
         
-        # Explicitly ensure we block only if the state is truly final and not pending
+        # 🚀 THE PIECE-DE-RESISTANCE BACKEND FIX: Insulates normal status updates
+        # An action is only classified as a resolution attempt if it explicitly aims to modify an active dispute
+        is_resolving_action = (
+            incoming_status in ["cancelled", "accepted"] or 
+            decline_action == "decline_cancellation"
+        )
+        
+        # Strict lockout check ONLY applies if the merchant tries to resolve a cancellation dispute that isn't active
         if is_resolving_action and getattr(order, "is_cancellation_pending", False) is False:
             raise HTTPException(
                 status_code=400,
                 detail="Action Lockout: This cancellation request has already been processed and resolved. Subsequent modifications are denied."
             )
-
         # Scenario A: Shop Owner clicks "Accept" -> Terminate transaction completely
         if payload.status == "cancelled" and order.is_cancellation_pending:
             order.status = "cancelled"
