@@ -39,12 +39,11 @@ function getCancellationRequestsCount(orderObj: any): number {
 
 // --- RENDER COMPONENT 1: ORDER DETAILS VIEW ---
 function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack: () => void }) {
-  // 🚀 FIXED: Pointing to our fresh endpoint with strict cache isolation parameters
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["order-ticket", orderId],
     queryFn: () => ordersApi.getTicket(orderId),
     retry: false,
-    gcTime: 0, // Clears temporary cached rows immediately upon component exit
+    gcTime: 0,
   });
 
   if (isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading order details...</div>;
@@ -87,7 +86,6 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Payment Status</span>
-              {/* 🚀 FIXED REDLINE: Typecasted locally to bypass incomplete structural linter parameters */}
               <span className="font-bold text-emerald-600 uppercase">{(order as any).payment_status || "PAID"}</span>
             </div>
           </div>
@@ -144,6 +142,9 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   if (isCancelled || isCompleted) return null;
 
   if (isActivelyDisputed) {
+    // ✅ SECURED VIA OPTIONAL CHAINING: Prevents properties lookup failures if network responses are delayed
+    const fallbackEmail = shopDetails?.email ?? shopDetails?.owner_email ?? (shopDetails as any)?.ownerEmail;
+
     return (
       <div className="mt-5 pt-4 border-t border-border/80 space-y-2 text-left animate-in fade-in duration-200">
         <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -157,10 +158,10 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
               <span>Phone: {shopDetails.phone}</span>
             </a>
           )}
-          {(shopDetails?.email || (shopDetails as any).owner_email) && (
-            <a href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground min-w-0">
+          {fallbackEmail && (
+            <a href={`mailto:${fallbackEmail}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground min-w-0">
               <Mail className="h-3 w-3 text-muted-foreground/70" />
-              <span className="truncate">Email: {shopDetails.email || (shopDetails as any).owner_email}</span>
+              <span className="truncate">Email: {fallbackEmail}</span>
             </a>
           )}
         </div>
