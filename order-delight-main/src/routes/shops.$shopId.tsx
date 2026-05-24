@@ -21,7 +21,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDateShort } from "@/lib/format";
 import { cart, useCart } from "@/lib/cart";
-// 🚀 FIXED: Importing your application's authentic auth context provider hook
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -65,7 +64,6 @@ function ShopDetail() {
   const [picked, setPicked] = useState<MenuItemOut | null>(null);
   const [conflictItem, setConflictItem] = useState<MenuItemOut | null>(null);
 
-  // 🚀 FIXED: Using standard hook user context states to avoid string parse failures
   const { user } = useAuth();
   const isShopOwner = user?.role === "shop_owner";
 
@@ -91,6 +89,11 @@ function ShopDetail() {
     queryFn: () => reviewsApi.list(shopId),
   });
 
+  const handleReviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitReview.mutate({ rating: reviewRating, comment: reviewComment, order_id: "" });
+  };
+
   const submitReview = useMutation({
     mutationFn: (payload: { rating: number | null; comment: string; order_id: string }) => 
       ordersApi.submitReview(shopId, payload),
@@ -106,11 +109,6 @@ function ShopDetail() {
       toast.error(e instanceof ApiError ? e.message : "Failed to post review");
     }
   });
-
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitReview.mutate({ rating: reviewRating, comment: reviewComment, order_id: "" });
-  };
 
   const handleClearAndReplaceCart = () => {
     if (!conflictItem) return;
@@ -267,7 +265,6 @@ function ShopDetail() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  // 🚀 INTERCEPT ONE: Guaranteed lock at row item click level
                                   onClick={() => {
                                     toast.error("Carting Restrained", {
                                       description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
@@ -321,7 +318,7 @@ function ShopDetail() {
                             <img
                               src={item.image_url ?? getFallbackDetailImage(item.id, item.name)}
                               alt={item.name}
-                              className={`h-full w-full object-cover ${!isItemAvailable ? "grayscale contrast-75" : ""}`}
+                              className="h-full w-full object-cover"
                             />
                           </div>
                         </Card>
@@ -338,7 +335,6 @@ function ShopDetail() {
               <h3 className="text-sm font-semibold text-foreground">
                 Customer Reviews ({reviews?.length ?? 0})
               </h3>
-              {/* 🚀 FIXED: The write review option is now correctly hidden for shop owners */}
               {!showReviewForm && !isShopOwner && (
                 <Button 
                   onClick={() => setShowReviewForm(true)} 
@@ -466,9 +462,9 @@ function ShopDetail() {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
               <Trash2 className="h-5 w-5" />
             </div>
-            <DialogTitle className="text-base font-bold tracking-tight">
+            <div className="text-base font-bold tracking-tight">
               Replace existing cart items?
-            </DialogTitle>
+            </div>
             <DialogDescription className="text-xs text-muted-foreground leading-normal px-2">
               Your cart currently contains selections from another store. To order from <span className="font-semibold text-foreground">{shop.name}</span> instead, your previous basket will be cleared.
             </DialogDescription>
@@ -498,33 +494,37 @@ function ShopDetail() {
 }
 
 function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; shopId: string; onClose: () => void }) {
-  const { data: variants } = useQuery({
+  // 🚀 REVISED: Extracted 'isLoading' flag directly out of TanStack query payload context
+  const { data: variants, isLoading: isLoadingVariants } = useQuery({
     queryKey: ["item", item?.id, "variants"],
     queryFn: () => (item ? menuApi.listVariants(item.id) : Promise.resolve([])),
     enabled: !!item,
   });
+  
   const [variantId, setVariantId] = useState<string>("");
   const [qty, setQty] = useState(1);
   const { lines } = useCart();
 
-  // 🚀 FIXED: Inherit authenticated context configuration hooks safely inside components
   const { user } = useAuth();
   const isShopOwner = user?.role === "shop_owner";
 
   useEffect(() => {
-    if (!item) return;
+    if (!item || isLoadingVariants) return;
     setQty(1);
     setVariantId(variants?.[0]?.id ?? "");
-  }, [item?.id, variants]);
+  }, [item?.id, variants, isLoadingVariants]);
 
   if (!item) return null;
   const selectedVariant = variants?.find((x) => x.id === variantId) ?? variants?.[0] ?? null;
   const price = selectedVariant?.price ?? item.price;
 
-  function add() {
-    if (!item) return;
+  // 🚀 CRITICAL BLOCK CHECK: True if variants are loading OR if variants exist but none are active yet
+  const hasVariantsArray = variants && variants.length > 0;
+  const isFormLocked = isLoadingVariants || (hasVariantsArray && !variantId);
 
-    // 🚀 INTERCEPT TWO: Complete absolute lock inside options submission click events
+  function add() {
+    if (!item || isFormLocked) return;
+
     if (isShopOwner) {
       toast.error("Carting Restrained", {
         description: "You are logged into a Shop Owner account. Owners cannot place or build orders. Please create a new Customer Account to buy food items.",
@@ -558,7 +558,15 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
           {item.description && <DialogDescription className="text-xs line-clamp-3">{item.description}</DialogDescription>}
         </DialogHeader>
         <div className="space-y-4">
-          {variants && variants.length > 0 && (
+          
+          {/* 🚀 DYNAMIC BOUNDARY PANEL CONTAINER SECTIONER */}
+          {isLoadingVariants ? (
+            <div className="space-y-2 text-left">
+              <Label className="text-xs font-semibold text-muted-foreground animate-pulse">Syncing options...</Label>
+              <Skeleton className="h-11 w-full rounded-xl" />
+              <Skeleton className="h-11 w-full rounded-xl" />
+            </div>
+          ) : variants && variants.length > 0 ? (
             <div className="space-y-2 text-left">
               <Label className="text-xs font-semibold text-muted-foreground">Choose option</Label>
               <RadioGroup value={variantId} onValueChange={setVariantId}>
@@ -581,7 +589,7 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
                 })}
               </RadioGroup>
             </div>
-          )}
+          ) : null}
           
           <div className="flex items-center justify-between border-t border-dashed pt-4 border-border/60">
             <div className="space-y-0.5 text-left">
@@ -590,11 +598,20 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
             </div>
             
             <div className="flex items-center gap-1.5 bg-muted/40 border border-border/50 p-1 rounded-xl">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg font-bold" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                disabled={isFormLocked}
+                className="h-8 w-8 rounded-lg font-bold" 
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+              >
+                −
+              </Button>
               <span className="w-8 text-center font-mono text-sm font-bold">{qty}</span>
               <Button 
                 variant="ghost" 
                 size="icon" 
+                disabled={isFormLocked}
                 className="h-8 w-8 rounded-lg font-bold"
                 onClick={() => {
                   const currentTotalInCart = lines.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -612,13 +629,22 @@ function AddItemDialog({ item, shopId, onClose }: { item: MenuItemOut | null; sh
         </div>
         <DialogFooter className="flex-row sm:justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} className="text-xs font-semibold rounded-xl">Cancel</Button>
-          {/* 🚀 EXTRA PRECAUTION: Disable click submission option right inside variant layouts for owner states */}
+          
+          {/* 🚀 HARD LOCKED BUTTON ACTIONER: Totally un-clickable during network payload transit gap */}
           <Button 
             onClick={add} 
-            disabled={isShopOwner}
-            className="flex-1 sm:flex-initial text-xs font-bold rounded-xl px-5"
+            disabled={isShopOwner || isFormLocked}
+            className="flex-1 sm:flex-initial text-xs font-bold rounded-xl px-5 transition-all"
           >
-            {isShopOwner ? "Action Blocked" : `Add — ${formatCurrency(price * qty)}`}
+            {isShopOwner ? (
+              "Action Blocked"
+            ) : isLoadingVariants ? (
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading choices...
+              </span>
+            ) : (
+              `Add — ${formatCurrency(price * qty)}`
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
