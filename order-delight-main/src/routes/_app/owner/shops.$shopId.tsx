@@ -38,13 +38,12 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
-// 🚀 STATE ENGINE RULES MAP: Enforces strict lifecycle validation rules across the frontend UI 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
   preparing: ["ready"],
   ready: ["completed"],
-  cancel_requested: ["cancelled", "accepted"], // Resolves directly via Acceptance or Rejection
+  cancel_requested: ["cancelled", "accepted"],
   completed: [],
   cancelled: []
 };
@@ -83,18 +82,18 @@ function OwnerShop() {
             <p className="text-sm text-muted-foreground">{shop.cuisine ?? "—"}</p>
           </div>
           <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-mono">ID: {shop.id}</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(shop.id);
-                  toast.success("Shop ID copied to clipboard!");
-                }}
-                className="rounded-md p-1 hover:bg-muted hover:text-foreground transition-colors"
-                title="Copy Shop ID"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <span className="font-mono">ID: {shop.id}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(shop.id);
+                toast.success("Shop ID copied to clipboard!");
+              }}
+              className="rounded-md p-1 hover:bg-muted hover:text-foreground transition-colors"
+              title="Copy Shop ID"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Open</span>
@@ -529,7 +528,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -547,49 +545,47 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     refetchInterval: 5000, 
   });
   
-  
-  // Locate the updateStatus useMutation block near lines 310-330 inside your OrdersTab component
-
-const updateStatus = useMutation({
-  mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
-    setUpdatingOrderId(id);
-    return await apiRequest(`/api/v1/orders/${id}/status`, {
-      method: "PATCH",
-      body: { status: st, decline_action, reason },
-    });
-  },
-  onSuccess: () => {
-    toast.success("Order state synchronized");
-    qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
-    qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
-  },
-  onError: (e: any) => {
-    // 🧠 THE ROBUST SYNC FIX: Detect lockouts caused by stale cache states
-    const errorMsg = e?.message || "";
-    if (errorMsg.includes("Action Lockout") || errorMsg.includes("processed and resolved")) {
-      // Intentionally skip the error toast and force-refresh the data arrays silently
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
+      setUpdatingOrderId(id);
+      return await apiRequest(`/api/v1/orders/${id}/status`, {
+        method: "PATCH",
+        body: { status: st, decline_action, reason },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Order state synchronized");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
-      toast.info("Order list updated to match live status.");
-    } else {
-      toast.error(errorMsg || "Action restricted by state machine constraints.");
-    }
-  },
-  onSettled: () => setUpdatingOrderId(null),
-});
+    },
+    onError: (e: any) => {
+      const errorMsg = e?.message || "";
+      if (errorMsg.includes("Action Lockout") || errorMsg.includes("processed and resolved")) {
+        qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
+        qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
+        toast.info("Order list updated to match live status.");
+      } else {
+        toast.error(errorMsg || "Action restricted by state machine constraints.");
+      }
+    },
+    onSettled: () => setUpdatingOrderId(null),
+  });
 
   const toggleExpand = (orderId: string) => {
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
-  // Dual filtration sync logic to securely maintain persistent rendering across tabs
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
-        const isDisputed = itemStatus === "cancel_requested" || o.is_cancellation_pending === true || !!o.cancellation_reason;
+        const isActivelyDisputed = itemStatus === "cancel_requested";
         
         if (forceRequestsOnly) {
-          return isDisputed;
+          return isActivelyDisputed;
+        }
+        
+        if (isActivelyDisputed) {
+          return false;
         }
         
         if (status === "all") return true;
@@ -627,13 +623,11 @@ const updateStatus = useMutation({
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
-            
-            const isAwaitingResolution = currentStatus === "cancel_requested" || o.is_cancellation_pending === true;
+            const isAwaitingResolution = currentStatus === "cancel_requested";
 
             return (
               <Card key={o.id} className="overflow-hidden rounded-xl border border-border/70 text-left shadow-none bg-card hover:bg-muted/5 transition-colors">
                 <CardContent className="p-0">
-                  
                   <div className="flex items-center justify-between gap-4 p-4">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2.5">
@@ -650,7 +644,6 @@ const updateStatus = useMutation({
                     <div className="flex items-center gap-4">
                       <span className="font-semibold text-sm text-foreground">{formatCurrency(o.total_price)}</span>
                       
-                      {/* 🚀 THE PREMIUM ENTERPRISE ACTION ROW: Completely minimalist, clean text-buttons instead of flashy panels */}
                       {isAwaitingResolution ? (
                         <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
                           <Button
@@ -705,11 +698,12 @@ const updateStatus = useMutation({
                     </div>
                   </div>
 
-                  {/* Clean inline details panel block */}
                   {isExpanded && o.cancellation_reason && (
                     <div className="bg-muted/30 border-t border-dashed border-border p-4 text-xs">
                       <p className="text-muted-foreground font-normal">
-                        <span className="font-medium text-foreground mr-1">Cancellation Reason:</span> 
+                        <span className="font-medium text-foreground mr-1">
+                          {currentStatus === "cancel_requested" ? "Active Cancellation Request Reason:" : "Previous Cancellation Request Reason (Declined):"}
+                        </span> 
                         "{o.cancellation_reason}"
                       </p>
                     </div>
