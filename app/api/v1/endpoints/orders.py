@@ -382,7 +382,12 @@ async def update_order_status(
         ))
 
     order.status = payload.status
+    
+    # 🚀 THE CRITICAL FIX: Save the data, then immediately force an database value pull
     await db.commit()
+    await db.refresh(order)  # 🧠 This kills the 0/3 bug by pulling the updated count live from the table!
+
+    # Return the verified fresh object out to the schema serializer
     return await _order_out(db, order.id)
 
 
@@ -418,7 +423,18 @@ async def delete_order(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-async def _order_out(db: AsyncSession, order_id: str) -> OrderOut:
-    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
-    order = (await db.execute(stmt)).scalar_one()
-    return OrderOut.model_validate(order)
+async def _order_out(db: AsyncSession, order_id: str) -> Order:
+    """
+    Ensures that the fresh database values are re-loaded cleanly 
+    from the table schema before sending data to the client application.
+    """
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items))
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order tracking record not found")
+    return order
