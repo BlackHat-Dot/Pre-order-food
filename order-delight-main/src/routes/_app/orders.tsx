@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/api";
@@ -14,6 +14,7 @@ import { ordersApi, type OrderStatus } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/app/StatusBadge";
 
+// 🚀 FIXED BASE ROUTE REGISTER MAP
 export const Route = createFileRoute("/_app/orders")({ component: OrdersPage });
 
 const tabs: Array<{ value: string; label: string }> = [
@@ -25,8 +26,8 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// --- RENDER COMPONENT 1: ORDER DETAILS VIEW (WHEN ORDER ID IS DETECTED) ---
-function EmbeddedOrderDetailsPage({ orderId }: { orderId: string }) {
+// --- RENDER COMPONENT 1: ORDER DETAILS VIEW (WHEN FLAT DETAIL TRACKING IS ACTIVE) ---
+function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack: () => void }) {
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => apiRequest<any>(`/api/v1/orders/${orderId}`, { method: "GET" }),
@@ -37,9 +38,10 @@ function EmbeddedOrderDetailsPage({ orderId }: { orderId: string }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <Link to="/orders" className="mb-4 inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
+      {/* 🚀 FIXED BACK NAVIGATION: Safely clears the state item pointer locally */}
+      <button onClick={onBack} className="mb-4 inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground gap-1">
         <ChevronLeft className="h-4 w-4" /> Back to My Orders
-      </Link>
+      </button>
 
       <Card className="rounded-2xl border shadow-sm overflow-hidden text-left">
         <CardContent className="p-6 space-y-4">
@@ -76,7 +78,7 @@ function EmbeddedOrderDetailsPage({ orderId }: { orderId: string }) {
             </div>
           </div>
 
-          <CustomerOrderActionModule order={order} />
+          <CustomerOrderActionModule order={order} onActionComplete={onBack} />
         </CardContent>
       </Card>
     </div>
@@ -84,7 +86,7 @@ function EmbeddedOrderDetailsPage({ orderId }: { orderId: string }) {
 }
 
 // --- RENDER COMPONENT 2: CANCELLATION ENGINE ACTIONS BUTTONS MODULE ---
-export function CustomerOrderActionModule({ order }: { order: any }) {
+export function CustomerOrderActionModule({ order, onActionComplete }: { order: any; onActionComplete?: () => void }) {
   const qc = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reasonText, setReasonText] = useState("");
@@ -106,6 +108,7 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
       qc.invalidateQueries({ queryKey: ["my-orders"] });
+      if (onActionComplete) onActionComplete();
     },
     onError: (err: any) => {
       toast.error(err?.message || "Lifecycle status alteration error occurred.");
@@ -190,10 +193,8 @@ export function CustomerOrderActionModule({ order }: { order: any }) {
 // --- RENDER COMPONENT 3: MAIN TRACKING ORDERS LISTING DASHBOARD ---
 function OrdersPage() {
   const [status, setStatus] = useState<string>("all");
-  
-  // Safe param extraction block to detect navigation deep links without crashing parent hierarchies
-  const params = useParams({ strict: false }) as Record<string, string>;
-  const activeOrderId = params?.orderId;
+  // 🚀 FIXED STATE ARCHITECTURE: Uses local reactive state variables to isolate detail snapshots smoothly without compiler errors
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["my-orders", status],
@@ -201,9 +202,9 @@ function OrdersPage() {
       ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
   });
 
-  // Switch display completely to details layout if the user is viewing a specific order ID context path
+  // Render detail overlay cleanly when an index variable mapping pointer hits the system memory stack
   if (activeOrderId) {
-    return <EmbeddedOrderDetailsPage orderId={activeOrderId} />;
+    return <EmbeddedOrderDetailsPage orderId={activeOrderId} onBack={() => setActiveOrderId(null)} />;
   }
 
   const visibleOrders = Array.isArray(data) 
@@ -242,11 +243,10 @@ function OrdersPage() {
       ) : (
         <div className="space-y-3">
           {visibleOrders.map((o) => (
-            <Link 
+            <div 
               key={o.id} 
-              to="/orders/$orderId" 
-              params={{ orderId: o.id }} 
-              className="block cursor-pointer transition-transform active:scale-[0.995]"
+              onClick={() => setActiveOrderId(o.id)}
+              className="block cursor-pointer transition-transform active:scale-[0.995] text-left"
             >
               <Card className="transition-all hover:border-primary/40 text-left rounded-2xl">
                 <CardContent className="p-5 space-y-4">
@@ -292,7 +292,7 @@ function OrdersPage() {
 
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
       )}

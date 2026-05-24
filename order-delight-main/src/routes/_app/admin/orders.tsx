@@ -21,11 +21,12 @@ export const Route = createFileRoute("/_app/admin/orders")({ component: AdminOrd
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
-  accepted: ["preparing"],
+  accepted: ["preparing", "cancelled"], // Standard progression flow
   preparing: ["ready"],
   ready: ["completed"],
+  cancel_requested: ["cancelled", "accepted"], // MUST either accept (Cancel) or decline (Resume back to Accepted)
   completed: [],
-  cancelled: [],
+  cancelled: []
 };
 
 const STATUS_COLORS: Record<string, string> = {
