@@ -288,7 +288,6 @@ async def update_order_status(
     if user.role == "customer" and order.customer_id != user.id:
         raise HTTPException(403, "Unauthorized modification attempt.")
 
-    # 🚀 FIXED STATE TRANSITIONS ENGINE: Exact alignment with state rules specs
     allowed_transitions = {
         "pending": ["accepted", "cancelled"],
         "accepted": ["preparing", "cancel_requested", "cancelled"],
@@ -302,23 +301,30 @@ async def update_order_status(
     if new_status not in allowed_transitions.get(old_status, []):
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid transition constraint configuration state from '{old_status}' to '{new_status}'."
+            detail=f"Invalid transition constraint state from '{old_status}' to '{new_status}'."
         )
 
-    # Handle a customer initiating a Cancellation or Request
+    # 🚀 ONE REQUEST POLICY GATEWAY RULE
     if user.role == "customer":
         if old_status == "pending" and new_status == "cancelled":
             pass
         elif old_status in ["accepted", "preparing", "ready"] and new_status == "cancel_requested":
+            # Check if the customer has already used their single allowed request attempt
+            if getattr(order, "cancellation_rejections", 0) >= 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cancellations are restricted! Your previous request was declined by the kitchen. Please contact the shop owner directly."
+                )
             order.cancellation_reason = payload.reason
         else:
             raise HTTPException(403, "You can only request cancellations on active kitchen workflows.")
 
-    # 🚀 CIRCUIT BREAKER: Clear cancellation metadata on rejection back into regular pipelines
+    # 🚀 INCREMENT REJECTIONS AUTOMATICALLY: If the shop owner returns the order to active status
     if user.role != "customer" and old_status == "cancel_requested" and new_status in ["accepted", "preparing", "ready"]:
         order.cancellation_reason = None
+        order.cancellation_rejections = getattr(order, "cancellation_rejections", 0) + 1
 
-    # Financial / Loyalty Refunds Execution on cancellation
+    # Financial / Loyalty Refunds Execution
     if new_status == "cancelled" and old_status != "cancelled":
         order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
         
@@ -342,18 +348,13 @@ async def update_order_status(
                     points=-order.loyalty_points_earned, action="deducted"
                 ))
 
-        # Voucher returns processing
         if getattr(order, "coupon_discount_applied", 0) > 0:
-            coupon_stmt = select(Coupon).where(
-                or_(Coupon.order_id == order.id, Coupon.id == select(Order.coupon_id).where(Order.id == order.id).scalar_subquery())
-            )
+            coupon_stmt = select(Coupon).where(or_(Coupon.order_id == order.id, Coupon.id == select(Order.coupon_id).where(Order.id == order.id).scalar_subquery()))
             coupon = (await db.execute(coupon_stmt)).scalar_one_or_none()
-            
             if coupon:
                 coupon.discount_value = round(coupon.discount_value + order.coupon_discount_applied, 2)
                 coupon.is_redeemed = False
-                if coupon.order_id == order.id:
-                    coupon.order_id = None
+                coupon.order_id = None
                 db.add(coupon)
 
     status_messages = {

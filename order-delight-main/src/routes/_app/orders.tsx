@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock } from "lucide-react";
+import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock, Mail, Phone, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +14,6 @@ import { ordersApi, type OrderStatus } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/app/StatusBadge";
 
-// 🚀 FIXED BASE ROUTE REGISTER MAP
 export const Route = createFileRoute("/_app/orders")({ component: OrdersPage });
 
 const tabs: Array<{ value: string; label: string }> = [
@@ -38,7 +37,6 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      {/* 🚀 FIXED BACK NAVIGATION: Safely clears the state item pointer locally */}
       <button onClick={onBack} className="mb-4 inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground gap-1">
         <ChevronLeft className="h-4 w-4" /> Back to My Orders
       </button>
@@ -91,6 +89,15 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reasonText, setReasonText] = useState("");
 
+  // 🚀 METRIC LOOKUP: Fetch merchant parameters to output support contact lines
+  const { data: shopDetails } = useQuery({
+    queryKey: ["shop-contact", order.shop_id],
+    queryFn: async () => {
+      return await apiRequest<any>(`/api/v1/shops/${order.shop_id}`, { method: "GET" });
+    },
+    enabled: !!order?.shop_id,
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { status: string; reason?: string }) => {
       return await apiRequest(`/api/v1/orders/${order.id}/status`, {
@@ -116,7 +123,37 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status);
+  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) >= 1;
+  const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !hasExceededRequestLimit;
+
+  // 🚀 FALLBACK CONTACT CONTAINER: Render store attributes explicitly if they are locked down
+  if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
+    return (
+      <div className="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-amber-700">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Actions Restricted</span>
+        </div>
+        <p className="text-xs text-muted-foreground leading-normal">
+          Your previous request was declined by the kitchen team as your meal was already actively being prepared. Future automated attempts are restricted. Please reach out to the storefront directly to coordinate an update:
+        </p>
+        <div className="pt-1 flex flex-col gap-y-2 sm:flex-row sm:gap-x-6 text-xs font-semibold text-foreground border-t border-amber-500/10 pt-2.5">
+          {shopDetails?.phone && (
+            <a href={`tel:${shopDetails.phone}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
+              <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span>{shopDetails.phone}</span>
+            </a>
+          )}
+          {(shopDetails?.email || (shopDetails as any).owner_email) && (
+            <a href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span>{shopDetails.email || (shopDetails as any).owner_email}</span>
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!canInstantlyCancel && !canRequestCancel) return null;
 
@@ -193,7 +230,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 // --- RENDER COMPONENT 3: MAIN TRACKING ORDERS LISTING DASHBOARD ---
 function OrdersPage() {
   const [status, setStatus] = useState<string>("all");
-  // 🚀 FIXED STATE ARCHITECTURE: Uses local reactive state variables to isolate detail snapshots smoothly without compiler errors
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
@@ -202,7 +238,6 @@ function OrdersPage() {
       ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
   });
 
-  // Render detail overlay cleanly when an index variable mapping pointer hits the system memory stack
   if (activeOrderId) {
     return <EmbeddedOrderDetailsPage orderId={activeOrderId} onBack={() => setActiveOrderId(null)} />;
   }
@@ -248,7 +283,7 @@ function OrdersPage() {
               onClick={() => setActiveOrderId(o.id)}
               className="block cursor-pointer transition-transform active:scale-[0.995] text-left"
             >
-              <Card className="transition-all hover:border-primary/40 text-left rounded-2xl">
+              <Card className="transition-all hover:border-primary/40 text-left rounded-2xl shadow-sm">
                 <CardContent className="p-5 space-y-4">
                   
                   <div className="flex items-start justify-between gap-4">

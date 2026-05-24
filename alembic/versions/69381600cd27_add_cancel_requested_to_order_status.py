@@ -17,14 +17,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 🚀 FIXED: Safely append the cancellation_reason text column directly into your live orders table layout
-    # Using batch_alter_table ensures cross-dialect schema alterations run seamlessly
-    with op.batch_alter_table('orders', schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column('cancellation_reason', sa.String(length=500), nullable=True)
-        )
-
+    # 🚀 Add a counter to keep track of how many times a cancellation was rejected
+    op.add_column('orders', sa.Column('cancellation_rejections', sa.Integer(), server_default='0', nullable=False))
 
 def downgrade() -> None:
-    with op.batch_alter_table('orders', schema=None) as batch_op:
-        batch_op.drop_column('cancellation_reason')
+    op.drop_column('orders', 'cancellation_rejections')

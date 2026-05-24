@@ -38,14 +38,16 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
-const ORDER_STATUSES: OrderStatus[] = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "completed" as OrderStatus,
-  "cancelled",
-];
+// 🚀 STATE ENGINE RULES MAP: Enforces strict lifecycle validation rules across the frontend UI 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  pending: ["accepted", "cancelled"],
+  accepted: ["preparing", "cancelled"],
+  preparing: ["ready"],
+  ready: ["completed"],
+  cancel_requested: ["cancelled", "accepted"], // Resolves directly via Acceptance or Rejection
+  completed: [],
+  cancelled: []
+};
 
 function OwnerShop() {
   const { shopId } = Route.useParams();
@@ -545,7 +547,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
   
   const updateStatus = useMutation({
-    // 🚀 FIXED: Bypasses the strict 2-argument limitation of ordersApi by hitting apiRequest directly with the exact body payload object
     mutationFn: async ({ id, st, reason }: { id: string; st: string; reason?: string }) => {
       setUpdatingOrderId(id);
       return await apiRequest(`/api/v1/orders/${id}/status`, {
@@ -611,6 +612,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
+            const currentStatus = (o.status || "pending").toLowerCase();
+            
+            // 🚀 DYNAMIC STATE MATCHING DEFINITION
+            const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
 
             return (
               <Card key={o.id} className="overflow-hidden rounded-2xl border border-border/70 text-left shadow-sm bg-card">
@@ -633,12 +638,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       <span className="font-bold text-sm">{formatCurrency(o.total_price)}</span>
                       
                       {forceRequestsOnly ? (
-                        /* 🚀 STREAMLINED: Restricts choices strictly to Accept Request or Decline Request */
                         <Select
                           value={o.status}
                           disabled={updatingOrderId !== null}
                           onValueChange={(v) => {
-                            // If owner selects "accepted", it clears the request text field on the backend
                             updateStatus.mutate({ 
                               id: o.id, 
                               st: v, 
@@ -662,26 +665,24 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           </SelectContent>
                         </Select>
                       ) : (
-                        /* Standard core order processing drop-down loop list */
+                        /* 🚀 DYNAMIC FILTER ENGINE: Renders ONLY valid transition options */
                         <Select
                           value={o.status}
-                          disabled={updatingOrderId !== null}
+                          disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
                           onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
                         >
                           <SelectTrigger className="w-44 capitalize font-semibold text-xs rounded-xl h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold">
+                            <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold bg-muted/50">
                               {o.status.replace("_", " ")} (Current)
                             </SelectItem>
-                            {["pending", "accepted", "preparing", "ready", "completed", "cancelled"]
-                              .filter(step => step !== o.status)
-                              .map((step) => (
-                                <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                                  {step.replace("_", " ")}
-                                </SelectItem>
-                              ))}
+                            {nextAllowedOptions.map((step) => (
+                              <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                                {step.replace("_", " ")}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       )}
