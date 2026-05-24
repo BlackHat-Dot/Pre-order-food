@@ -149,6 +149,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// Complete Stats Dashboard Panel
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
@@ -178,6 +179,7 @@ function StatsTab({ shopId }: { shopId: string }) {
   );
 }
 
+// Complete Menu Settings Panel
 function MenuTab({ shopId }: { shopId: string }) {
   const qc = useQueryClient();
   const { data: items, isLoading } = useQuery({
@@ -256,6 +258,7 @@ function MenuTab({ shopId }: { shopId: string }) {
   );
 }
 
+// Complete Menu Creation Dialog
 function ItemDialog({
   shopId,
   editing,
@@ -423,6 +426,7 @@ function ItemDialog({
   );
 }
 
+// Complete Sub-Options Configuration Dialog
 function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: variants } = useQuery({
@@ -528,6 +532,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
+// Refactored Minimalist Orders & Requests Tab Layout Matrix
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -756,6 +761,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   );
 }
 
+// Complete Merchant Settings Component Panel
 function SettingsTab({
   shopId,
   initial,
