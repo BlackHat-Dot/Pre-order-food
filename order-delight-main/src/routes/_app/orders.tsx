@@ -25,17 +25,15 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// ✅ ROBUST VALUE EXTRACTOR: Resolves naming differences between single items and query list rows
+// Safe extractor utility that accepts any capitalization structure from the database table rows
 function getCancellationRequestsCount(orderObj: any): number {
   if (!orderObj) return 0;
-  
   const rawValue = 
     orderObj.cancellation_requests_sent ?? 
     orderObj.cancellationRequestsSent ?? 
     orderObj.cancellation_request_sent ?? 
     orderObj.cancellationRequestSent ?? 
     0;
-
   const parsed = parseInt(rawValue, 10);
   return isNaN(parsed) ? 0 : parsed;
 }
@@ -105,12 +103,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   const [reasonText, setReasonText] = useState("");
 
   const { data: shopDetails } = useQuery({
-    queryKey: ["shop-contact", order.shop_id],
+    queryKey: ["shop-contact", order?.shop_id],
     queryFn: () => apiRequest<any>(`/api/v1/shops/${order.shop_id}`, { method: "GET" }),
     enabled: !!order?.shop_id,
   });
 
   const currentRequestsSent = getCancellationRequestsCount(order);
+  const orderStatusStr = order?.status ? String(order.status).toLowerCase() : "";
 
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { status: string; reason?: string }) => {
@@ -119,9 +118,8 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
         body: payload,
       });
     },
-    onSuccess: (updatedOrder: any) => {
-      const serverCount = getCancellationRequestsCount(updatedOrder) || (currentRequestsSent + 1);
-      toast.success(`Cancellation request ${serverCount}/3 submitted successfully.`);
+    onSuccess: () => {
+      toast.success("Cancellation update processed successfully.");
       setIsModalOpen(false);
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
@@ -135,14 +133,19 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     }
   });
 
-  const canInstantlyCancel = order.status === "pending";
-  
-  // 🚨 REMOVES INTERACTIVE BOX COMPLETELY IF ATTEMPTS >= 3 OR ALREADY ACTIVE 'cancel_requested'
-  const shouldLockAndHideBox = currentRequestsSent >= 3 || order.status === "cancel_requested";
+  // 🚨 FIXED CRASH CONDITIONS: Safe checks that will never tip over the page renderer
+  const isPending = orderStatusStr === "pending";
+  const isCancelled = orderStatusStr === "cancelled" || orderStatusStr === "refunded";
+  const isCompleted = orderStatusStr === "completed";
+  const isActivelyDisputed = orderStatusStr === "cancel_requested" || currentRequestsSent >= 3;
 
-  if (shouldLockAndHideBox && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
+  // If the transaction has completed or has been terminated completely, render nothing
+  if (isCancelled || isCompleted) return null;
+
+  // 🚨 PROFESSIONAL FORCED OVERRIDE: Replaces the interactive card layout box cleanly 
+  if (isActivelyDisputed) {
     return (
-      <div className="mt-5 pt-4 border-t border-border/80 space-y-2.5 text-left animate-in fade-in duration-200">
+      <div className="mt-5 pt-4 border-t border-border/80 space-y-2 text-left">
         <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
           <span>Contact shop owner for cancellation queries</span>
@@ -165,8 +168,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     );
   }
 
-  if (!canInstantlyCancel && !["accepted", "preparing", "ready"].includes(order.status)) return null;
-
   return (
     <div className="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
       <div className="space-y-1 text-left">
@@ -174,13 +175,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <AlertTriangle className="h-4 w-4 text-destructive" /> Manage Order Cancellation
         </p>
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
-          {canInstantlyCancel 
+          {isPending 
             ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
             : `Active kitchen workflow item. Request attempts: (${currentRequestsSent}/3 used).`}
         </p>
       </div>
 
-      {canInstantlyCancel ? (
+      {isPending ? (
         <Button
           variant="destructive"
           size="sm"
@@ -296,7 +297,7 @@ function OrdersPage() {
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
             const rowCount = getCancellationRequestsCount(o);
-            const isRowLocked = rowCount >= 3 || o.status === "cancel_requested";
+            const isRowLocked = rowCount >= 3 || String(o?.status).toLowerCase() === "cancel_requested";
             
             return (
               <div 
