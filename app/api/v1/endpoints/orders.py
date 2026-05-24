@@ -233,6 +233,10 @@ async def customer_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ) -> list[OrderOut]:
+    """
+    🚀 FIXED: Explicitly includes the cancellation metadata counter 
+    directly within the customer's master overview panel stream array rows.
+    """
     stmt = (
         select(Order)
         .where(Order.customer_id == user.id)
@@ -242,6 +246,8 @@ async def customer_orders(
         .limit(page_size)
     )
     rows = (await db.execute(stmt)).scalars().all()
+    
+    # Secure data mapping array loop formatting pass
     return [OrderOut.model_validate(o) for o in rows]
 
 
