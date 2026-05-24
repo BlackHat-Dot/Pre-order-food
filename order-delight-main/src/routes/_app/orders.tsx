@@ -25,7 +25,7 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// 🚀 ROBUST VALUE EXTRACTOR: Resolves naming differences between single and list responses
+// ✅ ROBUST VALUE EXTRACTOR: Resolves naming differences between single items and query list rows
 function getCancellationRequestsCount(orderObj: any): number {
   if (!orderObj) return 0;
   
@@ -136,12 +136,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const hasExceededRequestLimit = currentRequestsSent >= 3;
-  const canRequestCancel = ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status) && !hasExceededRequestLimit;
+  
+  // 🚨 REMOVES INTERACTIVE BOX COMPLETELY IF ATTEMPTS >= 3 OR ALREADY ACTIVE 'cancel_requested'
+  const shouldLockAndHideBox = currentRequestsSent >= 3 || order.status === "cancel_requested";
 
-  if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
+  if (shouldLockAndHideBox && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
-      <div className="mt-5 pt-4 border-t border-border/80 space-y-2.5 text-left">
+      <div className="mt-5 pt-4 border-t border-border/80 space-y-2.5 text-left animate-in fade-in duration-200">
         <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
           <span>Contact shop owner for cancellation queries</span>
@@ -164,7 +165,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     );
   }
 
-  if (!canInstantlyCancel && !canRequestCancel) return null;
+  if (!canInstantlyCancel && !["accepted", "preparing", "ready"].includes(order.status)) return null;
 
   return (
     <div className="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -295,6 +296,7 @@ function OrdersPage() {
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
             const rowCount = getCancellationRequestsCount(o);
+            const isRowLocked = rowCount >= 3 || o.status === "cancel_requested";
             
             return (
               <div 
@@ -329,7 +331,7 @@ function OrdersPage() {
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
                         <span>Order Activity Context</span>
                         <span className="font-semibold text-foreground normal-case font-mono">
-                          {rowCount >= 3 ? "Contact Shop Owner" : `Attempts: ${rowCount}/3`}
+                          {isRowLocked ? "Contact Shop Owner" : `Attempts: ${rowCount}/3`}
                         </span>
                       </div>
 
