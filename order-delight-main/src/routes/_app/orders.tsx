@@ -25,6 +25,21 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
+// 🚀 ROBUST VALUE EXTRACTOR: Resolves naming differences between single and list responses
+function getCancellationRequestsCount(orderObj: any): number {
+  if (!orderObj) return 0;
+  
+  const rawValue = 
+    orderObj.cancellation_requests_sent ?? 
+    orderObj.cancellationRequestsSent ?? 
+    orderObj.cancellation_request_sent ?? 
+    orderObj.cancellationRequestSent ?? 
+    0;
+
+  const parsed = parseInt(rawValue, 10);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 // --- RENDER COMPONENT 1: ORDER DETAILS VIEW ---
 function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack: () => void }) {
   const { data: order, isLoading, error } = useQuery({
@@ -49,7 +64,7 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
               <h2 className="font-mono text-xs font-bold">{order.id}</h2>
             </div>
             <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase">
-              <Clock className="h-3.5 w-3.5" /> {order.status.replace("_", " ")}
+              <Clock className="h-3.5 w-3.5" /> {order.status ? order.status.replace("_", " ") : ""}
             </div>
           </div>
 
@@ -95,15 +110,18 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     enabled: !!order?.shop_id,
   });
 
+  const currentRequestsSent = getCancellationRequestsCount(order);
+
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { status: string; reason?: string }) => {
-      return await apiRequest(`/api/v1/orders/${order.id}/status`, {
+      return await apiRequest<any>(`/api/v1/orders/${order.id}/status`, {
         method: "PATCH",
         body: payload,
       });
     },
     onSuccess: (updatedOrder: any) => {
-      toast.success(`Cancellation request ${updatedOrder.cancellation_requests_sent}/3 submitted successfully.`);
+      const serverCount = getCancellationRequestsCount(updatedOrder) || (currentRequestsSent + 1);
+      toast.success(`Cancellation request ${serverCount}/3 submitted successfully.`);
       setIsModalOpen(false);
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
@@ -118,10 +136,9 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   });
 
   const canInstantlyCancel = order.status === "pending";
-  const hasExceededRequestLimit = (order.cancellation_requests_sent ?? 0) >= 3;
+  const hasExceededRequestLimit = currentRequestsSent >= 3;
   const canRequestCancel = ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚨 REPLACES ENTIRE BOX COMPONENT WITH CLEAN CORPORATE FOOTER NOTE
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
       <div className="mt-5 pt-4 border-t border-border/80 space-y-2.5 text-left">
@@ -131,13 +148,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
         </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-4 text-xs text-muted-foreground">
           {shopDetails?.phone && (
-            <a href={`tel:${shopDetails.phone}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors">
+            <a href={`tel:${shopDetails.phone}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground">
               <Phone className="h-3 w-3 text-muted-foreground/70" />
               <span>Phone: {shopDetails.phone}</span>
             </a>
           )}
           {(shopDetails?.email || (shopDetails as any).owner_email) && (
-            <a href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors min-w-0">
+            <a href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground min-w-0">
               <Mail className="h-3 w-3 text-muted-foreground/70" />
               <span className="truncate">Email: {shopDetails.email || (shopDetails as any).owner_email}</span>
             </a>
@@ -158,7 +175,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
           {canInstantlyCancel 
             ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
-            : `Active kitchen workflow item. Request attempts: (${order.cancellation_requests_sent ?? 0}/3 used).`}
+            : `Active kitchen workflow item. Request attempts: (${currentRequestsSent}/3 used).`}
         </p>
       </div>
 
@@ -188,7 +205,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <DialogHeader>
             <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
             <DialogDescription className="text-xs pt-1">
-              Attempt { (order.cancellation_requests_sent ?? 0) + 1 } of 3. Let the owner know why you need to drop this order.
+              Attempt { currentRequestsSent + 1 } of 3. Let the owner know why you need to drop this order.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 text-left">
@@ -207,9 +224,9 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
             <Button
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
-              disabled={!reasonText.trim() || updateStatusMutation.isPending || (order.cancellation_requests_sent ?? 0) >= 3}
+              disabled={!reasonText.trim() || updateStatusMutation.isPending || currentRequestsSent >= 3}
               onClick={() => {
-                if ((order.cancellation_requests_sent ?? 0) >= 3) {
+                if (currentRequestsSent >= 3) {
                   toast.error("Action denied: Maximum request limits reached.");
                   setIsModalOpen(false);
                   return;
@@ -276,67 +293,69 @@ function OrdersPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {visibleOrders.map((o) => (
-            <div 
-              key={o.id} 
-              onClick={() => setActiveOrderId(o.id)}
-              className="block cursor-pointer transition-transform active:scale-[0.995] text-left"
-            >
-              <Card className="transition-all hover:border-primary/40 text-left rounded-2xl shadow-sm">
-                <CardContent className="p-5 space-y-4">
-                  
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60 font-bold">
-                          #{o.id.slice(0, 8).toUpperCase()}
-                        </span>
-                        <StatusBadge status={o.status} />
+          {visibleOrders.map((o: any) => {
+            const rowCount = getCancellationRequestsCount(o);
+            
+            return (
+              <div 
+                key={o.id} 
+                onClick={() => setActiveOrderId(o.id)}
+                className="block cursor-pointer transition-transform active:scale-[0.995] text-left"
+              >
+                <Card className="transition-all hover:border-primary/40 text-left rounded-2xl shadow-sm">
+                  <CardContent className="p-5 space-y-4">
+                    
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60 font-bold">
+                            #{o.id.slice(0, 8).toUpperCase()}
+                          </span>
+                          <StatusBadge status={o.status} />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground font-mono">
+                          {formatDate(o.created_at)}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground font-mono">
-                        {formatDate(o.created_at)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-base font-bold text-foreground">{formatCurrency(o.total_price)}</p>
+                        {o.shop_name && (
+                          <p className="text-xs text-muted-foreground font-medium mt-0.5">{o.shop_name}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-bold text-foreground">{formatCurrency(o.total_price)}</p>
-                      {o.shop_name && (
-                        <p className="text-xs text-muted-foreground font-medium mt-0.5">{o.shop_name}</p>
+
+                    <div className="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
+                        <span>Order Activity Context</span>
+                        <span className="font-semibold text-foreground normal-case font-mono">
+                          {rowCount >= 3 ? "Contact Shop Owner" : `Attempts: ${rowCount}/3`}
+                        </span>
+                      </div>
+
+                      {o.items && o.items.length > 0 ? (
+                        <div className="space-y-1.5 divide-y divide-border/20">
+                          {o.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between pt-1.5 first:pt-0 gap-4 text-left">
+                              <span className="font-semibold text-foreground">
+                                {item.item_name_snapshot || item.name} {item.variant_name_snapshot ? `(${item.variant_name_snapshot})` : ""}
+                              </span>
+                              <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border shrink-0 font-bold">
+                                ×{item.quantity}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground italic">Standard Basket Content</p>
                       )}
                     </div>
-                  </div>
 
-                  <div className="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
-                      <span>Order Activity Context</span>
-                      <span className="font-semibold text-foreground normal-case font-mono">
-                        {((o as any).cancellation_requests_sent ?? 0) >= 3
-                          ? "Contact Shop Owner"
-                          : `Attempts: ${((o as any).cancellation_requests_sent ?? 0)}/3`}
-                      </span>
-                    </div>
-
-                    {o.items && o.items.length > 0 ? (
-                      <div className="space-y-1.5 divide-y divide-border/20">
-                        {o.items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between pt-1.5 first:pt-0 gap-4 text-left">
-                            <span className="font-semibold text-foreground">
-                              {item.item_name_snapshot || item.name} {item.variant_name_snapshot ? `(${item.variant_name_snapshot})` : ""}
-                            </span>
-                            <span className="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border shrink-0 font-bold">
-                              ×{item.quantity}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground italic">Standard Basket Content</p>
-                    )}
-                  </div>
-
-                </CardContent>
-              </Card>
-            </div>
-          ))}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
