@@ -446,8 +446,8 @@ async def get_order_ticket_details(
     user: Annotated[User, Depends(get_current_user)],
 ) -> OrderOut:
     """
-    🚀 DEDICATED DETAIL ENDPOINT: Fully segregates deep data parsing 
-    from master overview panels to prevent frontend state synchronization crashes.
+    🚀 SEPARATE ENDPOINT: Completely decouples deep ticket items 
+    and counter states from master list overview payloads.
     """
     stmt = (
         select(Order)
@@ -458,10 +458,10 @@ async def get_order_ticket_details(
     order = result.scalar_one_or_none()
     
     if not order:
-        raise HTTPException(status_code=404, detail="Requested order could not be located.")
+        raise HTTPException(status_code=404, detail="The requested order could not be located.")
         
-    # Access control verification
+    # Access management verification 
     if user.role == "customer" and order.customer_id != user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized access to this order ticket.")
+        raise HTTPException(status_code=403, detail="Unauthorized access to this order tracking ticket.")
         
     return order

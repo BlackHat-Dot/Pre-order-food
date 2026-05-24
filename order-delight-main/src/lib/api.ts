@@ -571,25 +571,30 @@ export const ordersApi = {
     redeem_loyalty_points?: number;
     payment_method: string;
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
+
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }), // Added /customer/me path
+    apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }),
+
   get: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}`),
-  updateStatus: (id: string, status: OrderStatus) =>
-    apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status } }),
+
+  updateStatus: (id: string, status: OrderStatus, reason?: string) =>
+    apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { 
+      method: "PATCH", 
+      body: { status, reason } 
+    }),
+
   cancel: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}/cancel`, { method: "PATCH" }),
+
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }),
 
-  // 👇 ENSURE THIS EXACT SIGNATURE SITS CLEANLY AT THE TAIL OF THE OBJECT 👇
   submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
     apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
   
-  getTicket: async (orderId: string): Promise<any> => {
-    return await apiRequest<any>(`/api/v1/orders/ticket/${orderId}`, {
-      method: "GET",
-    });
-  },
-}
+  // 🚀 FIXED: Stripped away the async promise wrapper to fire direct network requests natively
+  getTicket: (orderId: string) => 
+    apiRequest<OrderOut>(`/api/v1/orders/ticket/${orderId}`, { method: "GET" }),
+};
   // Changed to match python backend
 
 // ── Payments API ───────────────────────────────────────────────────────────────
