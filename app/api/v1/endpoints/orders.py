@@ -299,7 +299,7 @@ async def update_order_status(
         "accepted": ["preparing", "cancel_requested", "cancelled"],
         "preparing": ["ready", "cancel_requested", "cancelled"],
         "ready": ["completed", "cancel_requested", "cancelled"],
-        "cancel_requested": ["cancelled", "accepted", "preparing", "ready"],
+        "cancel_requested": ["cancel_requested", "cancelled", "accepted", "preparing", "ready"],
         "completed": [],
         "cancelled": []
     }
