@@ -17,7 +17,7 @@ from app.models.order import Order, OrderItem
 from app.models.shop import Shop
 from app.models.user import User
 from app.models.coupon import Coupon 
-from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
+from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderUpdateSchema
 from app.services.sms import send_sms
 from app.utils.ids import new_id
 
@@ -277,118 +277,58 @@ async def shop_orders(
     return [OrderOut.model_validate(o) for o in rows]
 
 
-@router.patch("/{order_id}/status", response_model=OrderOut)
+@router.patch("/{order_id}/status")
 async def update_order_status(
     order_id: str,
-    payload: OrderStatusUpdate,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    payload: OrderUpdateSchema,  # status, reason, etc.
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
-    order = await db.get(Order, order_id)
-    if not order:
-        raise HTTPException(404, "Order not found")
-
-    old_status = order.status.lower()
-    new_status = payload.status.lower()
-
-    if user.role == "customer" and order.customer_id != user.id:
-        raise HTTPException(403, "Unauthorized modification attempt.")
-
-    allowed_transitions = {
-        "pending": ["accepted", "cancelled"],
-        "accepted": ["preparing", "cancel_requested", "cancelled"],
-        "preparing": ["ready", "cancel_requested", "cancelled"],
-        "ready": ["completed", "cancel_requested", "cancelled"],
-        "cancel_requested": ["cancel_requested", "cancelled", "accepted", "preparing", "ready"],
-        "completed": [],
-        "cancelled": []
-    }
-
-    if new_status not in allowed_transitions.get(old_status, []):
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid transition constraint state from '{old_status}' to '{new_status}'."
-        )
-
-    # 🚀 STRICT CUSTOMER COUNT ATTEMPTS GATEWAY
-    if user.role == "customer":
-        if old_status == "pending" and new_status == "cancelled":
-            pass
-        elif old_status in ["accepted", "preparing", "ready"] and new_status == "cancel_requested":
-            # 🚨 HARD LOCK: If they already submitted 3 requests, block any further entries
-            requests_count = getattr(order, "cancellation_requests_sent", 0)
-            if requests_count >= 3:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Cancellation limit reached. You cannot submit more than 3 requests. Please contact the shop owner directly."
-                )
-            
-            # ✅ Count +1 when the actual cancellation request is sent
-            order.cancellation_requests_sent = requests_count + 1
-            order.cancellation_reason = payload.reason
-        else:
-            raise HTTPException(403, "You can only request cancellations on active kitchen workflows.")
-
-    # Shop Owner clears text notes on a rejection drop
-    if user.role != "customer" and old_status == "cancel_requested" and new_status in ["accepted", "preparing", "ready"]:
-        order.cancellation_reason = None
-
-    # Financial / Loyalty Refunds Execution
-    if new_status == "cancelled" and old_status != "cancelled":
-        order.payment_status = "refunded" if order.payment_status == "paid" else order.payment_status
-        
-        loyalty_record = await db.scalar(
-            select(LoyaltyAccount).where(
-                LoyaltyAccount.customer_id == order.customer_id, 
-                LoyaltyAccount.shop_id == order.shop_id
-            )
-        )
-        if loyalty_record:
-            if getattr(order, "loyalty_points_used", 0) > 0:
-                loyalty_record.points_balance += order.loyalty_points_used
-                db.add(LoyaltyTransaction(
-                    id=new_id(), account_id=loyalty_record.id, order_id=order.id,
-                    points=order.loyalty_points_used, action="refunded"
-                ))
-            if getattr(order, "loyalty_points_earned", 0) > 0:
-                loyalty_record.points_balance = max(0, loyalty_record.points_balance - order.loyalty_points_earned)
-                db.add(LoyaltyTransaction(
-                    id=new_id(), account_id=loyalty_record.id, order_id=order.id,
-                    points=-order.loyalty_points_earned, action="deducted"
-                ))
-
-        if getattr(order, "coupon_discount_applied", 0) > 0:
-            coupon_stmt = select(Coupon).where(or_(Coupon.order_id == order.id, Coupon.id == select(Order.coupon_id).where(Order.id == order.id).scalar_subquery()))
-            coupon = (await db.execute(coupon_stmt)).scalar_one_or_none()
-            if coupon:
-                coupon.discount_value = round(coupon.discount_value + order.coupon_discount_applied, 2)
-                coupon.is_redeemed = False
-                coupon.order_id = None
-                db.add(coupon)
-
-    status_messages = {
-        "accepted": f"Your order #{order.id[:8]} was accepted.",
-        "preparing": f"Your order #{order.id[:8]} is being prepared.",
-        "ready": f"Your order #{order.id[:8]} is ready for pickup!",
-        "completed": f"Order #{order.id[:8]} marked complete.",
-        "cancel_requested": f"Cancellation request {order.cancellation_requests_sent}/3 has been submitted.",
-        "cancelled": f"Your order #{order.id[:8]} has been cancelled."
-    }
-
-    if payload.status in status_messages:
-        db.add(Notification(
-            id=new_id(), user_id=order.customer_id, title="Order Update!",
-            message=status_messages[payload.status], type="order_update"
-        ))
-
-    order.status = payload.status
+    stmt = select(Order).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
     
-    # 🚀 THE CRITICAL FIX: Save the data, then immediately force an database value pull
-    await db.commit()
-    await db.refresh(order)  # 🧠 This kills the 0/3 bug by pulling the updated count live from the table!
+    if not order:
+        raise HTTPException(status_code=404, detail="Order tracking block not found.")
 
-    # Return the verified fresh object out to the schema serializer
-    return await _order_out(db, order.id)
+    # 🚨 MERCHANDISE STATE PROTECTION RULE: Block regular kitchen flow transitions if a dispute is active
+    if order.is_cancellation_pending and user.role == "shop_owner" and payload.status not in ["cancelled", "accepted_after_dispute"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Transaction Locked: You must explicitly Accept or Decline the customer's cancellation request before processing this order."
+        )
+
+    # 🛑 CUSTOMER FLOW INTAKE INTERCEPTOR
+    if payload.status == "cancel_requested":
+        if order.cancellation_requests_sent >= 3:
+            raise HTTPException(status_code=400, detail="Automated cancellation limit reached for this transaction.")
+            
+        # Safely step up the counter metric parameters
+        order.cancellation_requests_sent += 1
+        order.status = "cancel_requested"
+        order.is_cancellation_pending = True
+        
+        await db.commit()
+        await db.refresh(order)
+        return order
+
+    # 🏪 MERCHANT INTERACTION RESOLUTIONS
+    if user.role == "shop_owner":
+        if payload.status == "cancelled":  # Merchant accepts dispute request
+            order.status = "cancelled"
+            order.is_cancellation_pending = False
+        elif payload.status == "decline_cancellation":  # Merchant explicitly rejects dispute request
+            # Return order to its true operational workflow state context lane
+            order.status = "accepted"  # or fall back to previous recorded state metrics
+            order.is_cancellation_pending = False
+            
+    else:
+        # Standard administrative updates or customer pending-stage instant updates
+        order.status = payload.status
+
+    await db.commit()
+    await db.refresh(order)
+    return order
 
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)

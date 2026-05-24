@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
+from typing import Optional, Literal
 
-from typing import Optional
-
+# --- INPUT SCHEMAS ---
 
 class OrderItemInput(BaseModel):
     item_id: str | None = None
@@ -30,17 +30,57 @@ class OrderCreate(BaseModel):
     payment_method: str = Field(pattern="^(cod|online)$")
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
     coupon_id: str | None = None
-    # 🚀 FIXED: Allow the incoming schema to verify payment confirmations dynamically
     payment_confirmed: bool | None = False
 
+
 class OrderStatusUpdate(BaseModel):
-    # 🚀 FIXED: Injected cancel_requested into the validation pattern to pass Pydantic parsing
     status: Optional[str] = Field(
         None, 
         pattern="^(pending|accepted|preparing|ready|completed|cancelled|cancel_requested)$"
     )
     reason: Optional[str] = None
 
+
+# --- 🚀 REFACTORED INTERLOCK WORKFLOW SCHEMA ---
+class OrderUpdateSchema(BaseModel):
+    """
+    Schema used to transition order workflow states.
+    Supports customer reason strings for dispute reviews, and merchant actions.
+    """
+    status: Literal[
+        "pending", 
+        "accepted", 
+        "preparing", 
+        "ready", 
+        "completed", 
+        "cancelled", 
+        "cancel_requested"
+    ] = Field(
+        ..., 
+        description="Target status workflow lane to transition the order into."
+    )
+    
+    reason: Optional[str] = Field(
+        None, 
+        max_length=250, 
+        description="Customer-provided reason string required during cancel_requested transitions."
+    )
+    
+    decline_action: Optional[Literal["decline_cancellation"]] = Field(
+        None,
+        description="Flag sent by shop owner to explicitly decline a pending cancel request."
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "cancel_requested",
+                "reason": "Selected wrong delivery location coordinates accidentally."
+            }
+        }
+
+
+# --- OUTPUT SCHEMAS ---
 
 class OrderItemOut(BaseModel):
     id: str
@@ -73,4 +113,9 @@ class OrderOut(BaseModel):
     created_at: datetime
     items: list[OrderItemOut]
     cancellation_reason: Optional[str] = None
+    
+    # ✅ FIXED DATA PIPELINE: Exposed fields so your database values hit your React screens instantly
+    cancellation_requests_sent: int = 0
+    is_cancellation_pending: bool = False
+
     model_config = {"from_attributes": True}

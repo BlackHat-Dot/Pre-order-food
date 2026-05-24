@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock, Mail, Phone, Lock } from "lucide-react";
+import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock, Mail, Phone, Lock, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,6 +111,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 
   const currentRequestsSent = getCancellationRequestsCount(order);
   const orderStatusStr = order?.status ? String(order.status).toLowerCase() : "";
+  const isCancellationPending = order?.is_cancellation_pending ?? (orderStatusStr === "cancel_requested");
 
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { status: string; reason?: string }) => {
@@ -120,7 +121,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
       });
     },
     onSuccess: () => {
-      toast.success("Cancellation update processed successfully.");
+      toast.success("Cancellation request submitted to shop owner.");
       setIsModalOpen(false);
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order-ticket", order.id] });
@@ -130,40 +131,53 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     onError: (err: any) => {
       qc.invalidateQueries({ queryKey: ["order-ticket", order.id] });
       qc.invalidateQueries({ queryKey: ["my-orders"] });
-      toast.error(err?.message || "Maximum cancellation limits reached.");
+      toast.error(err?.message || "Action restriction matched configuration limits.");
     }
   });
 
   const isPending = orderStatusStr === "pending";
   const isCancelled = orderStatusStr === "cancelled" || orderStatusStr === "refunded";
   const isCompleted = orderStatusStr === "completed";
-  const isActivelyDisputed = orderStatusStr === "cancel_requested" || currentRequestsSent >= 3;
+  const hasReachedLimit = currentRequestsSent >= 3;
 
   if (isCancelled || isCompleted) return null;
 
-  if (isActivelyDisputed) {
-    // ✅ SECURED VIA OPTIONAL CHAINING: Prevents properties lookup failures if network responses are delayed
-    const fallbackEmail = shopDetails?.email ?? shopDetails?.owner_email ?? (shopDetails as any)?.ownerEmail;
-
+  // 🚨 ATTEMPTS EXCEEDED FALLBACK CARD LAYER
+  if (hasReachedLimit && !isCancellationPending) {
     return (
       <div className="mt-5 pt-4 border-t border-border/80 space-y-2 text-left animate-in fade-in duration-200">
         <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>Contact shop owner for cancellation queries</span>
+          <span>Cancellation Limit Exceeded</span>
         </div>
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-4 text-xs text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground leading-normal">
+          The automated cancellation request threshold has been met. Please connect directly with the shop owner for any additional manual overrides.
+        </p>
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-4 text-xs text-muted-foreground pt-1">
           {shopDetails?.phone && (
             <a href={`tel:${shopDetails.phone}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground">
               <Phone className="h-3 w-3 text-muted-foreground/70" />
               <span>Phone: {shopDetails.phone}</span>
             </a>
           )}
-          {fallbackEmail && (
-            <a href={`mailto:${fallbackEmail}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors text-foreground min-w-0">
-              <Mail className="h-3 w-3 text-muted-foreground/70" />
-              <span className="truncate">Email: {fallbackEmail}</span>
-            </a>
-          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 🚀 DISPUTE INTERLOCK PANE: Prompts customer cleanly while blocking subsequent duplicate firing loops
+  if (isCancellationPending) {
+    return (
+      <div className="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl space-y-2 text-left animate-in fade-in duration-200">
+        <div className="text-xs font-bold text-amber-500 flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          <span>Waiting for shop owner reply...</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Your request has been submitted. The kitchen workflow line has been locked automatically. The store operator must explicitly accept or decline this cancellation before this order can be processed.
+        </p>
+        <div className="text-[10px] text-muted-foreground/70 font-medium pt-1">
+          Request attempts used: ({currentRequestsSent} of 3 attempts)
         </div>
       </div>
     );
@@ -178,7 +192,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
           {isPending 
             ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
-            : `Active kitchen workflow item. Request attempts: (${currentRequestsSent}/3 used).`}
+            : `Active kitchen workflow item. Request attempts used: (${currentRequestsSent} of 3 attempts).`}
         </p>
       </div>
 
@@ -208,12 +222,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <DialogHeader>
             <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
             <DialogDescription className="text-xs pt-1">
-              Attempt { currentRequestsSent + 1 } of 3. Let the owner know why you need to drop this order.
+              {/* 🚀 DYNAMIC COUNTDOWN DISPLAY: Shows remaining counts perfectly inside the modal */}
+              Remaining requests: {3 - currentRequestsSent} execution chances left. Let the store manager know why you need to drop this order.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 text-left">
             <Textarea
-              placeholder="e.g., Selected wrong address / Pickup delays..."
+              placeholder="e.g., Selected wrong delivery coordinates / Mistaken duplicate selection..."
               value={reasonText}
               onChange={(e) => setReasonText(e.target.value)}
               className="text-xs rounded-xl min-h-[90px]"
@@ -229,11 +244,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
               className="text-xs rounded-xl h-9 font-semibold px-4"
               disabled={!reasonText.trim() || updateStatusMutation.isPending || currentRequestsSent >= 3}
               onClick={() => {
-                if (currentRequestsSent >= 3) {
-                  toast.error("Action denied: Maximum request limits reached.");
-                  setIsModalOpen(false);
-                  return;
-                }
                 updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() });
               }}
             >
@@ -300,9 +310,7 @@ function OrdersPage() {
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
             if (!o) return null;
-            const rowCount = getCancellationRequestsCount(o);
             const rowStatusStr = o.status ? String(o.status).toLowerCase() : "";
-            const isRowLocked = rowCount >= 3 || rowStatusStr === "cancel_requested";
             
             return (
               <div 
@@ -337,7 +345,8 @@ function OrdersPage() {
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
                         <span>Order Activity Context</span>
                         <span className="font-semibold text-foreground normal-case font-mono">
-                          {isRowLocked ? "Contact Shop Owner" : `Attempts: ${rowCount}/3`}
+                          {/* 🚀 FRONT DASHBOARD VIEW CLEANED: Removed the confusing 0/3 metrics rows entirely from here */}
+                          {rowStatusStr === "cancel_requested" ? "Cancellation Pending Review" : "Active Fulfillment Workflow"}
                         </span>
                       </div>
 
