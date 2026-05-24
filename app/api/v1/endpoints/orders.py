@@ -277,10 +277,10 @@ async def shop_orders(
     return [OrderOut.model_validate(o) for o in rows]
 
 
-@router.patch("/{order_id}/status")
+@router.patch("/{order_id}/status", response_model=OrderOut)
 async def update_order_status(
     order_id: str,
-    payload: OrderUpdateSchema,  # status, reason, etc.
+    payload: OrderUpdateSchema,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -291,41 +291,47 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order tracking block not found.")
 
-    # 🚨 MERCHANDISE STATE PROTECTION RULE: Block regular kitchen flow transitions if a dispute is active
-    if order.is_cancellation_pending and user.role == "shop_owner" and payload.status not in ["cancelled", "accepted_after_dispute"]:
+    # 🏪 MERCHANT INTERACTION ACTION OVERRIDES
+    if user.role == "shop_owner":
+        if payload.status == "cancelled":
+            order.status = "cancelled"
+            order.is_cancellation_pending = False
+            await db.commit()
+            await db.refresh(order)
+            return order
+            
+        elif payload.status == "accepted": 
+            # If shop owner processes 'accepted' status on a locked order, it acts as a cancellation DECLINE
+            order.status = "accepted"
+            order.is_cancellation_pending = False
+            await db.commit()
+            await db.refresh(order)
+            return order
+
+    # 🚨 MERCHANDISE WORKFLOW INTERLOCK PROTECTION RULE
+    if order.is_cancellation_pending and user.role == "shop_owner":
         raise HTTPException(
             status_code=400,
             detail="Transaction Locked: You must explicitly Accept or Decline the customer's cancellation request before processing this order."
         )
 
-    # 🛑 CUSTOMER FLOW INTAKE INTERCEPTOR
+    # 🛑 CUSTOMER INTAKE REQUESTS SUBMISSION
     if payload.status == "cancel_requested":
-        if order.cancellation_requests_sent >= 3:
+        if (order.cancellation_requests_sent or 0) >= 3:
             raise HTTPException(status_code=400, detail="Automated cancellation limit reached for this transaction.")
             
-        # Safely step up the counter metric parameters
-        order.cancellation_requests_sent += 1
+        order.cancellation_requests_sent = (order.cancellation_requests_sent or 0) + 1
         order.status = "cancel_requested"
         order.is_cancellation_pending = True
-        
+        if payload.reason:
+            order.cancellation_reason = payload.reason
+            
         await db.commit()
         await db.refresh(order)
         return order
 
-    # 🏪 MERCHANT INTERACTION RESOLUTIONS
-    if user.role == "shop_owner":
-        if payload.status == "cancelled":  # Merchant accepts dispute request
-            order.status = "cancelled"
-            order.is_cancellation_pending = False
-        elif payload.status == "decline_cancellation":  # Merchant explicitly rejects dispute request
-            # Return order to its true operational workflow state context lane
-            order.status = "accepted"  # or fall back to previous recorded state metrics
-            order.is_cancellation_pending = False
-            
-    else:
-        # Standard administrative updates or customer pending-stage instant updates
-        order.status = payload.status
-
+    # Default transitions fallback handler
+    order.status = payload.status
     await db.commit()
     await db.refresh(order)
     return order

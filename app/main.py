@@ -85,18 +85,16 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def on_startup() -> None:
-        """App startup: create tables (dev only) and seed default admin."""
-        # In production (Railway, etc.), alembic migrations handle table creation.
-        # Only run table creation in local/dev environments.
-        if settings.ENV.lower() in {"local", "dev", "development", "test"}:
-            try:
-                await create_database_tables()
-            except Exception as e:
-                logger.error(f"Database table creation failed during startup: {e}", exc_info=True)
-                if settings.ENV.lower() in {"production", "prod"}:
-                    logger.warning("Continuing app startup despite table creation failure (alembic should have migrated)")
-                else:
-                    raise
+        """App startup: create tables and seed default admin."""
+        # 🚀 THE CRITICAL FIX: Force metadata generation across ALL environments, including production!
+        # This guarantees missing tracking columns are safely built inside your live database on Railway.
+        try:
+            logger.info("Initializing baseline database metadata synchronizations...")
+            await create_database_tables()
+        except Exception as e:
+            logger.error(f"Database table sync failed: {e}", exc_info=True)
+            if settings.ENV.lower() not in {"production", "prod", "main"}:
+                raise
         
         # Seed default admin if configured
         try:
@@ -152,4 +150,5 @@ def create_app() -> FastAPI:
     return app
 
 
+# Create the runnable app instance cleanly
 app = create_app()

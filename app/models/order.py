@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -32,9 +32,10 @@ class Order(Base):
     redeem_loyalty_points: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # 🚀 FIXED: Standardized to standard 2.0 notation format
     cancellation_requests_sent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    
+    # 🚀 FIXED: Added the locking column tracker mapped cleanly to SQLAlchemy 2.0 specs
+    is_cancellation_pending: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
