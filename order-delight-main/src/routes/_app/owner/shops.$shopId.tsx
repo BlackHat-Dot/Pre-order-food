@@ -547,22 +547,36 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     refetchInterval: 5000, 
   });
   
-  const updateStatus = useMutation({
-    mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
-      setUpdatingOrderId(id);
-      return await apiRequest(`/api/v1/orders/${id}/status`, {
-        method: "PATCH",
-        body: { status: st, decline_action, reason },
-      });
-    },
-    onSuccess: () => {
-      toast.success("Order state updated");
+  
+  // Locate the updateStatus useMutation block near lines 310-330 inside your OrdersTab component
+
+const updateStatus = useMutation({
+  mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
+    setUpdatingOrderId(id);
+    return await apiRequest(`/api/v1/orders/${id}/status`, {
+      method: "PATCH",
+      body: { status: st, decline_action, reason },
+    });
+  },
+  onSuccess: () => {
+    toast.success("Order state synchronized");
+    qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
+    qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
+  },
+  onError: (e: any) => {
+    // 🧠 THE ROBUST SYNC FIX: Detect lockouts caused by stale cache states
+    const errorMsg = e?.message || "";
+    if (errorMsg.includes("Action Lockout") || errorMsg.includes("processed and resolved")) {
+      // Intentionally skip the error toast and force-refresh the data arrays silently
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
-    },
-    onError: (e: any) => toast.error(e?.message || "Action restricted by state machine constraints."),
-    onSettled: () => setUpdatingOrderId(null),
-  });
+      toast.info("Order list updated to match live status.");
+    } else {
+      toast.error(errorMsg || "Action restricted by state machine constraints.");
+    }
+  },
+  onSettled: () => setUpdatingOrderId(null),
+});
 
   const toggleExpand = (orderId: string) => {
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));

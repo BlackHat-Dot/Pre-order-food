@@ -302,12 +302,13 @@ async def update_order_status(
         order.is_cancellation_pending = False
 
     # 🏪 MERCHANT INTERACTION OVERRIDES
+    # Inside update_order_status in app/api/v1/endpoints/orders.py
+    
     if user.role == "shop_owner":
-        
-        # 🔒 HARD EXPLOIT LOCKOUT: Detects double-response attempt loops instantly
         is_resolving_action = payload.status in ["cancelled", "accepted"] or payload.decline_action == "decline_cancellation"
         
-        if is_resolving_action and not order.is_cancellation_pending:
+        # Explicitly ensure we block only if the state is truly final and not pending
+        if is_resolving_action and getattr(order, "is_cancellation_pending", False) is False:
             raise HTTPException(
                 status_code=400,
                 detail="Action Lockout: This cancellation request has already been processed and resolved. Subsequent modifications are denied."
