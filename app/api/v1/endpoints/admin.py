@@ -22,6 +22,7 @@ from app.schemas.order import OrderOut
 from pydantic import BaseModel
 from typing import List
 
+from sqlalchemy import or_
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -584,11 +585,14 @@ class AdminStatusOverride(BaseModel):
 @router.get("/orders/escalated", response_model=List[OrderOut])
 def get_admin_escalated_orders(db: Session = Depends(get_db)):
     """
-    🚀 FIXED: Instantly pulls ANY order containing a pending customer cancellation request 
-    directly into the Admin override control queue on the very first attempt.
+    🚀 FIXED: Captures ANY order requesting cancellation, whether or not 
+    the customer provided a text description note.
     """
     return db.query(Order).filter(
-        Order.cancellation_reason != None,
+        or_(
+            Order.status == "cancel_requested",
+            Order.cancellation_reason != None
+        ),
         Order.status != "cancelled"
     ).all()
 
