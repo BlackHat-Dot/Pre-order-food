@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
-
 from typing import Optional
 
 
@@ -22,26 +21,6 @@ class OrderItemInput(BaseModel):
         return self
 
 
-class OrderCreate(BaseModel):
-    shop_id: str
-    items: list[OrderItemInput] = Field(min_length=1)
-    scheduled_at: datetime | None = None
-    instructions: str | None = None
-    payment_method: str = Field(pattern="^(cod|online)$")
-    redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
-    coupon_id: str | None = None
-    # 🚀 FIXED: Allow the incoming schema to verify payment confirmations dynamically
-    payment_confirmed: bool | None = False
-
-class OrderStatusUpdate(BaseModel):
-    # 🚀 FIXED: Injected cancel_requested into the validation pattern to pass Pydantic parsing
-    status: Optional[str] = Field(
-        None, 
-        pattern="^(pending|accepted|preparing|ready|completed|cancelled|cancel_requested)$"
-    )
-    reason: Optional[str] = None
-
-
 class OrderItemOut(BaseModel):
     id: str
     order_id: str
@@ -51,8 +30,28 @@ class OrderItemOut(BaseModel):
     unit_price: float
     item_name_snapshot: str
     variant_name_snapshot: str | None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class OrderCreate(BaseModel):
+    shop_id: str
+    items: list[OrderItemInput] = Field(min_length=1)
+    scheduled_at: datetime | None = None
+    instructions: str | None = None
+    payment_method: str = Field(pattern="^(cod|online)$")
+    redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
+    coupon_id: str | None = None
+    payment_confirmed: bool | None = False
+
+
+class OrderStatusUpdate(BaseModel):
+    status: Optional[str] = Field(
+        None, 
+        pattern="^(pending|accepted|preparing|ready|completed|cancelled|cancel_requested)$"
+    )
+    reason: Optional[str] = None
 
 
 class OrderOut(BaseModel):
@@ -68,9 +67,13 @@ class OrderOut(BaseModel):
     payment_status: str
     coupon_discount_applied: float = 0.0
     loyalty_points_used: int = 0
-    loyalty_discount_amount: float = 0
+    loyalty_discount_amount: float = 0.0
     loyalty_points_earned: int = 0
     created_at: datetime
     items: list[OrderItemOut]
+    
+    # ✅ SECURED STRUCTURAL DATA PASS THROUGH FIELDS
     cancellation_reason: Optional[str] = None
+    cancellation_requests_sent: int = 0
+    
     model_config = {"from_attributes": True}
