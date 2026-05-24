@@ -287,54 +287,58 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    # 1. Fetch with items pre-loaded to validate state constraints
-    stmt = (
-        select(Order)
-        .where(Order.id == order_id)
-        .options(selectinload(Order.items))
-    )
+    # Fetch with selectinload wrapper parameters cleanly
+    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     
     if not order:
-        raise HTTPException(status_code=404, detail="Order tracking entity not found.")
+        raise HTTPException(status_code=404, detail="Requested order could not be located.")
 
-    # Convert NULL values to safe defaults on the fly
+    # Convert initial empty rows defensively on the fly
     if order.cancellation_requests_sent is None:
         order.cancellation_requests_sent = 0
     if order.is_cancellation_pending is None:
         order.is_cancellation_pending = False
 
-    # 🏪 MERCHANT INTERACTION OPTIONS
+    # 🏪 MERCHANT INTERACTION OVERRIDES
     if user.role == "shop_owner":
-        if payload.status == "cancelled":
+        
+        # 🔒 HARD EXPLOIT LOCKOUT: Detects double-response attempt loops instantly
+        is_resolving_action = payload.status in ["cancelled", "accepted"] or payload.decline_action == "decline_cancellation"
+        
+        if is_resolving_action and not order.is_cancellation_pending:
+            raise HTTPException(
+                status_code=400,
+                detail="Action Lockout: This cancellation request has already been processed and resolved. Subsequent modifications are denied."
+            )
+
+        # Scenario A: Shop Owner clicks "Accept" -> Terminate transaction completely
+        if payload.status == "cancelled" and order.is_cancellation_pending:
             order.status = "cancelled"
             order.is_cancellation_pending = False
             await db.commit()
-            
-            # 🚀 FRESH RE-FETCH RE-ENTRY POINT: Cleans up async context detach bugs
             return await _get_clean_serialized_order(db, order_id)
             
-        elif payload.decline_action == "decline_cancellation" or payload.status == "accepted":
+        # Scenario B: Shop Owner clicks "Decline" -> Return back into regular cooking flows
+        elif (payload.decline_action == "decline_cancellation" or payload.status == "accepted") and order.is_cancellation_pending:
             order.status = "accepted"
             order.is_cancellation_pending = False
             await db.commit()
             return await _get_clean_serialized_order(db, order_id)
 
-    # 🚨 MERCHANDISE WORKFLOW INTERLOCK PROTECTION RULE
-    if order.is_cancellation_pending and user.role == "shop_owner":
-        raise HTTPException(
-            status_code=400,
-            detail="Transaction Locked: You must explicitly Accept or Decline the customer's cancellation request before advancing this order's workflow state."
-        )
+        # 🛑 WORKFLOW FULFILLMENT INTERLOCK GUARDRAIL
+        # Blocks merchant from modifying orders (e.g. marking as ready) until the dispute is resolved
+        if order.is_cancellation_pending and payload.status not in ["cancelled", "accepted"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Fulfillment Blocked: You must explicitly Accept or Decline the active cancellation request before modifying this order's progress."
+            )
 
-    # 🛑 CUSTOMER FLOW SUBMISSION INTAKE
+    # 🛑 CUSTOMER FLOW INTAKE REQUESTS
     if payload.status == "cancel_requested":
         if order.cancellation_requests_sent >= 3:
-            raise HTTPException(
-                status_code=400, 
-                detail="Action denied: Automated cancellation limit (3 chances) reached for this transaction."
-            )
+            raise HTTPException(status_code=400, detail="Automated cancellation request limits reached.")
             
         order.cancellation_requests_sent += 1
         order.status = "cancel_requested"
@@ -345,7 +349,7 @@ async def update_order_status(
         await db.commit()
         return await _get_clean_serialized_order(db, order_id)
 
-    # Default transitions fallback layer
+    # Standard status mutation fallback layer
     order.status = payload.status
     await db.commit()
     return await _get_clean_serialized_order(db, order_id)

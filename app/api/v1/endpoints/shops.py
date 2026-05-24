@@ -198,6 +198,7 @@ async def shop_stats(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)])
 # Around lines 180-230 inside app/api/v1/endpoints/shops.py
 
 # 🚀 FIXED: Route path changed from "/{shop_id}/orders" to look exactly like what the frontend requests
+# 🚀 FIXED: Route path changed to completely include cancel_requested status parameters dynamically
 @router.get("/orders/shops/{shop_id}")
 async def list_shop_orders_owner(
     shop_id: str,
@@ -207,7 +208,7 @@ async def list_shop_orders_owner(
     page_size: int = Query(25, ge=1, le=100),
     status: str | None = Query(default=None),
 ) -> list[dict]:
-    # 1. Verify shop access rights
+    # 1. Verify shop access rights configuration paths
     shop = await db.get(Shop, shop_id)
     if not shop:
         raise HTTPException(status_code=404, detail="Shop profile not isolated")
@@ -216,8 +217,21 @@ async def list_shop_orders_owner(
 
     # 2. Extract paginated distinct parent order keys to keep relationship arrays intact
     id_stmt = select(Order.id).where(Order.shop_id == shop_id)
+    
+    # 🚀 DUAL-FEED FIX: Ensure 'cancel_requested' orders show under both generic active workflows and requests tabs
     if status and status != "all":
-        id_stmt = id_stmt.where(Order.status == status)
+        if status == "cancel_requested":
+            id_stmt = id_stmt.where(Order.status == "cancel_requested")
+        else:
+            id_stmt = id_stmt.where(Order.status == status)
+    else:
+        # If looking at the master layout stream feed, ALWAYS keep cancel_requested orders mixed in live!
+        active_statuses = [
+            "pending", "accepted", "preparing", "ready", 
+            "completed", "cancelled", "cancel_requested"
+        ]
+        id_stmt = id_stmt.where(Order.status.in_(active_statuses))
+        
     id_stmt = id_stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     
     order_ids = (await db.execute(id_stmt)).scalars().all()
@@ -235,6 +249,10 @@ async def list_shop_orders_owner(
 
     result = []
     for o in rows:
+        # Prevent type lookup failures on legacy un-migrated database rows
+        requests_count = getattr(o, "cancellation_requests_sent", 0) or 0
+        is_pending_review = getattr(o, "is_cancellation_pending", False) or False
+        
         result.append({
             "id": o.id,
             "status": o.status,
@@ -242,6 +260,12 @@ async def list_shop_orders_owner(
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
             "created_at": o.created_at.isoformat() if o.created_at else None,
+            
+            # ✅ EXPOSED METRICS: Ensure frontend views see pending state flags instantly
+            "cancellation_requests_sent": int(requests_count),
+            "is_cancellation_pending": bool(is_pending_review or o.status == "cancel_requested"),
+            "cancellation_reason": getattr(o, "cancellation_reason", None),
+            
             "items": [
                 {
                     "id": item.id,
@@ -250,11 +274,11 @@ async def list_shop_orders_owner(
                     "quantity": int(item.quantity),
                     "unit_price": float(getattr(item, "unit_price", 0) or getattr(item, "price", 0))
                 }
+                # Ensure o.items relationship mapping arrays are handled correctly
                 for item in o.items
             ]
         })
     return result
-
 
 # ─── 🚀 FIXED: ITEM AVAILABILITY STRIP MUTATION TOGGLES (NO DELETE) ──────────
 
