@@ -438,3 +438,30 @@ async def _order_out(db: AsyncSession, order_id: str) -> Order:
     if not order:
         raise HTTPException(status_code=404, detail="Order tracking record not found")
     return order
+
+@router.get("/ticket/{order_id}", response_model=OrderOut)
+async def get_order_ticket_details(
+    order_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> OrderOut:
+    """
+    🚀 DEDICATED DETAIL ENDPOINT: Fully segregates deep data parsing 
+    from master overview panels to prevent frontend state synchronization crashes.
+    """
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items))
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Requested order could not be located.")
+        
+    # Access control verification
+    if user.role == "customer" and order.customer_id != user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this order ticket.")
+        
+    return order

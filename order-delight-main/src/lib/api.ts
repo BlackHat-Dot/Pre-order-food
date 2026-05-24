@@ -583,7 +583,13 @@ export const ordersApi = {
   // 👇 ENSURE THIS EXACT SIGNATURE SITS CLEANLY AT THE TAIL OF THE OBJECT 👇
   submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
     apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
-};
+  
+  getTicket: async (orderId: string): Promise<any> => {
+    return await apiRequest<any>(`/api/v1/orders/ticket/${orderId}`, {
+      method: "GET",
+    });
+  },
+}
   // Changed to match python backend
 
 // ── Payments API ───────────────────────────────────────────────────────────────

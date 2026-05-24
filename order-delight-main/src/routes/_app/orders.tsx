@@ -39,14 +39,17 @@ function getCancellationRequestsCount(orderObj: any): number {
 }
 
 // --- RENDER COMPONENT 1: ORDER DETAILS VIEW ---
+// --- RENDER COMPONENT 1: ORDER DETAILS VIEW ---
 function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack: () => void }) {
+  // 🚀 FIXED: Pointing to a fully isolated query key and separate backend route handler
   const { data: order, isLoading, error } = useQuery({
-    queryKey: ["order", orderId],
-    queryFn: () => apiRequest<any>(`/api/v1/orders/${orderId}`, { method: "GET" }),
+    queryKey: ["order-ticket", orderId],
+    queryFn: () => ordersApi.getTicket(orderId),
+    retry: false, 
   });
 
-  if (isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading details...</div>;
-  if (error || !order) return <div className="p-8 text-center text-xs text-destructive">Failed to find order record.</div>;
+  if (isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading order details...</div>;
+  if (error || !order) return <div className="p-8 text-center text-xs text-destructive">Failed to retrieve order ticket data.</div>;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
