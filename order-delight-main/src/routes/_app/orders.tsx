@@ -123,11 +123,11 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 
   const canInstantlyCancel = order.status === "pending";
   
-  // 🚀 FIXED OPERATOR CEILING: Hard-locks interface options when rejections are exactly >= 3 attempts
+  // 🚀 TIGHT LOCKDOWN TARGET: Evaluates immediately from local cached database object parameter properties
   const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) >= 3;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚀 FALLBACK SECURED LOCKOUT CONTACT PANEL
+  // 🚀 FALLBACK CONTACT DETAILS SCREEN OVERLAY IF LIMIT EXCEEDED
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
       <div className="mt-4 p-4 border border-destructive/20 bg-destructive/[0.02] rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
@@ -136,7 +136,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <span className="font-bold text-xs uppercase tracking-wider">Cancellation Cap Limit Exceeded</span>
         </div>
         <p className="text-xs text-muted-foreground leading-normal">
-          You have requested cancellation for this order 3 or more times, and the store manager has proceeded with your food preparation. Automated requests are now disabled. Please utilize the verified options below to call or email the merchant directly:
+          You have requested cancellation for this order 3 or more times, and the store manager has proceeded with your food preparation. Automated system requests are now locked. Please use the options below to contact the shop owner directly:
         </p>
         <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:gap-4 text-xs font-semibold border-t border-border/60">
           {shopDetails?.phone && (
@@ -222,8 +222,17 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
             <Button
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
-              disabled={!reasonText.trim() || updateStatusMutation.isPending}
-              onClick={() => updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() })}
+              // 🚀 CRITICAL INTERCEPT UPGRADE: Disables button click action completely if rejections count dynamically meets criteria
+              disabled={!reasonText.trim() || updateStatusMutation.isPending || (order.cancellation_rejections ?? 0) >= 3}
+              onClick={() => {
+                // 🚀 HARD CORED BACKUP DOUBLE CHECK: Intercepts action flow dynamically on click trigger
+                if ((order.cancellation_rejections ?? 0) >= 3) {
+                  toast.error("Action denied: This order has hit the maximum cancellation limit.");
+                  setIsModalOpen(false);
+                  return;
+                }
+                updateStatusMutation.mutate({ status: "cancel_requested", reason: reasonText.trim() });
+              }}
             >
               Submit Request
             </Button>
