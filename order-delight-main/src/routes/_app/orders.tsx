@@ -123,11 +123,11 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
 
   const canInstantlyCancel = order.status === "pending";
   
-  // 🚀 CRITICAL RE-ROUTE TRIGGER: Hardlocked once rejections are strictly greater than 3 attempts
-  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) > 3;
+  // 🚀 FIXED OPERATOR CEILING: Hard-locks interface options when rejections are exactly >= 3 attempts
+  const hasExceededRequestLimit = (order.cancellation_rejections ?? 0) >= 3;
   const canRequestCancel = ["accepted", "preparing", "ready"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚀 4TH STRIKE INTERVENTION INTERFACE
+  // 🚀 FALLBACK SECURED LOCKOUT CONTACT PANEL
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
       <div className="mt-4 p-4 border border-destructive/20 bg-destructive/[0.02] rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
@@ -136,13 +136,13 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <span className="font-bold text-xs uppercase tracking-wider">Cancellation Cap Limit Exceeded</span>
         </div>
         <p className="text-xs text-muted-foreground leading-normal">
-          You have requested cancellation for this order more than 3 times and the kitchen team has proceeded with your food preparation. Automated system requests are now locked. Please use the options below to contact the shop owner directly:
+          You have requested cancellation for this order 3 or more times, and the store manager has proceeded with your food preparation. Automated requests are now disabled. Please utilize the verified options below to call or email the merchant directly:
         </p>
         <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:gap-4 text-xs font-semibold border-t border-border/60">
           {shopDetails?.phone && (
             <a 
               href={`tel:${shopDetails.phone}`} 
-              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-foreground transition-all shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-primary border-primary/20 transition-all shadow-sm font-bold"
             >
               <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span>Call Merchant: {shopDetails.phone}</span>
@@ -151,7 +151,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           {(shopDetails?.email || (shopDetails as any).owner_email) && (
             <a 
               href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} 
-              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-foreground transition-all shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-primary border-primary/20 transition-all shadow-sm font-bold"
             >
               <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span>Email Merchant: {shopDetails.email || (shopDetails as any).owner_email}</span>
