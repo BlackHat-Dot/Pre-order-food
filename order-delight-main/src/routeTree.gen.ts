@@ -27,6 +27,7 @@ import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppAdminShopsRouteImport } from './routes/_app/admin/shops'
 import { Route as AppAdminOrdersRouteImport } from './routes/_app/admin/orders'
 import { Route as AppAdminLoyaltyRouteImport } from './routes/_app/admin/loyalty'
+import { Route as AppAdminEscalationsRouteImport } from './routes/_app/admin/escalations'
 import { Route as AppOwnerShopsNewRouteImport } from './routes/_app/owner/shops.new'
 import { Route as AppOwnerShopsShopIdRouteImport } from './routes/_app/owner/shops.$shopId'
 
@@ -119,6 +120,11 @@ const AppAdminLoyaltyRoute = AppAdminLoyaltyRouteImport.update({
   path: '/admin/loyalty',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminEscalationsRoute = AppAdminEscalationsRouteImport.update({
+  id: '/admin/escalations',
+  path: '/admin/escalations',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOwnerShopsNewRoute = AppOwnerShopsNewRouteImport.update({
   id: '/owner/shops/new',
   path: '/owner/shops/new',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AppOrdersRouteWithChildren
   '/profile': typeof AppProfileRoute
   '/shops/$shopId': typeof ShopsShopIdRoute
+  '/admin/escalations': typeof AppAdminEscalationsRoute
   '/admin/loyalty': typeof AppAdminLoyaltyRoute
   '/admin/orders': typeof AppAdminOrdersRoute
   '/admin/shops': typeof AppAdminShopsRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/orders': typeof AppOrdersRouteWithChildren
   '/profile': typeof AppProfileRoute
   '/shops/$shopId': typeof ShopsShopIdRoute
+  '/admin/escalations': typeof AppAdminEscalationsRoute
   '/admin/loyalty': typeof AppAdminLoyaltyRoute
   '/admin/orders': typeof AppAdminOrdersRoute
   '/admin/shops': typeof AppAdminShopsRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_app/orders': typeof AppOrdersRouteWithChildren
   '/_app/profile': typeof AppProfileRoute
   '/shops/$shopId': typeof ShopsShopIdRoute
+  '/_app/admin/escalations': typeof AppAdminEscalationsRoute
   '/_app/admin/loyalty': typeof AppAdminLoyaltyRoute
   '/_app/admin/orders': typeof AppAdminOrdersRoute
   '/_app/admin/shops': typeof AppAdminShopsRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/shops/$shopId'
+    | '/admin/escalations'
     | '/admin/loyalty'
     | '/admin/orders'
     | '/admin/shops'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/shops/$shopId'
+    | '/admin/escalations'
     | '/admin/loyalty'
     | '/admin/orders'
     | '/admin/shops'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/_app/orders'
     | '/_app/profile'
     | '/shops/$shopId'
+    | '/_app/admin/escalations'
     | '/_app/admin/loyalty'
     | '/_app/admin/orders'
     | '/_app/admin/shops'
@@ -401,6 +413,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminLoyaltyRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/escalations': {
+      id: '/_app/admin/escalations'
+      path: '/admin/escalations'
+      fullPath: '/admin/escalations'
+      preLoaderRoute: typeof AppAdminEscalationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/owner/shops/new': {
       id: '/_app/owner/shops/new'
       path: '/owner/shops/new'
@@ -434,6 +453,7 @@ interface AppRouteChildren {
   AppLoyaltyRoute: typeof AppLoyaltyRoute
   AppOrdersRoute: typeof AppOrdersRouteWithChildren
   AppProfileRoute: typeof AppProfileRoute
+  AppAdminEscalationsRoute: typeof AppAdminEscalationsRoute
   AppAdminLoyaltyRoute: typeof AppAdminLoyaltyRoute
   AppAdminOrdersRoute: typeof AppAdminOrdersRoute
   AppAdminShopsRoute: typeof AppAdminShopsRoute
@@ -448,6 +468,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLoyaltyRoute: AppLoyaltyRoute,
   AppOrdersRoute: AppOrdersRouteWithChildren,
   AppProfileRoute: AppProfileRoute,
+  AppAdminEscalationsRoute: AppAdminEscalationsRoute,
   AppAdminLoyaltyRoute: AppAdminLoyaltyRoute,
   AppAdminOrdersRoute: AppAdminOrdersRoute,
   AppAdminShopsRoute: AppAdminShopsRoute,
