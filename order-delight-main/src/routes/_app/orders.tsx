@@ -89,6 +89,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reasonText, setReasonText] = useState("");
 
+  // Fetch shop metadata profile line variables dynamically
   const { data: shopDetails } = useQuery({
     queryKey: ["shop-contact", order.shop_id],
     queryFn: () => apiRequest<any>(`/api/v1/shops/${order.shop_id}`, { method: "GET" }),
@@ -103,11 +104,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
       });
     },
     onSuccess: (updatedOrder: any) => {
-      toast.success(
-        updatedOrder.status === "cancelled" 
-          ? "Order cancelled instantly. Vouchers and points have been restored."
-          : `Cancellation request ${updatedOrder.cancellation_requests_sent}/3 forwarded to store.`
-      );
+      toast.success(`Cancellation request ${updatedOrder.cancellation_requests_sent}/3 submitted successfully.`);
       setIsModalOpen(false);
       setReasonText("");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
@@ -115,44 +112,49 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
       if (onActionComplete) onActionComplete();
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Lifecycle status alteration error occurred.");
+      // 🚀 FIXED: Force an immediate, hard cache invalidation fetch loop when the backend rejects the 4th attempt
+      qc.invalidateQueries({ queryKey: ["order", order.id] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      toast.error(err?.message || "Maximum cancellation limits reached.");
     }
   });
 
   const canInstantlyCancel = order.status === "pending";
   
-  // 🚀 FIXED: Hard-locks interface options when sent requests are exactly >= 3 attempts
+  // Strict check rule to verify if the counter has reached the 3 submission limit checkpoint
   const hasExceededRequestLimit = (order.cancellation_requests_sent ?? 0) >= 3;
   const canRequestCancel = ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status) && !hasExceededRequestLimit;
 
-  // 🚨 DISPLAY LOCKDOWN BANNER & MERCHANT CREDENTIALS WHEN LIMIT REACHED
+  // 🚨 CLEAN & PROFESSIONAL MERCHANT CONTACT CARD: Renders when the counter hits 3
   if (hasExceededRequestLimit && ["accepted", "preparing", "ready", "cancel_requested"].includes(order.status)) {
     return (
-      <div className="mt-4 p-4 border border-destructive/20 bg-destructive/[0.02] rounded-2xl space-y-3 text-left animate-in fade-in duration-200">
-        <div className="flex items-center gap-2 text-destructive">
-          <Lock className="h-4 w-4 shrink-0 animate-bounce" />
-          <span className="font-bold text-xs uppercase tracking-wider">Cancellation Request Limit Reached</span>
+      <div className="mt-6 border border-border bg-muted/20 rounded-xl p-5 space-y-4 text-left animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+          <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span>Cancellation Requests Restricted</span>
         </div>
-        <p className="text-xs text-muted-foreground leading-normal">
-          You have already submitted **{order.cancellation_requests_sent} cancellation requests** for this order. Future automated digital system attempts are locked out. Please use the options below to directly contact the shop owner via phone or email to coordinate your resolution:
+        
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          The maximum automated cancellation request limit has been reached for this order transaction. Please contact the shop owner directly using the verified contact details below for any cancellation queries or manual override adjustments.
         </p>
-        <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:gap-4 text-xs font-semibold border-t border-border/60">
+
+        <div className="pt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 border-t border-border/60">
           {shopDetails?.phone && (
             <a 
               href={`tel:${shopDetails.phone}`} 
-              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-primary border-primary/20 transition-all shadow-sm font-bold"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 h-9 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm shrink-0"
             >
               <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>Call Merchant: {shopDetails.phone}</span>
+              <span>Phone: {shopDetails.phone}</span>
             </a>
           )}
           {(shopDetails?.email || (shopDetails as any).owner_email) && (
             <a 
               href={`mailto:${shopDetails.email || (shopDetails as any).owner_email}`} 
-              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2 hover:bg-muted text-primary border-primary/20 transition-all shadow-sm font-bold"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-background px-4 h-9 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm truncate max-w-full"
             >
               <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>Email Merchant: {shopDetails.email || (shopDetails as any).owner_email}</span>
+              <span className="truncate">Email: {shopDetails.email || (shopDetails as any).owner_email}</span>
             </a>
           )}
         </div>
@@ -171,7 +173,7 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
         <p className="text-[11px] text-muted-foreground max-w-md leading-normal">
           {canInstantlyCancel 
             ? "This order is pending kitchen verification. You can cancel it for an immediate full refund."
-            : `Active kitchen queue workflow. Request attempts context: (${order.cancellation_requests_sent ?? 0}/3 used).`}
+            : `Active kitchen workflow item. Request attempts: (${order.cancellation_requests_sent ?? 0}/3 used).`}
         </p>
       </div>
 
@@ -220,7 +222,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
             <Button
               variant="destructive"
               className="text-xs rounded-xl h-9 font-semibold px-4"
-              // 🚀 AIRTIGHT FRONTLINE INTERCEPT GUARD: Hard disables submit actions immediately if counter meets cutoff parameters
               disabled={!reasonText.trim() || updateStatusMutation.isPending || (order.cancellation_requests_sent ?? 0) >= 3}
               onClick={() => {
                 if ((order.cancellation_requests_sent ?? 0) >= 3) {
