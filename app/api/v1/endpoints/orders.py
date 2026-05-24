@@ -277,6 +277,9 @@ async def shop_orders(
     return [OrderOut.model_validate(o) for o in rows]
 
 
+from sqlalchemy.orm import selectinload
+# ... keep your existing routing dependencies ...
+
 @router.patch("/{order_id}/status", response_model=OrderOut)
 async def update_order_status(
     order_id: str,
@@ -284,57 +287,82 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    stmt = select(Order).where(Order.id == order_id)
+    # 1. Fetch with items pre-loaded to validate state constraints
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items))
+    )
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     
     if not order:
-        raise HTTPException(status_code=404, detail="Order tracking block not found.")
+        raise HTTPException(status_code=404, detail="Order tracking entity not found.")
 
-    # 🏪 MERCHANT INTERACTION ACTION OVERRIDES
+    # Convert NULL values to safe defaults on the fly
+    if order.cancellation_requests_sent is None:
+        order.cancellation_requests_sent = 0
+    if order.is_cancellation_pending is None:
+        order.is_cancellation_pending = False
+
+    # 🏪 MERCHANT INTERACTION OPTIONS
     if user.role == "shop_owner":
         if payload.status == "cancelled":
             order.status = "cancelled"
             order.is_cancellation_pending = False
             await db.commit()
-            await db.refresh(order)
-            return order
             
-        elif payload.status == "accepted": 
-            # If shop owner processes 'accepted' status on a locked order, it acts as a cancellation DECLINE
+            # 🚀 FRESH RE-FETCH RE-ENTRY POINT: Cleans up async context detach bugs
+            return await _get_clean_serialized_order(db, order_id)
+            
+        elif payload.decline_action == "decline_cancellation" or payload.status == "accepted":
             order.status = "accepted"
             order.is_cancellation_pending = False
             await db.commit()
-            await db.refresh(order)
-            return order
+            return await _get_clean_serialized_order(db, order_id)
 
     # 🚨 MERCHANDISE WORKFLOW INTERLOCK PROTECTION RULE
     if order.is_cancellation_pending and user.role == "shop_owner":
         raise HTTPException(
             status_code=400,
-            detail="Transaction Locked: You must explicitly Accept or Decline the customer's cancellation request before processing this order."
+            detail="Transaction Locked: You must explicitly Accept or Decline the customer's cancellation request before advancing this order's workflow state."
         )
 
-    # 🛑 CUSTOMER INTAKE REQUESTS SUBMISSION
+    # 🛑 CUSTOMER FLOW SUBMISSION INTAKE
     if payload.status == "cancel_requested":
-        if (order.cancellation_requests_sent or 0) >= 3:
-            raise HTTPException(status_code=400, detail="Automated cancellation limit reached for this transaction.")
+        if order.cancellation_requests_sent >= 3:
+            raise HTTPException(
+                status_code=400, 
+                detail="Action denied: Automated cancellation limit (3 chances) reached for this transaction."
+            )
             
-        order.cancellation_requests_sent = (order.cancellation_requests_sent or 0) + 1
+        order.cancellation_requests_sent += 1
         order.status = "cancel_requested"
         order.is_cancellation_pending = True
         if payload.reason:
             order.cancellation_reason = payload.reason
             
         await db.commit()
-        await db.refresh(order)
-        return order
+        return await _get_clean_serialized_order(db, order_id)
 
-    # Default transitions fallback handler
+    # Default transitions fallback layer
     order.status = payload.status
     await db.commit()
-    await db.refresh(order)
-    return order
+    return await _get_clean_serialized_order(db, order_id)
+
+
+# 🧠 PRIVATE RE-FETCH HELPER METHOD: Guarantees full async loading for the schema validation engine
+async def _get_clean_serialized_order(db: AsyncSession, order_id: str) -> Order:
+    fresh_stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items))
+    )
+    fresh_result = await db.execute(fresh_stmt)
+    fresh_order = fresh_result.scalar_one_or_none()
+    if not fresh_order:
+        raise HTTPException(status_code=404, detail="Order synchronization mapping lost post-commit.")
+    return fresh_order
 
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)
