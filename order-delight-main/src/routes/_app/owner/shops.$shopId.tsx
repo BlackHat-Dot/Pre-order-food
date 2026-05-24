@@ -642,57 +642,59 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       
                       {/* 🚀 FIX 2: HARD FLOW INTERLOCK BOUNDARY */}
                       {/* If the customer is on hold waiting for an update, completely strip drop-downs and swap with single action panels */}
-                      {isAwaitingResolution ? (
-                        <div className="flex items-center gap-2 bg-rose-500/15 border border-rose-500/30 px-3 py-1.5 rounded-xl animate-in fade-in duration-200">
-                          <div className="text-xs font-black text-rose-600 animate-pulse tracking-wide mr-2 uppercase">
-                            ⚠️ Action Required
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 rounded-lg text-[11px] font-black tracking-wide bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
-                            disabled={updatingOrderId !== null}
-                            onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 rounded-lg text-[11px] font-bold border-rose-500/30 text-rose-600 bg-background hover:bg-rose-500/10"
-                            disabled={updatingOrderId !== null}
-                            onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
-                          >
-                            Decline
-                          </Button>
-                        </div>
-                      ) : forceRequestsOnly ? (
-                        /* Fallback safety for fully closed requests elements context rows tracking */
-                        <Badge variant="secondary" className="text-xs font-semibold rounded-xl px-3 py-1">
-                          Resolved & Locked
-                        </Badge>
-                      ) : (
-                        /* 🏪 RENDER STANDARD WORKFLOW BUTTONS ONLY IF DISPUTE LINE IS COMPLETELY CLEAR */
-                        <Select
-                          value={o.status}
-                          disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
-                          onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
-                        >
-                          <SelectTrigger className="w-44 capitalize font-semibold text-xs rounded-xl h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-bold bg-muted/50">
-                              {o.status.replace("_", " ")} (Current)
-                            </SelectItem>
-                            {nextAllowedOptions.map((step) => (
-                              <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                                {step.replace("_", " ")}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      {/* Find the conditional action controller block near lines 375-430 inside your OrdersTab component mappings */}
+
+{isAwaitingResolution ? (
+  <div className="flex items-center gap-2 animate-in fade-in duration-150">
+    {/* Subtle inline text indicator replacing bulky red alert modules */}
+    <span className="text-xs font-semibold text-rose-500 border-r pr-3 border-border mr-1">
+      Respond to Request:
+    </span>
+    <Button
+      size="sm"
+      variant="destructive"
+      className="h-8 rounded-xl text-xs font-medium px-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors"
+      disabled={updatingOrderId !== null}
+      onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
+    >
+      Accept
+    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-8 rounded-xl text-xs font-medium px-4 border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 transition-colors"
+      disabled={updatingOrderId !== null}
+      onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
+    >
+      Decline
+    </Button>
+  </div>
+) : forceRequestsOnly ? (
+  <Badge variant="secondary" className="text-xs font-medium text-muted-foreground rounded-xl px-3 h-8 flex items-center border shadow-none bg-muted/40">
+    Resolved & Locked
+  </Badge>
+) : (
+  /* Standard workflow selectors drop renders natively when item status transitions are clear */
+  <Select
+    value={o.status}
+    disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
+    onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
+  >
+    <SelectTrigger className="w-44 capitalize font-medium text-xs rounded-xl h-8 border-border/80 shadow-none">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
+        {o.status.replace("_", " ")} (Current)
+      </SelectItem>
+      {nextAllowedOptions.map((step) => (
+        <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+          {step.replace("_", " ")}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+)}
 
                       <Button 
                         variant="ghost" 
