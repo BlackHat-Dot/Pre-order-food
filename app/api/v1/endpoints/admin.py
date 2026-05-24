@@ -17,6 +17,11 @@ from app.models.user import User
 from app.schemas.user import UserOut
 from app.utils.ids import new_id
 
+from sqlalchemy.orm import Session
+from app.schemas.order import OrderOut
+from pydantic import BaseModel
+from typing import List
+
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -572,3 +577,42 @@ async def update_order_status_admin(
     await db.refresh(order)
     
     return {"updated": True, "order_id": order.id, "new_status": order.status}
+
+class AdminStatusOverride(BaseModel):
+    status: str # Expects either 'cancelled' or 'accepted'
+
+@router.get("/orders/escalated", response_model=List[OrderOut])
+def get_admin_escalated_orders(db: Session = Depends(get_db)):
+    """
+    🚀 FIXED: Instantly pulls ANY order containing a pending customer cancellation request 
+    directly into the Admin override control queue on the very first attempt.
+    """
+    return db.query(Order).filter(
+        Order.cancellation_reason != None,
+        Order.status != "cancelled"
+    ).all()
+
+@router.post("/orders/{order_id}/override")
+def admin_global_status_override(
+    order_id: str, 
+    payload: AdminStatusOverride, 
+    db: Session = Depends(get_db)
+):
+    """
+    🚀 ADMIN SUPREME OVERRIDE RIGHTS: Overrules shop latency to resolve disputes instantly.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order record not found.")
+        
+    if payload.status == "cancelled":
+        order.status = "cancelled"
+        order.payment_status = "refunded"
+        # Optional: Add hooks to restore voucher points here if applicable
+    elif payload.status == "accepted":
+        order.status = "accepted"
+        order.cancellation_reason = None # Clear out text history to pull it out of admin queues safely
+        
+    db.commit()
+    db.refresh(order)
+    return {"message": "Global admin modification sequence executed successfully.", "status": order.status}

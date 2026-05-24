@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminApi, type AdminOrderOut } from "@/lib/api";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Key } from "lucide-react";
+import { ShoppingBag, User2, Store, ChevronLeft, ChevronRight, Key, ShieldAlert } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,7 +94,6 @@ export function OrderRow({ o }: { o: AdminOrderOut }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
-            {/* Clean Copy UID Badge */}
             <span 
               onClick={() => {
                 navigator.clipboard.writeText(o.customer_id);
@@ -145,7 +144,7 @@ function AdminOrders() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       
-      {/* Clean Header Area */}
+      {/* 🚀 FIXED HEADER TOOLBAR: Clean placement architecture for the navigation button control */}
       <div className="flex flex-wrap items-center justify-between gap-4 text-left border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -155,6 +154,18 @@ function AdminOrders() {
             {data ? `${data.length} orders shown · ${formatCurrency(total)} platform volume` : "Manage system orders"}
           </p>
         </div>
+
+        {/* 🚀 ACTION LINK GATEWAY: Connects administrators directly to customer cancellation requests with an alert icon */}
+        <Link to="/admin/escalations">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="text-xs font-bold rounded-xl h-9 px-3.5 border-amber-500/30 bg-amber-500/5 text-amber-600 hover:bg-amber-500/10 transition-colors gap-2"
+          >
+            <ShieldAlert className="h-4 w-4" />
+            <span>Cancellation Requests</span>
+          </Button>
+        </Link>
       </div>
 
       <Tabs value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
@@ -169,7 +180,7 @@ function AdminOrders() {
 
       {isLoading ? (
         <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton className="h-20 rounded-xl" />)}
         </div>
       ) : (
         <div className="space-y-2">
