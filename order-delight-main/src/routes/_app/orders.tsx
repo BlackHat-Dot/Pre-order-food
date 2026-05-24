@@ -25,7 +25,7 @@ const tabs: Array<{ value: string; label: string }> = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-// Safe extractor utility that accepts any capitalization structure from the database table rows
+// ✅ BULLETPROOF PARSER: Prevents runtime type crashes across any API snapshot structure
 function getCancellationRequestsCount(orderObj: any): number {
   if (!orderObj) return 0;
   const rawValue = 
@@ -62,7 +62,7 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
               <h2 className="font-mono text-xs font-bold">{order.id}</h2>
             </div>
             <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase">
-              <Clock className="h-3.5 w-3.5" /> {order.status ? order.status.replace("_", " ") : ""}
+              <Clock className="h-3.5 w-3.5" /> {order.status ? String(order.status).replace("_", " ") : ""}
             </div>
           </div>
 
@@ -133,16 +133,15 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     }
   });
 
-  // 🚨 FIXED CRASH CONDITIONS: Safe checks that will never tip over the page renderer
+  // Safe internal logic mappers (Guaranteed to be boolean flags, never raw types)
   const isPending = orderStatusStr === "pending";
   const isCancelled = orderStatusStr === "cancelled" || orderStatusStr === "refunded";
   const isCompleted = orderStatusStr === "completed";
   const isActivelyDisputed = orderStatusStr === "cancel_requested" || currentRequestsSent >= 3;
 
-  // If the transaction has completed or has been terminated completely, render nothing
   if (isCancelled || isCompleted) return null;
 
-  // 🚨 PROFESSIONAL FORCED OVERRIDE: Replaces the interactive card layout box cleanly 
+  // 🚨 REPLACES INTERACTIVE BOX COMPLETELY WITH TEXT ELEMENT UPON DISPUTE OR 3 ATTEMPTS
   if (isActivelyDisputed) {
     return (
       <div className="mt-5 pt-4 border-t border-border/80 space-y-2 text-left">
@@ -262,9 +261,11 @@ function OrdersPage() {
 
   const visibleOrders = Array.isArray(data) 
     ? data.filter((o: any) => {
+        if (!o || !o.status) return false;
+        const currentStatus = String(o.status).toLowerCase();
         if (status === "all") return true;
-        if (status === "cancelled") return o.status === "cancelled" || o.status === "cancel_requested";
-        return o.status === status;
+        if (status === "cancelled") return currentStatus === "cancelled" || currentStatus === "cancel_requested";
+        return currentStatus === status;
       })
     : [];
 
@@ -296,8 +297,10 @@ function OrdersPage() {
       ) : (
         <div className="space-y-3">
           {visibleOrders.map((o: any) => {
+            if (!o) return null;
             const rowCount = getCancellationRequestsCount(o);
-            const isRowLocked = rowCount >= 3 || String(o?.status).toLowerCase() === "cancel_requested";
+            const rowStatusStr = o.status ? String(o.status).toLowerCase() : "";
+            const isRowLocked = rowCount >= 3 || rowStatusStr === "cancel_requested";
             
             return (
               <div 
@@ -312,7 +315,7 @@ function OrdersPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60 font-bold">
-                            #{o.id.slice(0, 8).toUpperCase()}
+                            #{o.id ? o.id.slice(0, 8).toUpperCase() : ""}
                           </span>
                           <StatusBadge status={o.status} />
                         </div>
