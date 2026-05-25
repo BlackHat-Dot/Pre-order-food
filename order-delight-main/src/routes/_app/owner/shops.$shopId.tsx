@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -37,7 +37,6 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
-// 🛡️ Explicit state matrix mapping paths
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
@@ -48,7 +47,6 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   cancelled: []
 };
 
-// 🎨 DESIGN SYSTEM UPGRADE: Explicitly isolates status badges for high readability
 function StatusBadge({ status }: { status: string }) {
   const current = (status || "pending").toLowerCase();
   
@@ -59,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
     ready: "bg-purple-500/10 text-purple-500 border-purple-500/20",
     completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
     cancel_requested: "bg-rose-500/10 text-rose-500 border-rose-500/20 font-bold animate-pulse",
-    cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold" // 🛑 VIBRANT RED FOR EXHAUSTED TICKETS
+    cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold"
   };
 
   const styling = designMap[current] || "bg-muted text-muted-foreground";
@@ -551,9 +549,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-// ==========================================
-// 🚀 MAIN ORDERS RETRIEVAL MODULE OVERHAUL
-// ==========================================
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -583,10 +578,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     },
     onSuccess: () => {
       toast.success("Order status updated successfully");
-      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: queryKey });
     },
-    onError: () => {
-      toast.error("Failed to complete state transition.");
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to update status.");
     },
     onSettled: () => setUpdatingOrderId(null),
   });
@@ -606,17 +601,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     : [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 text-left">
       {!forceRequestsOnly && (
         <Tabs value={status} onValueChange={setStatus}>
-          <TabsList className="flex flex-wrap h-auto p-1 bg-muted/60 rounded-xl max-w-fit border border-border/60">
-            <TabsTrigger value="all" className="text-xs px-4 py-1.5 rounded-lg font-medium">All</TabsTrigger>
-            <TabsTrigger value="pending" className="text-xs px-4 py-1.5 rounded-lg font-medium">Pending</TabsTrigger>
-            <TabsTrigger value="accepted" className="text-xs px-4 py-1.5 rounded-lg font-medium">Accepted</TabsTrigger>
-            <TabsTrigger value="preparing" className="text-xs px-4 py-1.5 rounded-lg font-medium">Preparing</TabsTrigger>
-            <TabsTrigger value="ready" className="text-xs px-4 py-1.5 rounded-lg font-medium">Ready</TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs px-4 py-1.5 rounded-lg font-medium">Completed</TabsTrigger>
-            <TabsTrigger value="cancelled" className="text-xs px-4 py-1.5 rounded-lg font-medium">Cancelled</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto p-1.5 bg-muted/60 rounded-xl max-w-fit border border-border/60">
+            <TabsTrigger value="all" className="text-xs px-4 py-2 rounded-lg font-medium">All Tickets</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs px-4 py-2 rounded-lg font-medium">Pending</TabsTrigger>
+            <TabsTrigger value="accepted" className="text-xs px-4 py-2 rounded-lg font-medium">Accepted</TabsTrigger>
+            <TabsTrigger value="preparing" className="text-xs px-4 py-2 rounded-lg font-medium">Preparing</TabsTrigger>
+            <TabsTrigger value="ready" className="text-xs px-4 py-2 rounded-lg font-medium">Ready</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs px-4 py-2 rounded-lg font-medium">Completed</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
@@ -626,91 +620,130 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       ) : visibleOrders.length === 0 ? (
         <Card className="border-dashed rounded-2xl bg-muted/10">
           <CardContent className="py-14 text-center text-muted-foreground text-xs font-medium">
-            No active orders matching this filter slot.
+            No active orders matching this selection segment.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAnyRowProcessing = updatingOrderId !== null;
 
-            // 🚀 CORE BADGE BOUNDARY FIX: Maps exactly to deserialized pydantic contract keys
             const fulfillmentType = String(o.order_type || "delivery").toLowerCase();
             const isTableMode = fulfillmentType === "table_booking";
             
             const methodDisplay = String(o.payment_method || "cod").toUpperCase();
             const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
+            const isFraudLocked = !!o.is_locked_by_fraud_flag;
+            const isDisputed = String(o.dispute_status || "none").toLowerCase() === "open";
+            const isCancelledState = currentStatus === "cancelled";
+            const isCompletedState = currentStatus === "completed";
 
-            // 🚀 NESTED OBJECT ACCOUNT RESOLUTION: Extracts parameters straight from the updated payload object
+            // 🤝 MANDATORY CASH GAUNTLET TRANSITION RULES
+            const isCompletionBlocked = methodDisplay === "COD" && !isSettled;
+
             const buyerName = o.customer?.name || "Customer Account";
             const buyerPhone = o.customer?.phone || "No Mobile Number Linked";
             const buyerEmail = o.customer?.email || "No Email Provided";
             
-            const nameInitials = buyerName
-              .split(" ")
-              .map((n: string) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
+            const nameInitials = buyerName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
             return (
-              <Card key={o.id} className="overflow-hidden rounded-xl border border-border/70 shadow-none bg-card hover:border-border/100 transition-all duration-200">
+              <Card key={o.id} className={`overflow-hidden rounded-xl border shadow-none transition-all duration-200 ${
+                isFraudLocked ? "border-red-500 bg-red-500/[0.01]" : "border-border/70 bg-card hover:border-border/100"
+              }`}>
                 <CardContent className="p-0">
-                  <div className="flex items-center justify-between gap-6 p-4.5 bg-background/40">
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center flex-wrap gap-2.5">
-                        <span className="font-mono text-xs font-bold text-foreground bg-muted/60 px-2 py-0.5 rounded border">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-background/40">
+                    
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground bg-muted border px-2.5 py-0.5 rounded-md">
                           #{o.id.slice(0, 8).toUpperCase()}
                         </span>
                         <StatusBadge status={o.status} />
                         
-                        {/* Dynamic layout selection switches */}
-                        <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-background border-border/80 text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/80 text-muted-foreground">
                           {isTableMode ? "🪑 Table Booking" : "🛵 Food Delivery"}
                         </Badge>
                         
-                        <Badge className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border shadow-none ${
+                        <Badge className={`text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded border shadow-none ${
                           isSettled 
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
                             : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                         }`}>
                           {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
                         </Badge>
+
+                        {!isTableMode && isDisputed && (
+                          <Badge className="text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded border bg-red-600/10 text-red-600 border-red-600/20 animate-pulse">
+                            🚨 DISPUTE OPEN
+                          </Badge>
+                        )}
+
+                        {isCancelledState && (
+                          <Badge className={`text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded border shadow-none ${
+                            methodDisplay === "ONLINE" ? "bg-emerald-600/10 text-emerald-600 border-emerald-600/30" : "bg-rose-600/10 text-rose-600 border-rose-600/30"
+                          }`}>
+                            {methodDisplay === "ONLINE" ? "✨ REFUNDED" : "COD VOID"}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-[11px] text-muted-foreground font-medium pl-0.5">
                         Received: {formatDate(o.created_at)}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-base text-foreground mr-1.5">{formatCurrency(o.total_price)}</span>
+                    <div className="flex items-center justify-end flex-wrap gap-4 sm:ml-auto">
+                      <span className="font-bold text-base text-foreground min-w-[80px] text-right">{formatCurrency(o.total_price)}</span>
                       
-                      {methodDisplay === "COD" && (
+                      {/* 🚀 ACTION BUTTON LAYOUT SECTION WITH REINFORCED SECURITY GUARDS */}
+                      {!isTableMode && !isFraudLocked && !isCancelledState && !isCompletedState && (
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={isAnyRowProcessing}
-                          onClick={() => updateStatus.mutate({ id: o.id, st: isSettled ? "mark_as_unpaid" : "mark_as_paid" })}
-                          className={`h-8 text-[11px] font-bold px-3 rounded-lg border transition-all ${
-                            isSettled 
-                              ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
-                              : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
+                          onClick={() => updateStatus.mutate({ 
+                            id: o.id, 
+                            st: methodDisplay === "ONLINE" ? "raise_payment_dispute" : isSettled ? "mark_as_unpaid" : "mark_as_paid" 
+                          })}
+                          className={`h-8.5 text-[11px] font-bold px-3.5 rounded-lg border shadow-none transition-all ${
+                            methodDisplay === "ONLINE"
+                              ? "text-red-600 bg-red-500/5 hover:bg-red-500/10 border-red-500/20 gap-1.5"
+                              : isSettled 
+                                ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
+                                : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
                           }`}
                         >
-                          {isSettled ? "Mark Unpaid" : "Collect Cash"}
+                          {methodDisplay === "ONLINE" ? (
+                            <>
+                              <ShieldAlert className="h-3.5 w-3.5 shrink-0" /> Raise Payment Dispute
+                            </>
+                          ) : isSettled ? (
+                            "Mark Unpaid"
+                          ) : (
+                            "Collect Cash"
+                          )}
                         </Button>
+                      )}
+
+                      {/* 🚀 IMMUTABLE CASH RECEIPT MARKER (Replaces old 'Mark Unpaid' button completely on completion) */}
+                      {methodDisplay === "COD" && isCompletedState && (
+                        <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg">
+                          ✓ Cash Confirmed
+                        </span>
                       )}
 
                       <Select
                         value={o.status}
-                        disabled={isAnyRowProcessing || nextAllowedOptions.length === 0}
+                        disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
                         onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
                       >
-                        <SelectTrigger className="w-36 capitalize font-semibold text-xs rounded-lg h-8 border bg-background shadow-none">
-                          <SelectValue />
+                        <SelectTrigger className={`w-36 capitalize font-semibold text-xs rounded-lg h-8.5 border bg-background shadow-none ${
+                          isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.02] cursor-not-allowed" : ""
+                        }`}>
+                          <SelectValue placeholder={isCompletionBlocked ? "Collect Cash First" : undefined} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
@@ -727,7 +760,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 rounded-lg border shrink-0 bg-background hover:bg-muted/40"
+                        className="h-8.5 w-8.5 rounded-lg border shrink-0 bg-background hover:bg-muted/40 transition-colors"
                         onClick={() => toggleExpand(o.id)}
                       >
                         {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -735,18 +768,29 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {/* EXPANDED CREDENTIAL PANEL VIEW */}
                   {isExpanded && (
-                    <div className="bg-muted/10 border-t border-border/50 p-5 space-y-5 animate-in slide-in-from-top-1 duration-200">
+                    <div className="bg-muted/10 p-5 space-y-5 animate-in slide-in-from-top-1 duration-200 border-t border-b border-border/40">
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs bg-background/50 border border-border/60 p-4 rounded-xl">
+                      {!isTableMode && isFraudLocked && (
+                        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex items-start gap-3">
+                          <ShieldAlert className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5 text-xs text-left">
+                            <p className="font-bold text-red-600 dark:text-red-400">Transaction Locked Under Administrative Review</p>
+                            <p className="text-muted-foreground leading-relaxed text-[11px]">
+                              This online payment record has been frozen due to an owner mismatch challenge. Our support staff are validating gateway bank logs manually.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs bg-background/50 border border-border/60 p-4 rounded-xl shadow-none">
                         <div className="flex items-start gap-3 text-left">
                           <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 select-none">
                             {nameInitials}
                           </div>
                           <div className="space-y-1">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Profile</p>
-                            <p className="font-bold text-foreground text-sm">{buyerName}</p>
+                            <p className="font-bold text-foreground text-sm tracking-tight">{buyerName}</p>
                             <p className="font-mono text-xs font-bold text-primary/90">{buyerPhone}</p>
                             <p className="text-[11px] text-muted-foreground font-medium">{buyerEmail}</p>
                           </div>
@@ -756,7 +800,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
                           {isTableMode ? (
                             <div className="py-1">
-                              <p className="text-amber-600 dark:text-amber-400 font-semibold bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-lg text-[11px] max-w-fit">
+                              <p className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-lg text-[11px] max-w-fit shadow-inner">
                                 🪑 Dine-In Table Reservation Ticket
                               </p>
                             </div>

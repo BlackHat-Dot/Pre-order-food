@@ -242,22 +242,45 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Requested order could not be located.")
 
+    incoming_status = getattr(payload, "status", None)
+
     if user.role == "shop_owner":
-        incoming_status = getattr(payload, "status", None)
-        
-        if incoming_status == "mark_as_paid":
-            order.payment_status = "paid"
-            await db.commit()
-            return order
-        elif incoming_status == "mark_as_unpaid":
-            order.payment_status = "pending"
+        # 🤝 ORDER COMPLETION GATE: Enforce cash validation rule parameters
+        if incoming_status == "completed":
+            if order.payment_method == "cod" and order.payment_status != "paid":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Fulfillment Blocked: You must confirm cash receipt by clicking 'Collect Cash' before completing this order."
+                )
+            
+            order.status = "completed"
             await db.commit()
             return order
 
-    order.status = payload.status
+        # 🚨 CASH FLOW STATE INTERLOCK
+        if incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
+            if order.payment_method != "cod":
+                raise HTTPException(status_code=400, detail="Action Restricted: Manual payment alterations are strictly disabled for online gateway transactions.")
+
+            if incoming_status == "mark_as_unpaid":
+                # 🛑 THE IMMUTABILITY RULE: Blocks retroactively toggling a completed ticket to unpaid
+                if order.status == "completed":
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Transaction Immutable: Completed and delivered orders cannot be marked as unpaid."
+                    )
+                order.payment_status = "pending"
+                
+            elif incoming_status == "mark_as_paid":
+                order.payment_status = "paid"
+                
+            await db.commit()
+            return order
+
+    # Standard progression fallback path
+    order.status = incoming_status
     await db.commit()
     return order
-
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)
 async def cancel_order(
