@@ -24,7 +24,7 @@ from app.utils.ids import new_id
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
 
-# 🚀 HOISTED HELPERS LAYER: Placed at the top so endpoints can safely call them
+# 🚀 HOISTED DATA UTILITIES SECTION: Must live at the top to clear Pylance name boundaries
 async def _get_clean_serialized_order(db: AsyncSession, order_id: str) -> Order:
     """
     Guarantees full async eager-loading for nested order items 
@@ -228,7 +228,7 @@ async def create_order(
     await db.commit()
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
     
-    # Safely calls our hoisted serializer helper
+    # 🚀 FIX: Runs through eager-load helper to fetch complete objects safely
     return await _get_clean_serialized_order(db, order.id)
 
 
