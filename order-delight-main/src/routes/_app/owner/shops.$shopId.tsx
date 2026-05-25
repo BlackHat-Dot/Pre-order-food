@@ -34,10 +34,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
+// 🛡️ Explicit state matrix mapping paths
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
@@ -47,6 +47,29 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   completed: [],
   cancelled: []
 };
+
+// 🎨 DESIGN SYSTEM UPGRADE: Explicitly isolates status badges for high readability
+function StatusBadge({ status }: { status: string }) {
+  const current = (status || "pending").toLowerCase();
+  
+  const designMap: Record<string, string> = {
+    pending: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    accepted: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    preparing: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
+    ready: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    cancel_requested: "bg-rose-500/10 text-rose-500 border-rose-500/20 font-bold animate-pulse",
+    cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold" // 🛑 VIBRANT RED FOR EXHAUSTED TICKETS
+  };
+
+  const styling = designMap[current] || "bg-muted text-muted-foreground";
+
+  return (
+    <Badge variant="outline" className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded shadow-none ${styling}`}>
+      {current.replace("_", " ")}
+    </Badge>
+  );
+}
 
 function OwnerShop() {
   const { shopId } = Route.useParams();
@@ -110,7 +133,7 @@ function OwnerShop() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="stats">
+      <Tabs defaultValue="orders">
         <TabsList>
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
@@ -528,6 +551,9 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
+// ==========================================
+// 🚀 MAIN ORDERS RETRIEVAL MODULE OVERHAUL
+// ==========================================
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -560,7 +586,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       qc.invalidateQueries({ queryKey });
     },
     onError: () => {
-      toast.error("Failed to complete transition.");
+      toast.error("Failed to complete state transition.");
     },
     onSettled: () => setUpdatingOrderId(null),
   });
@@ -611,17 +637,18 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAnyRowProcessing = updatingOrderId !== null;
 
-            // Metadata resolution layers
-            const isTableMode = String(o.order_type || "").toLowerCase() === "table_booking";
+            // 🚀 CORE BADGE BOUNDARY FIX: Maps exactly to deserialized pydantic contract keys
+            const fulfillmentType = String(o.order_type || "delivery").toLowerCase();
+            const isTableMode = fulfillmentType === "table_booking";
+            
             const methodDisplay = String(o.payment_method || "cod").toUpperCase();
             const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
 
-            // 🚀 FIXED PROPERTY MATCHES: Read properties directly from 'o.customer' object map payload
+            // 🚀 NESTED OBJECT ACCOUNT RESOLUTION: Extracts parameters straight from the updated payload object
             const buyerName = o.customer?.name || "Customer Account";
             const buyerPhone = o.customer?.phone || "No Mobile Number Linked";
             const buyerEmail = o.customer?.email || "No Email Provided";
             
-            // Generate professional shorthand avatar initials icon letter context
             const nameInitials = buyerName
               .split(" ")
               .map((n: string) => n[0])
@@ -640,6 +667,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         </span>
                         <StatusBadge status={o.status} />
                         
+                        {/* Dynamic layout selection switches */}
                         <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-background border-border/80 text-muted-foreground">
                           {isTableMode ? "🪑 Table Booking" : "🛵 Food Delivery"}
                         </Badge>
@@ -707,14 +735,12 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {/* EXPANDED PROFESSIONAL CREDENTIALS AND DETAILS TICKET */}
+                  {/* EXPANDED CREDENTIAL PANEL VIEW */}
                   {isExpanded && (
                     <div className="bg-muted/10 border-t border-border/50 p-5 space-y-5 animate-in slide-in-from-top-1 duration-200">
                       
-                      {/* LAYOUT GRID: CONTACT METRICS VS SHIPPING DESTINATION */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs bg-background/50 border border-border/60 p-4 rounded-xl">
                         <div className="flex items-start gap-3 text-left">
-                          {/* SLeek professional circle initials letter avatar */}
                           <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 select-none">
                             {nameInitials}
                           </div>
@@ -748,7 +774,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         </div>
                       </div>
 
-                      {/* PANELS SECTION: TICKET ITEM LINES QUANTITIES */}
                       <div className="space-y-2">
                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">
                           <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
@@ -785,7 +810,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         </div>
                       </div>
 
-                      {/* PANEL SECTION: ADDITIONAL LOGISTICS NOTES */}
                       {o.instructions && (
                         <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3.5 text-xs text-left">
                           <p className="text-amber-800 dark:text-amber-400 font-normal leading-relaxed">
@@ -806,13 +830,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   );
 }
 
-function SettingsTab({
-  shopId,
-  initial,
-}: {
-  shopId: string;
-  initial: any;
-}) {
+function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     name: initial.name ?? "",
