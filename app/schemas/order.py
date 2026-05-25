@@ -27,10 +27,12 @@ class OrderCreate(BaseModel):
     items: list[OrderItemInput] = Field(min_length=1)
     scheduled_at: datetime | None = None
     instructions: str | None = None
-    payment_method: str = Field(pattern="^(cod|online)$")
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
     coupon_id: str | None = None
-    payment_confirmed: bool | None = False
+    
+    payment_method: Literal["cod", "online"] = "cod"
+    order_type: Literal["delivery", "table_booking"] = "delivery"
+    payment_confirmed: Optional[bool] = False
 
 
 class OrderStatusUpdate(BaseModel):

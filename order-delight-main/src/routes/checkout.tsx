@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle, Info, Tag, MapPin, PlusCircle, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { ordersApi, paymentsApi, shopsApi, apiRequest } from "@/lib/api";
+import { ordersApi, shopsApi, apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -108,7 +109,7 @@ function FreeOrderSuccessModal({
 // ==========================================
 // 2. INTERACTIVE ADDRESS SELECTION MODULE
 // ==========================================
-function CheckoutAddressModule({ onAddressSelected }: { onAddressSelected: (id: string | null) => void }) {
+function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelected: (id: string | null) => void; disabled?: boolean }) {
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -157,6 +158,8 @@ function CheckoutAddressModule({ onAddressSelected }: { onAddressSelected: (id: 
       qc.invalidateQueries({ queryKey: ["addresses", "me"] });
     }
   });
+
+  if (disabled) return null;
 
   return (
     <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
@@ -293,6 +296,10 @@ function CheckoutPage() {
   const [pickup, setPickup] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
+  // Fulfillment Configuration Forms States
+  const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
+
   // Modal display logic control states
   const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
   
@@ -314,7 +321,6 @@ function CheckoutPage() {
   });
 
   const couponDiscount = appliedCoupon ? appliedCoupon.discount_value : 0;
-  
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
@@ -335,9 +341,10 @@ function CheckoutPage() {
     }
   };
 
-  // 🚀 FIXED: Order object is created ONLY after payment confirmation is verified!
   const placePaidOrderMutation = useMutation({
     mutationFn: async () => {
+      const isOnlinePay = paymentMethod === "online" && payableTotal > 0;
+      
       const payload: any = {
         shop_id: shopId!,
         items: lines.map((l) => ({
@@ -347,10 +354,11 @@ function CheckoutPage() {
         })),
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,
-        delivery_address_id: selectedAddressId, 
+        delivery_address_id: orderType === "delivery" ? selectedAddressId : null, 
         coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
-        payment_method: "online",
-        payment_confirmed: true, // Tell the backend that payment was securely processed
+        payment_method: paymentMethod,
+        order_type: orderType,
+        payment_confirmed: isOnlinePay ? true : false, 
       };
       
       return await apiRequest<any>("/api/v1/orders", {
@@ -377,23 +385,27 @@ function CheckoutPage() {
         return;
       }
 
-      toast.success("Payment confirmed & order successfully placed!");
+      toast.success(paymentMethod === "online" ? "Payment confirmed & order successfully placed!" : "Order placed successfully!");
       navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
     },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "Failed to securely write transaction record.");
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to complete checkout processing payload parameters.");
     }
   });
 
   function handleCheckoutClick() {
     if (payableTotal === 0) {
-      // Free voucher settlements completely bypass the verification modal loop
       placePaidOrderMutation.mutate();
-    } else {
-      // Open modal instantly to lock down authorization before doing database writes
+    } else if (paymentMethod === "online") {
       setShowPaymentGatewayModal(true);
+    } else {
+      // Direct submission path for standard COD requests
+      placePaidOrderMutation.mutate();
     }
   }
+
+  // Verification requirements: delivery mode requires a selected location id; table booking bypasses it
+  const isFormValid = orderType === "table_booking" || !!selectedAddressId;
 
   if (count === 0 && !freeOrderId) {
     return (
@@ -421,16 +433,104 @@ function CheckoutPage() {
         <div className="grid gap-6 md:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             
-            <CheckoutAddressModule onAddressSelected={setSelectedAddressId} />
+            {/* MODULAR COMPONENT 1: CHOOSE FULFILLMENT PROFILE */}
+            <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-5 space-y-3 text-left">
+                <div className="flex items-center gap-1.5">
+                  <Utensils className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-bold text-foreground">Fulfillment Choice</Label>
+                </div>
+                <RadioGroup 
+                  value={orderType} 
+                  onValueChange={(v: any) => setOrderType(v)}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <div>
+                    <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
+                    <Label
+                      htmlFor="delivery"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        orderType === "delivery" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Bike className={`h-5 w-5 mb-1 ${orderType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-xs">Food Delivery</span>
+                    </Label>
+                  </div>
+
+                  <div>
+                    <RadioGroupItem value="table_booking" id="table_booking" className="sr-only" />
+                    <Label
+                      htmlFor="table_booking"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        orderType === "table_booking" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Utensils className={`h-5 w-5 mb-1 ${orderType === "table_booking" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-xs">Book a Table</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
+            {/* MODULAR COMPONENT 2: CUSTOMER DELIVERY LOCATION MAPS */}
+            <CheckoutAddressModule 
+              onAddressSelected={setSelectedAddressId} 
+              disabled={orderType === "table_booking"} 
+            />
+
+            {/* MODULAR COMPONENT 3: ACCOUNT SETTLEMENT TYPE CHANNELS */}
+            <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-5 space-y-3 text-left">
+                <div className="flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-bold text-foreground">Select Payment Mode</Label>
+                </div>
+                <RadioGroup 
+                  value={paymentMethod} 
+                  onValueChange={(v: any) => setPaymentMethod(v)}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <div>
+                    <RadioGroupItem value="cod" id="cod" className="sr-only" />
+                    <Label
+                      htmlFor="cod"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        paymentMethod === "cod" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Coins className={`h-5 w-5 mb-1 ${paymentMethod === "cod" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-xs">Cash on Delivery</span>
+                    </Label>
+                  </div>
+
+                  <div>
+                    <RadioGroupItem value="online" id="online" className="sr-only" />
+                    <Label
+                      htmlFor="online"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        paymentMethod === "online" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <CreditCard className={`h-5 w-5 mb-1 ${paymentMethod === "online" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-xs">Online Banking</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardContent className="space-y-4 p-6">
-                <div>
+                <div className="text-left">
                   <p className="text-sm text-muted-foreground">Ordering from</p>
                   <p className="text-lg font-semibold">{(shop as any)?.name ?? "Shop"}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickup">Scheduled Time (optional)</Label>
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="pickup">
+                    {orderType === "table_booking" ? "Table Reservation Timing Slot" : "Scheduled Delivery Time (optional)"}
+                  </Label>
                   <Input
                     id="pickup"
                     type="datetime-local"
@@ -438,29 +538,28 @@ function CheckoutPage() {
                     onChange={(e) => setPickup(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes for the kitchen (optional)</Label>
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="notes">Notes for the kitchen / host (optional)</Label>
                   <Textarea
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Allergies, extra spicy, etc."
+                    placeholder={orderType === "table_booking" ? "Window seat preference, allergies, etc." : "Allergies, extra spicy, leave at door..."}
                   />
                 </div>
                 {shop && !(shop as any).is_verified && (
-                  <p className="text-sm text-destructive">
-                    Warning: This shop is not admin-verified. Order at your own risk.
+                  <p className="text-sm text-destructive text-left font-medium">
+                    Warning: This shop is not admin-verified. Proceed with caution.
                   </p>
                 )}
               </CardContent>
             </Card>
 
             <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-4 space-y-3 text-left">
                 <div className="flex items-center gap-1.5">
                   <Tag className="h-4 w-4 text-primary" />
                   <Label className="text-sm font-bold text-foreground">Have a Gift Coupon Voucher?</Label>
-                  
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -471,10 +570,7 @@ function CheckoutPage() {
                       <TooltipContent className="p-3 max-w-xs space-y-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
                         <p className="text-xs font-bold">🎟️ Shared Discounts:</p>
                         <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          You can convert your loyalty points into a code voucher inside your <Link to="/loyalty" className="text-primary font-semibold underline">Loyalty Wallet</Link>.
-                        </p>
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium leading-relaxed">
-                          Vouchers are public! If you don't have points, a friend can generate a code from their account and send it to you to apply here.
+                          You can convert loyalty points into vouchers inside your Loyalty Wallet profile section. Vouchers are transferable to friends!
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -487,7 +583,7 @@ function CheckoutPage() {
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     disabled={!!appliedCoupon || isValidatingCoupon}
-                    className="font-mono tracking-wider h-10 rounded-xl focus-visible:ring-primary uppercase"
+                    className="font-mono tracking-wider h-10 rounded-xl focused uppercase text-xs"
                   />
                   {appliedCoupon ? (
                     <Button 
@@ -513,89 +609,106 @@ function CheckoutPage() {
             </Card>
           </div>
 
-          <Card className="h-fit">
+          {/* SIDEBAR TOTAL VALUE EVALUATION BOX CARD */}
+          <Card className="h-fit text-left">
             <CardContent className="space-y-3 p-6">
-              <h3 className="font-semibold">Summary</h3>
-              <div className="space-y-1.5 text-sm">
+              <h3 className="font-semibold text-sm">Order Summary</h3>
+              <div className="space-y-1.5 text-xs">
                 {lines.map((l) => (
-                  <div key={`${l.item_id}-${l.variant_id ?? "_"}`} className="flex justify-between">
-                    <span className="text-muted-foreground">
+                  <div key={`${l.item_id}-${l.variant_id ?? "_"}`} className="flex justify-between gap-4">
+                    <span className="text-muted-foreground line-clamp-2">
                       {l.quantity} × {l.name}
                       {l.variant_name ? ` (${l.variant_name})` : ""}
                     </span>
-                    <span>{formatCurrency(l.unit_price * l.quantity)}</span>
+                    <span className="shrink-0 font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between border-t border-border pt-3 text-base font-semibold">
-                <span>Subtotal</span>
+              <div className="flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
+                <span>Items Subtotal</span>
                 <span>{formatCurrency(total)}</span>
               </div>
               {couponDiscount > 0 && (
-                <div className="flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Voucher Discount</span>
+                <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Voucher Applied</span>
                   <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between text-base font-semibold">
-                <span>Payable</span>
-                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-black tracking-tight animate-pulse" : ""}>
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground py-0.5">
+                <span>Fulfillment Type:</span>
+                <span className="font-semibold capitalize text-foreground">{orderType.replace("_", " ")}</span>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground pb-1">
+                <span>Payment Mode:</span>
+                <span className="font-semibold uppercase text-foreground">{paymentMethod}</span>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-dashed pt-2.5 text-base font-bold">
+                <span>Payable Total</span>
+                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-black animate-pulse" : ""}>
                   {payableTotal === 0 ? "FREE" : formatCurrency(payableTotal)}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                You will earn approximately <span className="font-semibold text-primary">{estimatedEarn}</span> shop loyalty points after payment.
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                You will accumulate approximately <span className="font-semibold text-primary">{estimatedEarn}</span> loyalty points balance items post confirmation.
               </p>
               
               <Button
-                className={`w-full ${payableTotal === 0 && selectedAddressId ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : ""}`}
+                className={`w-full rounded-xl mt-2 ${payableTotal === 0 && isFormValid ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : ""}`}
                 size="lg"
-                disabled={placePaidOrderMutation.isPending || !selectedAddressId}
+                disabled={placePaidOrderMutation.isPending || !isFormValid}
                 onClick={handleCheckoutClick}
               >
-                {!selectedAddressId 
+                {!isFormValid 
                   ? "Select Delivery Address" 
                   : placePaidOrderMutation.isPending 
-                    ? "Placing order…" 
+                    ? "Processing..." 
                     : payableTotal === 0 
                       ? "Claim Free Order! 🎉" 
-                      : "Place order & pay"}
+                      : paymentMethod === "online" 
+                        ? "Proceed to Online Pay" 
+                        : "Place COD Order"}
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* 🚀 FIXED: This modal controls whether the order ever gets inserted into your tables */}
+      {/* ONLINE AUTHORIZATION PAYMENT GATEWAY MODAL LOOPS */}
       <Dialog open={showPaymentGatewayModal} onOpenChange={setShowPaymentGatewayModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm payment</DialogTitle>
-            <DialogDescription>
-              This is a demo payment gateway authorization view. Confirming this step completes your cash transaction and submits your order to the kitchen. Closing this view drops the payment loop safely without recording ghost entries.
+        <DialogContent className="rounded-2xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>Confirm Secure Online Payment</DialogTitle>
+            <DialogDescription className="text-xs pt-1">
+              This is a sandbox online checkout gateway authentication frame module. Confirming this sequence completes the transaction and passes parameters to your back-end ecosystem instantly.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+          <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs space-y-1 text-left">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount</span>
-              <span className="font-semibold">{formatCurrency(payableTotal)}</span> 
+              <span className="text-muted-foreground">Amount Due</span>
+              <span className="font-bold text-foreground">{formatCurrency(payableTotal)}</span> 
             </div>
-            <div className="mt-1 flex justify-between">
-              <span className="text-muted-foreground">Reference</span>
-              <span className="max-w-[200px] truncate font-mono text-xs">
-                mock_pay_gateway_session
-              </span>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Mode Type</span>
+              <span className="font-medium text-primary uppercase">{orderType.replace("_", " ")}</span> 
+            </div>
+            <div className="flex justify-between pt-1 border-t border-border/40 mt-1">
+              <span className="text-muted-foreground">Gateway Session ID</span>
+              <span className="font-mono text-[10px] text-muted-foreground">mock_net_gateway_checkout</span>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowPaymentGatewayModal(false)}>
-              Cancel transaction
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="rounded-xl text-xs" onClick={() => setShowPaymentGatewayModal(false)}>
+              Cancel Transaction
             </Button>
             <Button 
+              className="rounded-xl text-xs font-semibold px-5"
               onClick={() => placePaidOrderMutation.mutate()} 
               disabled={placePaidOrderMutation.isPending}
             >
-              {placePaidOrderMutation.isPending ? "Processing..." : "Confirm payment"}
+              {placePaidOrderMutation.isPending ? "Authorizing..." : "Confirm & Pay"}
             </Button>
           </DialogFooter>
         </DialogContent>

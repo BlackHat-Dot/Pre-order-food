@@ -22,8 +22,12 @@ class Order(Base):
 
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
-    payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
+    
+    # 🚀 NEW CONTRACT FIELDS: Map fulfillment selections perfectly to prevent database validation drops
+    payment_method: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("'cod'"))
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"))
+    order_type: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("'delivery'")) # 'delivery' or 'table_booking'
+
     coupon_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     coupon_discount_applied: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
     loyalty_points_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
@@ -33,8 +37,6 @@ class Order(Base):
     
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     cancellation_requests_sent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    
-    # 🚀 FIXED: Added the locking column tracker mapped cleanly to SQLAlchemy 2.0 specs
     is_cancellation_pending: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

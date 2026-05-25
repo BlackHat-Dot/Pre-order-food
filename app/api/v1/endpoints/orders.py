@@ -62,7 +62,7 @@ async def create_order(
     if user.role == "shop_owner":
         raise HTTPException(
             status_code=403, 
-            detail="Shop Owners are strictly unauthorized to place pre-orders."
+            detail="Shop Owners are strictly unauthorized to place orders."
         )
 
     shop = await db.get(Shop, payload.shop_id)
@@ -71,10 +71,11 @@ async def create_order(
     if not shop.is_open or not shop.is_accepting_orders:
         raise HTTPException(400, "Shop is not accepting orders")
 
-    if payload.payment_method == "online" and not getattr(payload, "payment_confirmed", False):
+    # 🔒 Payment Gateway Guard
+    if payload.payment_method == "online" and not payload.payment_confirmed:
         raise HTTPException(
             status_code=400,
-            detail="Payment confirmation parameters are required to secure database order placements."
+            detail="Payment confirmation token verification failed. Transaction aborted."
         )
 
     total_price = 0.0
@@ -82,22 +83,13 @@ async def create_order(
     order_items: list[OrderItem] = []
 
     for entry in payload.items:
-        if entry.variant_id is not None:
-            if entry.variant_id == "":
-                raise HTTPException(400, "Invalid variant_id")
+        if entry.variant_id:
             variant = await db.get(MenuItemVariant, entry.variant_id)
-            
             if not variant or not variant.is_available:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="The selected option configuration is currently unavailable."
-                )
-                
+                raise HTTPException(status_code=400, detail="Variant configuration unavailable.")
             item = await db.get(MenuItem, variant.item_id)
             if not item or item.shop_id != shop.id or not item.is_available:
                 raise HTTPException(status_code=400, detail="Item unavailable")
-            if entry.item_id and entry.item_id != item.id:
-                raise HTTPException(400, "Variant does not belong to the specified item")
                 
             total_price += variant.price * entry.quantity
             prep_times.append(variant.prep_time_minutes)
@@ -115,14 +107,10 @@ async def create_order(
             )
         else:
             if not entry.item_id:
-                raise HTTPException(400, "Item ID is required for base item orders")
+                raise HTTPException(400, "Item ID is required for base items")
             item = await db.get(MenuItem, entry.item_id)
-            
             if not item or item.shop_id != shop.id or not item.is_available:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Dish '{item.name if item else 'Item'}' is sold out or unavailable right now."
-                )
+                raise HTTPException(status_code=400, detail="Dish selection is unavailable.")
                 
             total_price += item.price * entry.quantity
             prep_times.append(item.prep_time_minutes)
@@ -139,6 +127,7 @@ async def create_order(
                 )
             )
 
+    # Initialize the base database model map container with your form settings
     order = Order(
         id=new_id(),
         customer_id=user.id,
@@ -148,99 +137,57 @@ async def create_order(
         scheduled_at=payload.scheduled_at,
         instructions=payload.instructions,
         payment_method=payload.payment_method,
+        order_type=payload.order_type,
         payment_status="paid" if payload.payment_method == "online" else "pending"
     )
 
+    # Process discounts if a coupon is provided
     coupon_id = getattr(payload, "coupon_id", None)
     coupon = None
     if coupon_id:
         coupon = await db.get(Coupon, coupon_id)
-        if not coupon:
-            raise HTTPException(404, "Voucher code reference missing")
-        if coupon.shop_id != shop.id:
-            raise HTTPException(400, "This voucher is restricted to another storefront profile")
-        if coupon.is_redeemed or coupon.discount_value <= 0:
-            raise HTTPException(410, "This voucher code has already been completely exhausted")
+        if coupon and coupon.shop_id == shop.id and not coupon.is_redeemed:
+            if coupon.discount_value >= total_price:
+                order.coupon_discount_applied = total_price
+                order.total_price = 0.0
+                coupon.discount_value = round(coupon.discount_value - total_price, 2)
+            else:
+                order.coupon_discount_applied = coupon.discount_value
+                order.total_price = round(total_price - coupon.discount_value, 2)
+                coupon.discount_value = 0.0
+                coupon.is_redeemed = True
+            db.add(coupon)
 
-        if coupon.discount_value >= total_price:
-            order.coupon_discount_applied = total_price
-            order.total_price = 0.0
-        else:
-            order.coupon_discount_applied = coupon.discount_value
-            order.total_price = round(total_price - coupon.discount_value, 2)
-
+    # Process loyalty points points allocation values
     elif getattr(payload, "redeem_loyalty_points", 0) > 0:
-        redeem_points = max(payload.redeem_loyalty_points or 0, 0)
-        if redeem_points > 5000:
-            raise HTTPException(
-                status_code=400,
-                detail="Redemption limit exceeded! You can only redeem a maximum of 5,000 loyalty points per single order transaction."
-            )
-
+        redeem_points = min(payload.redeem_loyalty_points, 5000)
         discount_per_point = max(float(shop.loyalty_discount_per_point or 0), 0.0)
-        if redeem_points > 0:
-            account_stmt = select(LoyaltyAccount).where(
-                LoyaltyAccount.customer_id == user.id,
-                LoyaltyAccount.shop_id == shop.id,
-            )
-            account = (await db.execute(account_stmt)).scalar_one_or_none()
-            if not account or account.points_balance < redeem_points:
-                raise HTTPException(400, "Insufficient loyalty points for this shop")
-            max_discount_points = int(total_price / discount_per_point) if discount_per_point > 0 else 0
+        account_stmt = select(LoyaltyAccount).where(LoyaltyAccount.customer_id == user.id, LoyaltyAccount.shop_id == shop.id)
+        account = (await db.execute(account_stmt)).scalar_one_or_none()
+        
+        if account and account.points_balance >= redeem_points and discount_per_point > 0:
+            max_discount_points = int(total_price / discount_per_point)
             points_to_use = min(redeem_points, max_discount_points)
             discount_amount = round(points_to_use * discount_per_point, 2)
+            
             if points_to_use > 0:
                 account.points_balance -= points_to_use
                 order.loyalty_points_used = points_to_use
                 order.loyalty_discount_amount = discount_amount
                 order.total_price = round(max(total_price - discount_amount, 0), 2)
-                db.add(
-                    LoyaltyTransaction(
-                        id=new_id(),
-                        account_id=account.id,
-                        order_id=order.id,
-                        points=-points_to_use,
-                        action="redeemed",
-                    )
-                )
+                db.add(LoyaltyTransaction(id=new_id(), account_id=account.id, order_id=order.id, points=-points_to_use, action="redeemed"))
 
-    points_earned = int(order.total_price * 0.05)
-    order.loyalty_points_earned = max(points_earned, 0)
-    
+    order.loyalty_points_earned = max(int(order.total_price * 0.05), 0)
     db.add(order)
     await db.flush()
 
-    if coupon:
-        if coupon.discount_value >= total_price:
-            leftover_balance = round(coupon.discount_value - total_price, 2)
-            coupon.discount_value = leftover_balance
-            coupon.is_redeemed = False 
-            
-            db.add(Notification(
-                id=new_id(),
-                user_id=user.id,
-                title="Voucher Balance Updated",
-                message=f"Your voucher {coupon.code} has been partially applied. A remaining balance of ₹{leftover_balance:,.2f} is secured on this code.",
-                type="coupon_update"
-            ))
-        else:
-            coupon.discount_value = 0.0
-            coupon.is_redeemed = True
-            coupon.redeemed_at = datetime.utcnow()
-            coupon.redeemed_by_id = user.id
-            coupon.order_id = order.id
-            
-        db.add(coupon)
-    
     for oi in order_items:
         oi.order_id = order.id
         db.add(oi)
         
     await db.commit()
-    await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
-    
+    await send_sms(user.phone, f"Order {order.id} ({payload.order_type.replace('_', ' ')}) placed successfully at {shop.name}!")
     return await _get_clean_serialized_order(db, order.id, user)
-
 
 @router.get("/{order_id}", response_model=OrderOut)
 async def get_order(
