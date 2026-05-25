@@ -24,7 +24,7 @@ from app.utils.ids import new_id
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
 
-# 🚀 FIXED HOISTED UTILITY: Validates access controls alongside async relationship pre-loading
+# 🚀 AUTHORITATIVE GLOBAL FETCH UTILITY: Enforces strict data integrity and role permissions
 async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
     """
     Guarantees full async eager-loading for nested order items while enforcing 
@@ -248,7 +248,16 @@ async def get_order(
     db: Annotated[AsyncSession, Depends(get_db)], 
     user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))]
 ) -> OrderOut:
-    # 🚀 FIXED: Passes down active user tokens to prevent 404 masking issues
+    return await _get_clean_serialized_order(db, order_id, user)
+
+
+@router.get("/ticket/{order_id}", response_model=OrderOut)
+async def get_order_ticket_details(
+    order_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> OrderOut:
+    # 🚀 FIXED THE MISSING LINK: Uses the standardized helper to cleanly pre-load fields and fix the 404 error
     return await _get_clean_serialized_order(db, order_id, user)
 
 
