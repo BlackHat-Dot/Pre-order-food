@@ -24,11 +24,11 @@ from app.utils.ids import new_id
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
 
-# 🚀 HOISTED DATA UTILITIES SECTION: Must live at the top to clear Pylance name boundaries
-async def _get_clean_serialized_order(db: AsyncSession, order_id: str) -> Order:
+# 🚀 FIXED HOISTED UTILITY: Validates access controls alongside async relationship pre-loading
+async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
     """
-    Guarantees full async eager-loading for nested order items 
-    to prevent MissingGreenlet/ResponseValidationError drops.
+    Guarantees full async eager-loading for nested order items while enforcing 
+    strict multi-role (customer, owner, admin) security access parameters.
     """
     fresh_stmt = (
         select(Order)
@@ -37,8 +37,19 @@ async def _get_clean_serialized_order(db: AsyncSession, order_id: str) -> Order:
     )
     fresh_result = await db.execute(fresh_stmt)
     fresh_order = fresh_result.scalar_one_or_none()
+    
     if not fresh_order:
-        raise HTTPException(status_code=404, detail="Order synchronization mapping lost post-commit.")
+        raise HTTPException(status_code=404, detail="Requested order could not be located.")
+        
+    # Enforce strict multi-role ownership validation boundaries
+    if user.role == "customer" and fresh_order.customer_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied to this order tracking token.")
+        
+    if user.role == "shop_owner":
+        shop = await db.get(Shop, fresh_order.shop_id)
+        if not shop or shop.owner_id != user.id:
+            raise HTTPException(status_code=403, detail="Access restricted to authorized merchant profiles.")
+            
     return fresh_order
 
 
@@ -228,13 +239,17 @@ async def create_order(
     await db.commit()
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
     
-    # 🚀 FIX: Runs through eager-load helper to fetch complete objects safely
-    return await _get_clean_serialized_order(db, order.id)
+    return await _get_clean_serialized_order(db, order.id, user)
 
 
 @router.get("/{order_id}", response_model=OrderOut)
-async def get_order(order_id: str, db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))]) -> OrderOut:
-    return await _get_clean_serialized_order(db, order_id)
+async def get_order(
+    order_id: str, 
+    db: Annotated[AsyncSession, Depends(get_db)], 
+    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))]
+) -> OrderOut:
+    # 🚀 FIXED: Passes down active user tokens to prevent 404 masking issues
+    return await _get_clean_serialized_order(db, order_id, user)
 
 
 @router.get("/customer/me", response_model=list[OrderOut])
