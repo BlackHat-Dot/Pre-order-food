@@ -560,20 +560,42 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       });
     },
     onSuccess: () => {
-      toast.success("Order status updated successfully");
+      toast.success("Order status updated");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
-    onError: (e: any) => {
-      // Force an immediate refresh to align client data views with your PostgreSQL instance state
+    onError: async (error: any) => {
+      // Force an immediate refresh to align client data views with the server state
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
-      
-      const serverMessage = e?.message || "";
-      if (serverMessage.includes("Action Lockout") || serverMessage.includes("processed")) {
-        toast.info("This request was already updated in another window.");
+
+      let parsedMessage = "";
+
+      try {
+        // 🚀 FIX: Extract the message string directly from the raw HTTP error body
+        if (error && typeof error.json === "function") {
+          const detailObj = await error.json();
+          parsedMessage = detailObj?.detail || detailObj?.message || "";
+        } else if (error && error.body) {
+          const detailObj = typeof error.body === "string" ? JSON.parse(error.body) : error.body;
+          parsedMessage = detailObj?.detail || detailObj?.message || "";
+        } else {
+          parsedMessage = error?.message || "";
+        }
+      } catch (fallbackErr) {
+        parsedMessage = error?.message || "";
+      }
+
+      const cleanMessage = String(parsedMessage);
+
+      // 🚀 EVALUATE EXPLICIT SERVER STRINGS ONLY
+      if (cleanMessage.includes("Action Lockout") || cleanMessage.includes("processed and resolved")) {
+        toast.info("This cancellation request was already processed.");
+      } else if (cleanMessage) {
+        toast.error(cleanMessage);
       } else {
-        toast.error(serverMessage || "Fulfillment update failed. View refreshed.");
+        // Fallback for generic connectivity drops or parsing errors
+        toast.error("Fulfillment update failed. Refreshing view.");
       }
     },
     onSettled: () => setUpdatingOrderId(null),
