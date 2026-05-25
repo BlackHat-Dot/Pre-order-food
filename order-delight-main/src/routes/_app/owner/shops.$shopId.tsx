@@ -42,7 +42,6 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   accepted: ["preparing", "cancelled"],
   preparing: ["ready"],
   ready: ["completed"],
-  cancel_requested: ["cancelled", "accepted"],
   completed: [],
   cancelled: []
 };
@@ -577,7 +576,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       });
     },
     onSuccess: () => {
-      toast.success("Order status updated successfully");
+      toast.success("Order status synchronized successfully");
       qc.invalidateQueries({ queryKey: queryKey });
     },
     onError: (err: any) => {
@@ -640,8 +639,11 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const isDisputed = String(o.dispute_status || "none").toLowerCase() === "open";
             const isCancelledState = currentStatus === "cancelled";
             const isCompletedState = currentStatus === "completed";
+            
+            // 🚀 FIXED CANCELLATION EVALUATOR: Reads indicators from persistent database column tracking properties
+            const isCancelRequested = currentStatus === "cancel_requested" || !!o.is_cancellation_pending;
 
-            // 🤝 MANDATORY CASH GAUNTLET TRANSITION RULES
+            // 🤝 MANDATORY CASH COD TRANSITION RULES
             const isCompletionBlocked = methodDisplay === "COD" && !isSettled;
 
             const buyerName = o.customer?.name || "Customer Account";
@@ -676,6 +678,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
                         </Badge>
 
+                        {/* 🚀 PERSISTENT COUNTER INDICATOR OVERLAY: Renders the precise tracked value cleanly */}
+                        {isCancelRequested && (
+                          <Badge className="text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded bg-rose-600/10 text-rose-600 border-rose-600/20 animate-pulse">
+                            ⚠️ Cancellation Requested ({o.cancellation_requests_sent || 1}/3)
+                          </Badge>
+                        )}
+
                         {!isTableMode && isDisputed && (
                           <Badge className="text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded border bg-red-600/10 text-red-600 border-red-600/20 animate-pulse">
                             🚨 DISPUTE OPEN
@@ -698,64 +707,88 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     <div className="flex items-center justify-end flex-wrap gap-4 sm:ml-auto">
                       <span className="font-bold text-base text-foreground min-w-[80px] text-right">{formatCurrency(o.total_price)}</span>
                       
-                      {/* 🚀 ACTION BUTTON LAYOUT SECTION WITH REINFORCED SECURITY GUARDS */}
-                      {!isTableMode && !isFraudLocked && !isCancelledState && !isCompletedState && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isAnyRowProcessing}
-                          onClick={() => updateStatus.mutate({ 
-                            id: o.id, 
-                            st: methodDisplay === "ONLINE" ? "raise_payment_dispute" : isSettled ? "mark_as_unpaid" : "mark_as_paid" 
-                          })}
-                          className={`h-8.5 text-[11px] font-bold px-3.5 rounded-lg border shadow-none transition-all ${
-                            methodDisplay === "ONLINE"
-                              ? "text-red-600 bg-red-500/5 hover:bg-red-500/10 border-red-500/20 gap-1.5"
-                              : isSettled 
-                                ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
-                                : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
-                          }`}
-                        >
-                          {methodDisplay === "ONLINE" ? (
-                            <>
-                              <ShieldAlert className="h-3.5 w-3.5 shrink-0" /> Raise Payment Dispute
-                            </>
-                          ) : isSettled ? (
-                            "Mark Unpaid"
-                          ) : (
-                            "Collect Cash"
+                      {/* 🚀 RESOLVED AMBIGUITY COMPONENT ACTION PATHWAYS INTERLOCK */}
+                      {isCancelRequested ? (
+                        <div className="flex items-center gap-2 bg-rose-500/5 p-1.5 border border-rose-500/10 rounded-xl">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={isAnyRowProcessing}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled" })}
+                            className="h-8 text-[11px] font-bold px-3 rounded-lg shadow-none"
+                          >
+                            Accept Cancellation
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isAnyRowProcessing}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
+                            className="h-8 text-[11px] font-bold px-3 rounded-lg bg-background shadow-none text-foreground"
+                          >
+                            Resume Order
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          {!isTableMode && !isFraudLocked && !isCancelledState && !isCompletedState && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isAnyRowProcessing}
+                              onClick={() => updateStatus.mutate({ 
+                                id: o.id, 
+                                st: methodDisplay === "ONLINE" ? "raise_payment_dispute" : isSettled ? "mark_as_unpaid" : "mark_as_paid" 
+                              })}
+                              className={`h-8.5 text-[11px] font-bold px-3.5 rounded-lg border shadow-none transition-all ${
+                                methodDisplay === "ONLINE"
+                                  ? "text-red-600 bg-red-500/5 hover:bg-red-500/10 border-red-500/20 gap-1.5"
+                                  : isSettled 
+                                    ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
+                                    : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
+                              }`}
+                            >
+                              {methodDisplay === "ONLINE" ? (
+                                <>
+                                  <ShieldAlert className="h-3.5 w-3.5 shrink-0" /> Raise Payment Dispute
+                                </>
+                              ) : isSettled ? (
+                                "Mark Unpaid"
+                              ) : (
+                                "Collect Cash"
+                              )}
+                            </Button>
                           )}
-                        </Button>
-                      )}
 
-                      {/* 🚀 IMMUTABLE CASH RECEIPT MARKER (Replaces old 'Mark Unpaid' button completely on completion) */}
-                      {methodDisplay === "COD" && isCompletedState && (
-                        <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg">
-                          ✓ Cash Confirmed
-                        </span>
-                      )}
+                          {methodDisplay === "COD" && isCompletedState && (
+                            <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg">
+                              ✓ Cash Confirmed
+                            </span>
+                          )}
 
-                      <Select
-                        value={o.status}
-                        disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
-                        onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
-                      >
-                        <SelectTrigger className={`w-36 capitalize font-semibold text-xs rounded-lg h-8.5 border bg-background shadow-none ${
-                          isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.02] cursor-not-allowed" : ""
-                        }`}>
-                          <SelectValue placeholder={isCompletionBlocked ? "Collect Cash First" : undefined} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
-                            {o.status.replace("_", " ")}
-                          </SelectItem>
-                          {nextAllowedOptions.map((step) => (
-                            <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                              {step.replace("_", " ")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <Select
+                            value={o.status}
+                            disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
+                            onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
+                          >
+                            <SelectTrigger className={`w-36 capitalize font-semibold text-xs rounded-lg h-8.5 border bg-background shadow-none ${
+                              isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.02] cursor-not-allowed" : ""
+                            }`}>
+                              <SelectValue placeholder={isCompletionBlocked ? "Collect Cash First" : undefined} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
+                                {o.status.replace("_", " ")}
+                              </SelectItem>
+                              {nextAllowedOptions.map((step) => (
+                                <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                                  {step.replace("_", " ")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
 
                       <Button 
                         variant="ghost" 
@@ -832,7 +865,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                                 const variantTitle = item.variant_name_snapshot || null;
                                 
                                 return (
-                                  <div key={idx} className="flex items-center justify-between text-xs pt-2 first:pt-0 gap-4">
+                                  <div key={idx} className="flex items-center justify-between text-xs py-1 gap-4">
                                     <div className="space-y-0.5 text-left">
                                       <p className="font-semibold text-foreground text-sm">{itemTitle}</p>
                                       {variantTitle && (

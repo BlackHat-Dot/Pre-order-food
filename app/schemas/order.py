@@ -112,8 +112,11 @@ class OrderOut(BaseModel):
     payment_status: str
     order_type: str  # 🚀 Added explicit schema mapping field validation
     delivery_address_id: Optional[str] = None
+
     cancellation_reason: Optional[str] = None
     is_cancellation_pending: bool
+    is_cancellation_pending: bool
+    
     created_at: datetime
     updated_at: datetime
     
