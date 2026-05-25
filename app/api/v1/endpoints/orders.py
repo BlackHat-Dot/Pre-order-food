@@ -24,6 +24,24 @@ from app.utils.ids import new_id
 router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basic_rate_limit)])
 
 
+# 🚀 HOISTED HELPERS LAYER: Placed at the top so endpoints can safely call them
+async def _get_clean_serialized_order(db: AsyncSession, order_id: str) -> Order:
+    """
+    Guarantees full async eager-loading for nested order items 
+    to prevent MissingGreenlet/ResponseValidationError drops.
+    """
+    fresh_stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items))
+    )
+    fresh_result = await db.execute(fresh_stmt)
+    fresh_order = fresh_result.scalar_one_or_none()
+    if not fresh_order:
+        raise HTTPException(status_code=404, detail="Order synchronization mapping lost post-commit.")
+    return fresh_order
+
+
 @router.post("", response_model=OrderOut, status_code=201)
 async def create_order(
     payload: OrderCreate,
@@ -209,21 +227,14 @@ async def create_order(
         
     await db.commit()
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
-    return order
+    
+    # Safely calls our hoisted serializer helper
+    return await _get_clean_serialized_order(db, order.id)
 
 
 @router.get("/{order_id}", response_model=OrderOut)
 async def get_order(order_id: str, db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))]) -> OrderOut:
-    order = await db.get(Order, order_id)
-    if not order:
-        raise HTTPException(404, "Order not found")
-    if user.role == "customer" and order.customer_id != user.id:
-        raise HTTPException(403, "Forbidden")
-    if user.role == "shop_owner":
-        shop = await db.get(Shop, order.shop_id)
-        if not shop or shop.owner_id != user.id:
-            raise HTTPException(403, "Forbidden")
-    return order
+    return await _get_clean_serialized_order(db, order_id)
 
 
 @router.get("/customer/me", response_model=list[OrderOut])
@@ -295,7 +306,6 @@ async def update_order_status(
         incoming_status = getattr(payload, "status", None)
         decline_action = getattr(payload, "decline_action", None)
         
-        # 🛡️ SECURITY LOCKOUT CHECK: Runs ONLY if the current database state is an active cancellation request
         if current_db_status == "cancel_requested":
             is_resolving_action = (
                 incoming_status in ["cancelled", "accepted"] or 
@@ -308,28 +318,24 @@ async def update_order_status(
                     detail="Action Lockout: This cancellation request has already been processed and resolved. Subsequent modifications are denied."
                 )
             
-        # Dispute Path A: Shop Owner accepts cancellation request
         if incoming_status == "cancelled" and getattr(order, "is_cancellation_pending", False):
             order.status = "cancelled"
             order.is_cancellation_pending = False
             await db.commit()
             return order
             
-        # Dispute Path B: Shop Owner declines cancellation request -> Return back to accepted cooking flow
         elif (decline_action == "decline_cancellation" or incoming_status == "accepted") and getattr(order, "is_cancellation_pending", False):
             order.status = "accepted"
             order.is_cancellation_pending = False
             await db.commit()
             return order
 
-        # Fulfillment Interlock Guardrail
         if getattr(order, "is_cancellation_pending", False) and incoming_status not in ["cancelled", "accepted"]:
             raise HTTPException(
                 status_code=400,
                 detail="Fulfillment Blocked: You must explicitly Accept or Decline the active cancellation request before modifying this order's progress."
             )
 
-    # Customer Intent Path
     if getattr(payload, "status", None) == "cancel_requested":
         if order.cancellation_requests_sent >= 3:
             raise HTTPException(status_code=400, detail="Automated cancellation request limits reached.")
@@ -345,7 +351,6 @@ async def update_order_status(
         await db.commit()
         return order
 
-    # 🚀 STANDARD OPERATION LIFECYCLE ROUTING (e.g., pending -> accepted)
     order.status = payload.status
     await db.commit()
     return order
