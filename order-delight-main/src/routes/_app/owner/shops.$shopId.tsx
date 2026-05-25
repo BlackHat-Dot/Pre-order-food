@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, HelpCircle } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -534,7 +534,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   
-  // 🚀 FIXED TYPE SAFETY VIA SHIFTED LAYER: Fetch with clean status structure to ensure full compatibility with tsc compiler
   const { data, isLoading } = useQuery({
     queryKey: ["shop", shopId, "orders", status, forceRequestsOnly],
     queryFn: () =>
@@ -546,17 +545,24 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     refetchInterval: 5000, 
   });
   
-  // 🚀 FIXED MUTATION CONTROLLER: Clean state parsing across all tabs
   const updateStatus = useMutation({
     mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
       setUpdatingOrderId(id);
+      
+      // 🚀 THE ULTIMATE PAYLOAD ISOLATOR
+      // Dynamically aggregates payload items. Excludes undefined arguments during normal migrations.
+      const payload: Record<string, any> = { status: st };
+      
+      if (st === "accepted" && decline_action === "decline_cancellation") {
+        payload.decline_action = "decline_cancellation";
+      }
+      if (reason) {
+        payload.reason = reason;
+      }
+
       return await apiRequest(`/api/v1/orders/${id}/status`, {
         method: "PATCH",
-        body: { 
-          status: st, 
-          decline_action: decline_action || undefined, 
-          reason: reason || undefined 
-        },
+        body: payload,
       });
     },
     onSuccess: () => {
@@ -565,14 +571,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
     onError: async (error: any) => {
-      // Instantly synchronize view states with your live PostgreSQL instance data fields
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
 
-      let extractedDetail: any = null;
+      if (error?.status === 422 || error?.status_code === 422) {
+        toast.error("Invalid state transition format.");
+        return;
+      }
 
+      let extractedDetail: any = null;
       try {
-        // 🚀 ENTERPRISE ERROR UNPACKING LAYER
         if (error && typeof error.json === "function") {
           extractedDetail = await error.json();
         } else if (error && error.body) {
@@ -584,10 +592,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         extractedDetail = error?.message || "Transmission error";
       }
 
-      // Isolate and target inner data details safely
       const finalPayload = extractedDetail?.detail ?? extractedDetail;
 
-      // 1. 🛡️ HANDLE COHESIVE FASTAPI VALIDATION ARRAYS SLOTS
       if (Array.isArray(finalPayload)) {
         const missingField = finalPayload[0]?.loc?.join(".") || "payload";
         const errorType = finalPayload[0]?.msg || "Invalid format";
@@ -595,12 +601,11 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         return;
       }
 
-      // Convert standalone message parameters down to flat strings for text validation
       const finalMessageString = typeof finalPayload === "string" 
         ? finalPayload 
         : (finalPayload?.message || JSON.stringify(finalPayload || ""));
 
-      // 2. 🚀 TARGET EXPLICIT STATE MACHINE CONFLICT MESSAGES ONLY
+      // Strict text matching boundary evaluation logic
       if (
         finalMessageString.includes("Action Lockout") || 
         finalMessageString.includes("processed and resolved")
@@ -609,7 +614,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         return;
       }
 
-      // 3. CLEAN STANDARD WORKFLOW FALLBACK
       if (finalMessageString && finalMessageString !== "[object Object]") {
         toast.error(finalMessageString);
       } else {
@@ -623,7 +627,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
-  // 🚀 LOCAL FILTRATION MATRIX: Completely stops cross-tab background mutation notifications from triggering wrong loops
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
