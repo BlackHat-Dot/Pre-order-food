@@ -38,12 +38,13 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
+// 🛡️ Authoritative Workflow Registry Mapping Matrix
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
   preparing: ["ready"],
   ready: ["completed"],
-  cancel_requested: ["cancelled", "accepted"],
+  cancel_requested: ["cancelled", "accepted"], 
   completed: [],
   cancelled: []
 };
@@ -534,8 +535,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   
+  const queryKey = ["shop", shopId, "orders", status, forceRequestsOnly];
+
   const { data, isLoading } = useQuery({
-    queryKey: ["shop", shopId, "orders", status, forceRequestsOnly],
+    queryKey,
     queryFn: () =>
       ordersApi.shopOrders(shopId, {
         page: 1,
@@ -547,12 +550,18 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   
   const updateStatus = useMutation({
     mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
+      // 🚀 CACHE SYNC PRE-VERIFICATION GUARD: Prevents state collisions before executing requests
+      const cachedOrders: any = qc.getQueryData(queryKey);
+      if (Array.isArray(cachedOrders)) {
+        const liveMatch = cachedOrders.find((x: any) => x.id === id);
+        if (liveMatch && liveMatch.status.toLowerCase() !== "cancel_requested" && st === "cancelled") {
+          throw new Error("Pre-flight Blocked: This cancellation request has already been updated.");
+        }
+      }
+
       setUpdatingOrderId(id);
       
-      // 🚀 THE ULTIMATE PAYLOAD ISOLATOR
-      // Dynamically aggregates payload items. Excludes undefined arguments during normal migrations.
       const payload: Record<string, any> = { status: st };
-      
       if (st === "accepted" && decline_action === "decline_cancellation") {
         payload.decline_action = "decline_cancellation";
       }
@@ -574,8 +583,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
 
+      if (error?.message?.includes("Pre-flight")) {
+        toast.info("This request was already updated in another window.");
+        return;
+      }
+
       if (error?.status === 422 || error?.status_code === 422) {
-        toast.error("Invalid state transition format.");
+        toast.error("Invalid state transition payload format.");
         return;
       }
 
@@ -605,7 +619,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         ? finalPayload 
         : (finalPayload?.message || JSON.stringify(finalPayload || ""));
 
-      // Strict text matching boundary evaluation logic
       if (
         finalMessageString.includes("Action Lockout") || 
         finalMessageString.includes("processed and resolved")
@@ -676,6 +689,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAwaitingResolution = currentStatus === "cancel_requested";
+            
+            // 🚀 ROW LOCKOUT FIX: Only lock the row currently processing a mutation
+            const isRowProcessing = updatingOrderId === o.id;
+            const isAnyRowProcessing = updatingOrderId !== null;
 
             return (
               <Card key={o.id} className="overflow-hidden rounded-xl border border-border/70 text-left shadow-none bg-card hover:bg-muted/5 transition-colors">
@@ -702,7 +719,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             size="sm"
                             variant="outline"
                             className="h-8 rounded-lg text-xs font-medium px-3 text-rose-600 border-rose-500/20 hover:bg-rose-500/10 transition-colors"
-                            disabled={updatingOrderId !== null}
+                            disabled={isAnyRowProcessing}
                             onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled", reason: o.cancellation_reason })}
                           >
                             Accept Cancellation
@@ -711,7 +728,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             size="sm"
                             variant="ghost"
                             className="h-8 rounded-lg text-xs font-medium px-3 text-muted-foreground hover:text-foreground transition-colors"
-                            disabled={updatingOrderId !== null}
+                            disabled={isAnyRowProcessing}
                             onClick={() => updateStatus.mutate({ id: o.id, st: "accepted", decline_action: "decline_cancellation" })}
                           >
                             Decline Request
@@ -720,7 +737,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       ) : (
                         <Select
                           value={o.status}
-                          disabled={updatingOrderId !== null || nextAllowedOptions.length === 0}
+                          disabled={isAnyRowProcessing || nextAllowedOptions.length === 0}
                           onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
                         >
                           <SelectTrigger className="w-40 capitalize font-medium text-xs rounded-lg h-8 border-border/80 shadow-none">
@@ -743,6 +760,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 rounded-lg border border-border/60 shrink-0"
+                        disabled={isRowProcessing}
                         onClick={() => toggleExpand(o.id)}
                       >
                         {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
