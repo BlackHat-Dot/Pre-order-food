@@ -25,15 +25,21 @@ router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basi
 
 
 # 🚀 AUTHORITATIVE GLOBAL FETCH UTILITY: Enforces strict data integrity and role permissions
+# 📁 Update this specific method inside app/api/v1/endpoints/orders.py
+
 async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
     """
-    Guarantees full async eager-loading for nested order items while enforcing 
-    strict multi-role (customer, owner, admin) security access parameters.
+    Guarantees full async eager-loading for nested order items, customer parameters, 
+    and delivery locations to prevent MissingGreenlet runtime drops.
     """
     fresh_stmt = (
         select(Order)
         .where(Order.id == order_id)
-        .options(selectinload(Order.items))
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.customer),       # 🚀 Pre-loads customer credentials (name/phone)
+            selectinload(Order.delivery_address) # 🚀 Pre-loads physical delivery location parameters
+        )
     )
     fresh_result = await db.execute(fresh_stmt)
     fresh_order = fresh_result.scalar_one_or_none()
@@ -41,7 +47,6 @@ async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: Use
     if not fresh_order:
         raise HTTPException(status_code=404, detail="Requested order could not be located.")
         
-    # Enforce strict multi-role ownership validation boundaries
     if user.role == "customer" and fresh_order.customer_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied to this order tracking token.")
         
@@ -276,6 +281,18 @@ async def update_order_status(
         current_db_status = getattr(order, "status", "").lower()
         incoming_status = getattr(payload, "status", None)
         decline_action = getattr(payload, "decline_action", None)
+        
+        # 🚀 MANUAL PAYMENT OVERRIDE GATEWAY
+        # Allows a merchant to mark a COD balance as collected without altering the fulfillment step
+        if incoming_status == "mark_as_paid":
+            order.payment_status = "paid"
+            await db.commit()
+            return order
+        
+        elif incoming_status == "mark_as_unpaid":
+            order.payment_status = "pending"
+            await db.commit()
+            return order
         
         if current_db_status == "cancel_requested":
             is_resolving_action = (

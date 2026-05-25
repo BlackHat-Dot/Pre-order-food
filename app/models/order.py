@@ -23,10 +23,13 @@ class Order(Base):
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     
-    # 🚀 NEW CONTRACT FIELDS: Map fulfillment selections perfectly to prevent database validation drops
-    payment_method: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("'cod'"))
-    payment_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"))
+    # 🚀 HARMONIZED PRODUCTION DATA STRATEGIES
+    payment_method: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("'cod'")) # 'cod' or 'online'
+    payment_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'")) # 'pending' or 'paid'
     order_type: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("'delivery'")) # 'delivery' or 'table_booking'
+    
+    # 🛡️ Changed to standard String mapping to safely hold text snapshots without triggering FK relation crashes
+    delivery_address_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     coupon_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     coupon_discount_applied: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
@@ -42,6 +45,7 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
+    # Cleaned up and deduplicated relationships
     shop = relationship("Shop", back_populates="orders")
     customer = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
