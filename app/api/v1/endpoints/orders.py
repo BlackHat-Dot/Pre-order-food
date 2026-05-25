@@ -274,7 +274,7 @@ async def shop_orders(
 @router.patch("/{order_id}/status", response_model=OrderOut)
 async def update_order_status(
     order_id: str,
-    payload: OrderStatusUpdate,  # 🚀 UNIFIED CONTRACT SCHEMA TO FIX COMPILER COLLISIONS
+    payload: OrderStatusUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -309,36 +309,38 @@ async def update_order_status(
                 )
             
         # Dispute Path A: Shop Owner accepts cancellation request
-        if payload.status == "cancelled" and order.is_cancellation_pending:
+        if incoming_status == "cancelled" and getattr(order, "is_cancellation_pending", False):
             order.status = "cancelled"
             order.is_cancellation_pending = False
             await db.commit()
             return order
             
         # Dispute Path B: Shop Owner declines cancellation request -> Return back to accepted cooking flow
-        elif (payload.decline_action == "decline_cancellation" or payload.status == "accepted") and order.is_cancellation_pending:
+        elif (decline_action == "decline_cancellation" or incoming_status == "accepted") and getattr(order, "is_cancellation_pending", False):
             order.status = "accepted"
             order.is_cancellation_pending = False
             await db.commit()
             return order
 
         # Fulfillment Interlock Guardrail
-        if order.is_cancellation_pending and payload.status not in ["cancelled", "accepted"]:
+        if getattr(order, "is_cancellation_pending", False) and incoming_status not in ["cancelled", "accepted"]:
             raise HTTPException(
                 status_code=400,
                 detail="Fulfillment Blocked: You must explicitly Accept or Decline the active cancellation request before modifying this order's progress."
             )
 
     # Customer Intent Path
-    if payload.status == "cancel_requested":
+    if getattr(payload, "status", None) == "cancel_requested":
         if order.cancellation_requests_sent >= 3:
             raise HTTPException(status_code=400, detail="Automated cancellation request limits reached.")
             
         order.cancellation_requests_sent += 1
         order.status = "cancel_requested"
         order.is_cancellation_pending = True
-        if getattr(payload, "reason", None):
-            order.cancellation_reason = payload.reason
+        
+        incoming_reason = getattr(payload, "reason", None)
+        if incoming_reason:
+            order.cancellation_reason = incoming_reason
             
         await db.commit()
         return order

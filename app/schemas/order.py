@@ -34,12 +34,13 @@ class OrderCreate(BaseModel):
 
 
 class OrderStatusUpdate(BaseModel):
-    status: Optional[str] = Field(
-        None, 
-        pattern="^(pending|accepted|preparing|ready|completed|cancelled|cancel_requested)$"
-    )
+    status: str
+    # 🚀 THE BACKEND SCHEMA FIX: Register fields safely using default None fallbacks
+    decline_action: Optional[str] = None
     reason: Optional[str] = None
 
+    class Config:
+        from_attributes = True
 
 # --- 🚀 REFACTORED INTERLOCK WORKFLOW SCHEMA ---
 class OrderUpdateSchema(BaseModel):
