@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -149,36 +149,36 @@ async def set_shop_status(
 
 # FIXED: Proper SQLAlchemy PostgreSQL Aggregation for Dashboard
 @router.get("/{shop_id}/dashboard")
-async def get_shop_dashboard(shop_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
-    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+async def get_shop_dashboard(
+    shop_id: str, 
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles("shop_owner", "admin"))]
+):
+    # 🚀 PRODUCTION TIME ENVELOPE: Explicitly sets a timezone-aware local UTC start anchor
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Use SQLAlchemy to aggregate metrics for the shop
+    # Wrap conditional sum aggregations in Coalesce to prevent silent None/null row evaluations
     stmt = select(
-        func.count(Order.id).label("total_orders"),
-        func.sum(case((Order.status == "completed", Order.total_price), else_=0)).label("total_revenue"),
-        func.sum(case((Order.status.in_(["pending", "accepted", "preparing"]), 1), else_=0)).label("pending_orders"),
-        func.sum(case((Order.status == "completed", 1), else_=0)).label("completed_orders"),
-        func.sum(case((Order.created_at >= today, 1), else_=0)).label("today_orders")
+        func.coalesce(func.count(Order.id), 0).label("total_orders"),
+        
+        # 🚀 STRICT REAL-TIME REVENUE INTERLOCK: Enforces condition tracking matches your business rules
+        func.coalesce(func.sum(case((Order.status == "completed", Order.total_price), else_=0)), 0.0).label("total_revenue"),
+        
+        func.coalesce(func.sum(case((Order.status.in_(["pending", "accepted", "preparing", "ready"]), 1), else_=0)), 0).label("pending_orders"),
+        func.coalesce(func.sum(case((Order.status == "completed", 1), else_=0)), 0).label("completed_orders"),
+        func.coalesce(func.sum(case((Order.created_at >= today, 1), else_=0)), 0).label("today_orders")
     ).where(Order.shop_id == shop_id)
 
     result = await db.execute(stmt)
     row = result.first()
 
-    if not row:
-        return {
-            "total_orders": 0, 
-            "total_revenue": 0, 
-            "pending_orders": 0, 
-            "completed_orders": 0, 
-            "today_orders": 0
-        }
-
+    # Safely unpack database primitives directly with type safety guards
     return {
-        "total_orders": int(row.total_orders or 0),
-        "total_revenue": float(row.total_revenue or 0.0),
-        "pending_orders": int(row.pending_orders or 0),
-        "completed_orders": int(row.completed_orders or 0),
-        "today_orders": int(row.today_orders or 0)
+        "total_orders": int(row.total_orders) if row else 0,
+        "total_revenue": round(float(row.total_revenue), 2) if row else 0.0,
+        "pending_orders": int(row.pending_orders) if row else 0,
+        "completed_orders": int(row.completed_orders) if row else 0,
+        "today_orders": int(row.today_orders) if row else 0
     }
 
 
