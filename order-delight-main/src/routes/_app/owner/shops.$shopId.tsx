@@ -560,42 +560,60 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       });
     },
     onSuccess: () => {
-      toast.success("Order status updated");
+      toast.success("Order status updated successfully");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
     },
     onError: async (error: any) => {
-      // Force an immediate refresh to align client data views with the server state
+      // Instantly synchronize view states with your live PostgreSQL instance data fields
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
 
-      let parsedMessage = "";
+      let extractedDetail: any = null;
 
       try {
-        // 🚀 FIX: Extract the message string directly from the raw HTTP error body
+        // 🚀 ENTERPRISE ERROR UNPACKING LAYER
         if (error && typeof error.json === "function") {
-          const detailObj = await error.json();
-          parsedMessage = detailObj?.detail || detailObj?.message || "";
+          extractedDetail = await error.json();
         } else if (error && error.body) {
-          const detailObj = typeof error.body === "string" ? JSON.parse(error.body) : error.body;
-          parsedMessage = detailObj?.detail || detailObj?.message || "";
+          extractedDetail = typeof error.body === "string" ? JSON.parse(error.body) : error.body;
         } else {
-          parsedMessage = error?.message || "";
+          extractedDetail = error;
         }
-      } catch (fallbackErr) {
-        parsedMessage = error?.message || "";
+      } catch (e) {
+        extractedDetail = error?.message || "Transmission error";
       }
 
-      const cleanMessage = String(parsedMessage);
+      // Isolate and target inner data details safely
+      const finalPayload = extractedDetail?.detail ?? extractedDetail;
 
-      // 🚀 EVALUATE EXPLICIT SERVER STRINGS ONLY
-      if (cleanMessage.includes("Action Lockout") || cleanMessage.includes("processed and resolved")) {
-        toast.info("This cancellation request was already processed.");
-      } else if (cleanMessage) {
-        toast.error(cleanMessage);
+      // 1. 🛡️ HANDLE COHESIVE FASTAPI VALIDATION ARRAYS SLOTS
+      if (Array.isArray(finalPayload)) {
+        const missingField = finalPayload[0]?.loc?.join(".") || "payload";
+        const errorType = finalPayload[0]?.msg || "Invalid format";
+        toast.error(`Validation Error: ${missingField} (${errorType})`);
+        return;
+      }
+
+      // Convert standalone message parameters down to flat strings for text validation
+      const finalMessageString = typeof finalPayload === "string" 
+        ? finalPayload 
+        : (finalPayload?.message || JSON.stringify(finalPayload || ""));
+
+      // 2. 🚀 TARGET EXPLICIT STATE MACHINE CONFLICT MESSAGES ONLY
+      if (
+        finalMessageString.includes("Action Lockout") || 
+        finalMessageString.includes("processed and resolved")
+      ) {
+        toast.info("This cancellation request has already been resolved.");
+        return;
+      }
+
+      // 3. CLEAN STANDARD WORKFLOW FALLBACK
+      if (finalMessageString && finalMessageString !== "[object Object]") {
+        toast.error(finalMessageString);
       } else {
-        // Fallback for generic connectivity drops or parsing errors
-        toast.error("Fulfillment update failed. Refreshing view.");
+        toast.error("Fulfillment update failed. View refreshed.");
       }
     },
     onSettled: () => setUpdatingOrderId(null),
