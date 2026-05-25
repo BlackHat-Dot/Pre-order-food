@@ -38,13 +38,12 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
 
-// 🛡️ Authoritative Workflow Registry Mapping Matrix
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["preparing", "cancelled"],
   preparing: ["ready"],
   ready: ["completed"],
-  cancel_requested: ["cancelled", "accepted"], 
+  cancel_requested: ["cancelled", "accepted"],
   completed: [],
   cancelled: []
 };
@@ -550,12 +549,18 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   
   const updateStatus = useMutation({
     mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
-      // 🚀 CACHE SYNC PRE-VERIFICATION GUARD: Prevents state collisions before executing requests
       const cachedOrders: any = qc.getQueryData(queryKey);
+
       if (Array.isArray(cachedOrders)) {
         const liveMatch = cachedOrders.find((x: any) => x.id === id);
-        if (liveMatch && liveMatch.status.toLowerCase() !== "cancel_requested" && st === "cancelled") {
-          throw new Error("Pre-flight Blocked: This cancellation request has already been updated.");
+
+        // 🚀 CRITICAL RE-FIX: Only insulate workflow conflicts if it is a targeted cancellation request resolution
+        if (
+          liveMatch &&
+          liveMatch.status?.toLowerCase() !== "cancel_requested" &&
+          (decline_action === "decline_cancellation" || (st === "cancelled" && !!reason))
+        ) {
+          throw new Error("Pre-flight Blocked: This cancellation request has already been resolved.");
         }
       }
 
@@ -583,8 +588,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       qc.invalidateQueries({ queryKey: ["shop", shopId, "orders"] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "dashboard"] });
 
-      if (error?.message?.includes("Pre-flight")) {
-        toast.info("This request was already updated in another window.");
+      if (error?.message?.includes("Pre-flight Blocked")) {
+        toast.info("This cancellation request has already been resolved.");
         return;
       }
 
@@ -690,8 +695,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAwaitingResolution = currentStatus === "cancel_requested";
             
-            // 🚀 ROW LOCKOUT FIX: Only lock the row currently processing a mutation
-            const isRowProcessing = updatingOrderId === o.id;
             const isAnyRowProcessing = updatingOrderId !== null;
 
             return (
@@ -760,7 +763,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 rounded-lg border border-border/60 shrink-0"
-                        disabled={isRowProcessing}
+                        disabled={updatingOrderId === o.id}
                         onClick={() => toggleExpand(o.id)}
                       >
                         {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
