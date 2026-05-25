@@ -34,7 +34,8 @@ class OrderCreate(BaseModel):
     order_type: Literal["delivery", "table_booking"] = "delivery"
     payment_confirmed: Optional[bool] = False
 
-
+    delivery_address_id: Optional[str] = None
+    
 class OrderStatusUpdate(BaseModel):
     status: str
     # 🚀 THE BACKEND SCHEMA FIX: Register fields safely using default None fallbacks

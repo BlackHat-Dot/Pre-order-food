@@ -125,9 +125,12 @@ async def create_order(
             )
 
     addr_string = None
-    if payload.order_type == "delivery" and payload.delivery_address_id:
+    # 🚀 SECURE PARSING: Uses defensive attributes evaluation to prevent structural drops
+    incoming_address_id = getattr(payload, "delivery_address_id", None)
+    
+    if getattr(payload, "order_type", "delivery") == "delivery" and incoming_address_id:
         try:
-            addr_id = payload.delivery_address_id
+            addr_id = incoming_address_id
             cursor = await db.execute(text(f"SELECT title, address_line, landmark FROM user_addresses WHERE id = '{addr_id}'"))
             row = cursor.fetchone()
             if row:
@@ -138,7 +141,7 @@ async def create_order(
                 if row_alt:
                     addr_string = f"[{row_alt[0]}] {row_alt[1]}" + (f" (Landmark: {row_alt[2]})" if row_alt[2] else "")
         except Exception:
-            addr_string = payload.delivery_address_id
+            addr_string = incoming_address_id
 
     order = Order(
         id=new_id(),
