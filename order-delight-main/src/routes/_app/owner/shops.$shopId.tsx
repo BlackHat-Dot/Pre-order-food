@@ -548,28 +548,19 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
   
   const updateStatus = useMutation({
-    mutationFn: async ({ id, st, decline_action, reason }: { id: string; st: string; decline_action?: string; reason?: string }) => {
+    mutationFn: async ({ id, st }: { id: string; st: string }) => {
       setUpdatingOrderId(id);
-      
-      const payload: Record<string, any> = { status: st };
-      if (st === "accepted" && decline_action === "decline_cancellation") {
-        payload.decline_action = "decline_cancellation";
-      }
-      if (reason) {
-        payload.reason = reason;
-      }
-
       return await apiRequest(`/api/v1/orders/${id}/status`, {
         method: "PATCH",
-        body: payload,
+        body: { status: st },
       });
     },
     onSuccess: () => {
-      toast.success("Order synchronized successfully");
+      toast.success("Order status updated successfully");
       qc.invalidateQueries({ queryKey });
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Fulfillment state transition rejected.");
+    onError: () => {
+      toast.error("Failed to complete transition.");
     },
     onSettled: () => setUpdatingOrderId(null),
   });
@@ -581,113 +572,120 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
         const itemStatus = (o.status || "").toLowerCase();
-        const isActivelyDisputed = itemStatus === "cancel_requested";
-        if (forceRequestsOnly) return isActivelyDisputed;
-        if (isActivelyDisputed) return false;
+        if (forceRequestsOnly) return itemStatus === "cancel_requested";
+        if (itemStatus === "cancel_requested") return false;
         if (status === "all") return true;
         return itemStatus === status;
       })
     : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {!forceRequestsOnly && (
         <Tabs value={status} onValueChange={setStatus}>
-          <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl max-w-fit border">
-            <TabsTrigger value="all" className="text-xs px-3.5 py-1.5 rounded-lg">All</TabsTrigger>
-            <TabsTrigger value="pending" className="text-xs px-3.5 py-1.5 rounded-lg">Pending</TabsTrigger>
-            <TabsTrigger value="accepted" className="text-xs px-3.5 py-1.5 rounded-lg">Accepted</TabsTrigger>
-            <TabsTrigger value="preparing" className="text-xs px-3.5 py-1.5 rounded-lg">Preparing</TabsTrigger>
-            <TabsTrigger value="ready" className="text-xs px-3.5 py-1.5 rounded-lg">Ready</TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs px-3.5 py-1.5 rounded-lg">Completed</TabsTrigger>
-            <TabsTrigger value="cancelled" className="text-xs px-3.5 py-1.5 rounded-lg">Cancelled</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto p-1 bg-muted/60 rounded-xl max-w-fit border border-border/60">
+            <TabsTrigger value="all" className="text-xs px-4 py-1.5 rounded-lg font-medium">All</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs px-4 py-1.5 rounded-lg font-medium">Pending</TabsTrigger>
+            <TabsTrigger value="accepted" className="text-xs px-4 py-1.5 rounded-lg font-medium">Accepted</TabsTrigger>
+            <TabsTrigger value="preparing" className="text-xs px-4 py-1.5 rounded-lg font-medium">Preparing</TabsTrigger>
+            <TabsTrigger value="ready" className="text-xs px-4 py-1.5 rounded-lg font-medium">Ready</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs px-4 py-1.5 rounded-lg font-medium">Completed</TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs px-4 py-1.5 rounded-lg font-medium">Cancelled</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
 
       {isLoading ? (
-        <Skeleton className="h-32 w-full rounded-2xl" />
+        <Skeleton className="h-32 w-full rounded-2xl animate-pulse" />
       ) : visibleOrders.length === 0 ? (
-        <Card className="border-dashed rounded-2xl">
-          <CardContent className="py-12 text-center text-muted-foreground text-sm">
-            No active orders matching this selection.
+        <Card className="border-dashed rounded-2xl bg-muted/10">
+          <CardContent className="py-14 text-center text-muted-foreground text-xs font-medium">
+            No active orders matching this filter slot.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3.5">
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = (o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAnyRowProcessing = updatingOrderId !== null;
 
-            // 🚀 STRATIFIED EXTRACTIONS: Identify attributes gracefully using safe fallback modes
-            const currentFulfillment = (o.order_type || "delivery").toLowerCase();
-            const paymentType = (o.payment_method || "cod").toUpperCase();
-            const isPaid = (o.payment_status || "pending").toLowerCase() === "paid";
-            const customerName = o.customer?.name || "Premium Guest";
-            const customerPhone = o.customer?.phone || "No Number Linked";
+            // Metadata resolution layers
+            const isTableMode = String(o.order_type || "").toLowerCase() === "table_booking";
+            const methodDisplay = String(o.payment_method || "cod").toUpperCase();
+            const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
+
+            // 🚀 FIXED PROPERTY MATCHES: Read properties directly from 'o.customer' object map payload
+            const buyerName = o.customer?.name || "Customer Account";
+            const buyerPhone = o.customer?.phone || "No Mobile Number Linked";
+            const buyerEmail = o.customer?.email || "No Email Provided";
+            
+            // Generate professional shorthand avatar initials icon letter context
+            const nameInitials = buyerName
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
 
             return (
-              <Card key={o.id} className="overflow-hidden rounded-xl border border-border/80 text-left shadow-none bg-card hover:bg-muted/5 transition-colors">
+              <Card key={o.id} className="overflow-hidden rounded-xl border border-border/70 shadow-none bg-card hover:border-border/100 transition-all duration-200">
                 <CardContent className="p-0">
-                  <div className="flex items-center justify-between gap-4 p-4">
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center flex-wrap gap-2">
-                        <span className="font-mono text-xs font-bold text-muted-foreground">
+                  <div className="flex items-center justify-between gap-6 p-4.5 bg-background/40">
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center flex-wrap gap-2.5">
+                        <span className="font-mono text-xs font-bold text-foreground bg-muted/60 px-2 py-0.5 rounded border">
                           #{o.id.slice(0, 8).toUpperCase()}
                         </span>
                         <StatusBadge status={o.status} />
                         
-                        {/* Fulfillment badging descriptor arrays */}
-                        <Badge variant="secondary" className="text-[10px] py-0 px-2 h-5 rounded font-semibold capitalize bg-muted border gap-1">
-                          {currentFulfillment === "table_booking" ? "Table Booking 🪑" : "Food Delivery 🛵"}
+                        <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-background border-border/80 text-muted-foreground">
+                          {isTableMode ? "🪑 Table Booking" : "🛵 Food Delivery"}
                         </Badge>
                         
-                        {/* Payment badging descriptor arrays */}
-                        <Badge className={`text-[10px] py-0 px-2 h-5 rounded font-bold border shadow-none ${
-                          isPaid 
-                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
-                            : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                        <Badge className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border shadow-none ${
+                          isSettled 
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                         }`}>
-                          {paymentType} · {isPaid ? "PAID" : "UNPAID"}
+                          {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
                         </Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatDate(o.created_at)}
+                      <p className="text-[11px] text-muted-foreground font-medium pl-0.5">
+                        Received: {formatDate(o.created_at)}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm text-foreground mr-1">{formatCurrency(o.total_price)}</span>
+                      <span className="font-bold text-base text-foreground mr-1.5">{formatCurrency(o.total_price)}</span>
                       
-                      {/* Manual Payment Modifier Action Selector */}
-                      {paymentType === "COD" && (
+                      {methodDisplay === "COD" && (
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={isAnyRowProcessing}
-                          onClick={() => updateStatus.mutate({ id: o.id, st: isPaid ? "mark_as_unpaid" : "mark_as_paid" })}
-                          className={`h-8 text-[11px] font-semibold px-2.5 rounded-lg border transition-all ${
-                            isPaid 
-                              ? "text-amber-600 hover:text-amber-700 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
-                              : "text-emerald-600 hover:text-emerald-700 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
+                          onClick={() => updateStatus.mutate({ id: o.id, st: isSettled ? "mark_as_unpaid" : "mark_as_paid" })}
+                          className={`h-8 text-[11px] font-bold px-3 rounded-lg border transition-all ${
+                            isSettled 
+                              ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
+                              : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
                           }`}
                         >
-                          {isPaid ? "Mark Unpaid" : "Collect Cash"}
+                          {isSettled ? "Mark Unpaid" : "Collect Cash"}
                         </Button>
                       )}
 
                       <Select
                         value={o.status}
                         disabled={isAnyRowProcessing || nextAllowedOptions.length === 0}
-                        onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v, reason: o.cancellation_reason })}
+                        onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
                       >
-                        <SelectTrigger className="w-36 capitalize font-semibold text-xs rounded-lg h-8 border shadow-none bg-background">
+                        <SelectTrigger className="w-36 capitalize font-semibold text-xs rounded-lg h-8 border bg-background shadow-none">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/40">
+                          <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
                             {o.status.replace("_", " ")}
                           </SelectItem>
                           {nextAllowedOptions.map((step) => (
@@ -701,8 +699,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 rounded-lg border shrink-0 bg-background"
-                        disabled={updatingOrderId === o.id}
+                        className="h-8 w-8 rounded-lg border shrink-0 bg-background hover:bg-muted/40"
                         onClick={() => toggleExpand(o.id)}
                       >
                         {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -710,63 +707,72 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
                   </div>
 
-                  {/* EXPANDED CONTENT PANEL */}
+                  {/* EXPANDED PROFESSIONAL CREDENTIALS AND DETAILS TICKET */}
                   {isExpanded && (
-                    <div className="bg-muted/20 border-t border-border/60 p-4 space-y-4 animate-in slide-in-from-top-1 duration-150">
+                    <div className="bg-muted/10 border-t border-border/50 p-5 space-y-5 animate-in slide-in-from-top-1 duration-200">
                       
-                      {/* SECTION A: CUSTOMER CREDENTIALS & PHYSICAL LOCATION DETAILS */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pb-3 border-b border-dashed border-border/80">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Customer Contact</p>
-                          <p className="font-bold text-foreground text-sm">{customerName}</p>
-                          <p className="font-mono text-muted-foreground font-medium">{customerPhone}</p>
+                      {/* LAYOUT GRID: CONTACT METRICS VS SHIPPING DESTINATION */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs bg-background/50 border border-border/60 p-4 rounded-xl">
+                        <div className="flex items-start gap-3 text-left">
+                          {/* SLeek professional circle initials letter avatar */}
+                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 select-none">
+                            {nameInitials}
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Profile</p>
+                            <p className="font-bold text-foreground text-sm">{buyerName}</p>
+                            <p className="font-mono text-xs font-bold text-primary/90">{buyerPhone}</p>
+                            <p className="text-[11px] text-muted-foreground font-medium">{buyerEmail}</p>
+                          </div>
                         </div>
                         
-                        <div className="space-y-1">
-                          <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Fulfillment Destination</p>
-                          {currentFulfillment === "table_booking" ? (
-                            <p className="text-foreground font-medium italic py-0.5">
-                              ⚠️ Dine-In Table Reservation. No delivery coordinates required.
-                            </p>
-                          ) : o.delivery_address ? (
-                            <div className="space-y-0.5">
-                              <p className="font-bold text-primary uppercase text-[10px] tracking-wide">{o.delivery_address.title}</p>
-                              <p className="text-foreground font-medium leading-relaxed">{o.delivery_address.address_line}</p>
-                              {o.delivery_address.landmark && (
-                                <p className="text-muted-foreground text-[11px]">Landmark: {o.delivery_address.landmark}</p>
-                              )}
+                        <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
+                          {isTableMode ? (
+                            <div className="py-1">
+                              <p className="text-amber-600 dark:text-amber-400 font-semibold bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-lg text-[11px] max-w-fit">
+                                🪑 Dine-In Table Reservation Ticket
+                              </p>
+                            </div>
+                          ) : o.delivery_address_id ? (
+                            <div className="space-y-1">
+                              <p className="text-foreground font-semibold leading-relaxed text-xs">
+                                {o.delivery_address_id}
+                              </p>
                             </div>
                           ) : (
-                            <p className="text-muted-foreground italic py-0.5">No delivery coordinate coordinates attached.</p>
+                            <p className="text-muted-foreground italic text-[11px] py-1">
+                              No delivery coordinates snapshotted. Defaulting to Store Pickup.
+                            </p>
                           )}
                         </div>
                       </div>
 
-                      {/* SECTION B: ITEM SELECTION ORDER TICKET */}
+                      {/* PANELS SECTION: TICKET ITEM LINES QUANTITIES */}
                       <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          <ChefHat className="h-3.5 w-3.5" />
-                          <span>Items Ticket</span>
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">
+                          <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Ordered Items Ticket</span>
                         </div>
 
-                        <div className="space-y-1.5 rounded-xl border border-border/70 bg-background p-3.5">
+                        <div className="space-y-1.5 rounded-xl border border-border/70 bg-background p-4 shadow-none">
                           {o.items && o.items.length > 0 ? (
                             <div className="space-y-2 divide-y divide-border/40">
                               {o.items.map((item: any, idx: number) => {
-                                const itemTitle = item.item_name_snapshot || "Dish Item";
+                                const itemTitle = item.item_name_snapshot || "Dish Option";
                                 const variantTitle = item.variant_name_snapshot || null;
                                 
                                 return (
                                   <div key={idx} className="flex items-center justify-between text-xs pt-2 first:pt-0 gap-4">
-                                    <div className="space-y-0.5">
-                                      <p className="font-semibold text-foreground">{itemTitle}</p>
+                                    <div className="space-y-0.5 text-left">
+                                      <p className="font-semibold text-foreground text-sm">{itemTitle}</p>
                                       {variantTitle && (
-                                        <p className="text-[10px] font-bold text-amber-700 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded max-w-fit capitalize tracking-wide">
+                                        <p className="text-[10px] font-bold text-amber-700 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded max-w-fit mt-1 capitalize tracking-wide">
                                           {variantTitle}
                                         </p>
                                       )}
                                     </div>
-                                    <span className="font-mono text-xs font-bold text-muted-foreground bg-muted/60 px-2.5 py-0.5 rounded border shrink-0">
+                                    <span className="font-mono text-xs font-bold text-foreground bg-muted border px-3 py-1 rounded-lg shrink-0">
                                       ×{item.quantity}
                                     </span>
                                   </div>
@@ -774,16 +780,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                               })}
                             </div>
                           ) : (
-                            <p className="text-xs text-muted-foreground italic text-center py-1">No items listed on this transaction ticket.</p>
+                            <p className="text-xs text-muted-foreground italic text-center py-1">No custom lines listed.</p>
                           )}
                         </div>
                       </div>
 
-                      {/* SECTION C: CUSTOMER LOGISTICS INSTRUCTIONS */}
+                      {/* PANEL SECTION: ADDITIONAL LOGISTICS NOTES */}
                       {o.instructions && (
-                        <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3 text-xs">
-                          <p className="text-amber-800 dark:text-amber-400 font-normal">
-                            <span className="font-bold mr-1">Kitchen/Host Instructions:</span> 
+                        <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3.5 text-xs text-left">
+                          <p className="text-amber-800 dark:text-amber-400 font-normal leading-relaxed">
+                            <span className="font-bold mr-1">Kitchen/Host Logistics Note:</span> 
                             "{o.instructions}"
                           </p>
                         </div>
