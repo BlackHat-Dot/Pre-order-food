@@ -172,6 +172,7 @@ async def get_shop_dashboard(
     result = await db.execute(stmt)
     row = result.first()
 
+    print(round(float(row.total_revenue), 2) if row else 0.0)
     # Safely unpack database primitives directly with type safety guards
     return {
         "total_orders": int(row.total_orders) if row else 0,
