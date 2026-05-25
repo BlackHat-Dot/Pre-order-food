@@ -34,7 +34,7 @@ async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: Use
         .where(Order.id == order_id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer) # Eager-loads user info for individual order views
+            selectinload(Order.customer)
         )
     )
     fresh_result = await db.execute(fresh_stmt)
@@ -125,7 +125,7 @@ async def create_order(
             )
 
     addr_string = None
-    if getattr(payload, "order_type", "delivery") == "delivery" and getattr(payload, "delivery_address_id", None):
+    if payload.order_type == "delivery" and payload.delivery_address_id:
         try:
             addr_id = payload.delivery_address_id
             cursor = await db.execute(text(f"SELECT title, address_line, landmark FROM user_addresses WHERE id = '{addr_id}'"))
@@ -138,7 +138,7 @@ async def create_order(
                 if row_alt:
                     addr_string = f"[{row_alt[0]}] {row_alt[1]}" + (f" (Landmark: {row_alt[2]})" if row_alt[2] else "")
         except Exception:
-            addr_string = getattr(payload, "delivery_address_id", None)
+            addr_string = payload.delivery_address_id
 
     order = Order(
         id=new_id(),
@@ -148,10 +148,10 @@ async def create_order(
         prep_time_minutes=max(prep_times) if prep_times else 0,
         scheduled_at=payload.scheduled_at,
         instructions=payload.instructions,
-        payment_method=getattr(payload, "payment_method", "cod"),
-        order_type=getattr(payload, "order_type", "delivery"),
-        delivery_address_id=addr_string,
-        payment_status="paid" if getattr(payload, "payment_method", "cod") == "online" else "pending"
+        payment_method=payload.payment_method,
+        order_type=payload.order_type,
+        delivery_address_id=addr_string if payload.order_type == "delivery" else None,
+        payment_status="paid" if payload.payment_method == "online" else "pending"
     )
 
     db.add(order)
@@ -210,13 +210,12 @@ async def shop_orders(
     if user.role != "admin" and shop.owner_id != user.id:
         raise HTTPException(403, "Forbidden")
         
-    # 🚀 THE CRITICAL FIX: Eager-load both Order.items AND Order.customer maps inside the list query loop
     stmt = (
         select(Order)
         .where(Order.shop_id == shop_id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer) # Resolves "Premium Guest" issue by pre-loading real customer details
+            selectinload(Order.customer)
         )
     )
     if status_filter:

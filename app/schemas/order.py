@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 # --- INPUT SCHEMAS ---
 
@@ -29,7 +29,7 @@ class OrderCreate(BaseModel):
     instructions: str | None = None
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
     coupon_id: str | None = None
-    
+
     payment_method: Literal["cod", "online"] = "cod"
     order_type: Literal["delivery", "table_booking"] = "delivery"
     payment_confirmed: Optional[bool] = False
@@ -105,20 +105,27 @@ class OrderOut(BaseModel):
     status: str
     total_price: float
     prep_time_minutes: int
-    scheduled_at: datetime | None
-    instructions: str | None
+    scheduled_at: Optional[datetime] = None
+    instructions: Optional[str] = None
     payment_method: str
     payment_status: str
-    coupon_discount_applied: float = 0.0
-    loyalty_points_used: int = 0
-    loyalty_discount_amount: float = 0
-    loyalty_points_earned: int = 0
-    created_at: datetime
-    items: list[OrderItemOut]
+    order_type: str  # 🚀 Added explicit schema mapping field validation
+    delivery_address_id: Optional[str] = None
     cancellation_reason: Optional[str] = None
+    is_cancellation_pending: bool
+    created_at: datetime
+    updated_at: datetime
     
-    # ✅ FIXED DATA PIPELINE: Exposed fields so your database values hit your React screens instantly
-    cancellation_requests_sent: int = 0
-    is_cancellation_pending: bool = False
+    items: List[OrderItemOut] = []
+    customer: Optional[UserMinimalOut] = None  # 🚀 Core Fix: Mounts the nested user account profile cleanly
 
     model_config = {"from_attributes": True}
+
+class UserMinimalOut(BaseModel):
+    id: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+    class Config:
+        from_attributes = True
