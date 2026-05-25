@@ -554,13 +554,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       if (Array.isArray(cachedOrders)) {
         const liveMatch = cachedOrders.find((x: any) => x.id === id);
 
-        // 🚀 CRITICAL RE-FIX: Only insulate workflow conflicts if it is a targeted cancellation request resolution
+        // 🚀 PRE-FLIGHT BLOCK FIX: Only check for a dispute conflict if the order is actively "cancel_requested"
         if (
           liveMatch &&
-          liveMatch.status?.toLowerCase() !== "cancel_requested" &&
+          liveMatch.status?.toLowerCase() === "cancel_requested" &&
           (decline_action === "decline_cancellation" || (st === "cancelled" && !!reason))
         ) {
-          throw new Error("Pre-flight Blocked: This cancellation request has already been resolved.");
+          // If the status inside the cache has changed from cancel_requested before execution, prevent the trip
+          if (liveMatch.status?.toLowerCase() !== "cancel_requested") {
+            throw new Error("Pre-flight Blocked: This cancellation request has already been resolved.");
+          }
         }
       }
 
