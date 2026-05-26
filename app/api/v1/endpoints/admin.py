@@ -287,14 +287,16 @@ async def list_orders_admin(
     
     result = []
     for o in rows:
-        # ─── 🚀 THE ENTERPRISE COUPLING COMPUTATION ENGINE ───
-        # Dynamically evaluate points discount ratios back into flat percentage fields for the summary ledger
-        disc_amt = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
-        final_price = float(o.total_price)
-        calc_percentage = 0.0
-        
-        if disc_amt > 0 and (final_price + disc_amt) > 0:
-            calc_percentage = round((disc_amt / (final_price + disc_amt)) * 100, 0)
+        # ─── 🚀 READ SAVED METRICS FROM PERSISTENT COLUMNS ───
+        points_used = int(getattr(o, "loyalty_points_used", 0) or 0)
+        saved_percentage = float(getattr(o, "discount_percentage", 0.0) or 0.0)
+
+        # Fallback calculation if the column was empty on an older mock order record
+        if saved_percentage == 0.0:
+            disc_amt = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
+            final_price = float(o.total_price)
+            if disc_amt > 0 and (final_price + disc_amt) > 0:
+                saved_percentage = round((disc_amt / (final_price + disc_amt)) * 100, 0)
 
         result.append({
             "id": o.id,
@@ -304,13 +306,16 @@ async def list_orders_admin(
             "shop_id": o.shop_id,
             "shop_name": o.shop.name if o.shop else "Unknown Store Front",
             "status": o.status,
-            "total_price": final_price,
+            "total_price": float(o.total_price),
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
             "order_type": getattr(o, "order_type", "delivery"),
             "delivery_address": getattr(o, "delivery_address_id", None),
-            "loyalty_points_used": int(getattr(o, "loyalty_points_used", 0) or 0),
-            "discount_percentage": float(calc_percentage), # 👈 Formats beautifully into {o.discount_percentage}%
+            
+            # Surface clear metrics back to the admin UI ledger sheet panels
+            "loyalty_points_used": points_used,
+            "discount_percentage": float(saved_percentage), 
+            
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "items": [
                 {
@@ -325,7 +330,6 @@ async def list_orders_admin(
             ]
         })
     return result
-
 
 # ─── Analytics ────────────────────────────────────────────────────────────────
 

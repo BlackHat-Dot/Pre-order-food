@@ -124,15 +124,18 @@ async def create_order(
     # ─── 🚀 THE LOYALTY DISCOUNT CALCULATION MATRIX ENGINE ───
     points_to_redeem = payload.redeem_loyalty_points or 0
     calculated_loyalty_discount = 0.0
+    computed_percentage = 0.0
     
     if points_to_redeem > 0:
-        # Fetch the merchant's programmatic dollar point conversion weight metric multiplier
         discount_weight = getattr(shop, "loyalty_discount_per_point", 0.1) or 0.1
         calculated_loyalty_discount = round(float(points_to_redeem) * float(discount_weight), 2)
         
-        # Verify the calculation matrix boundary conditions do not loop negatively
         if calculated_loyalty_discount > base_total_price:
             calculated_loyalty_discount = base_total_price
+
+        # Calculate the dynamic mathematical percentage matching your frontend expectations
+        if base_total_price > 0:
+            computed_percentage = round((calculated_loyalty_discount / base_total_price) * 100, 0)
 
     final_total_price = max(0.0, base_total_price - calculated_loyalty_discount)
 
@@ -166,9 +169,11 @@ async def create_order(
         order_type=payload.order_type,
         delivery_address_id=addr_string if payload.order_type == "delivery" else None,
         payment_status="paid" if payload.payment_method == "online" else "pending",
-        # Persist calculations back to columns
+        
+        # ─── 🚀 THE FIXED ALLOCATION MATRIX KEYS ───
         loyalty_points_used=points_to_redeem,
         loyalty_discount_amount=calculated_loyalty_discount,
+        discount_percentage=computed_percentage,  # 👈 Fixed: Write percent directly to persistent table column
         coupon_id=payload.coupon_id,
         coupon_discount_applied=0.0
     )
@@ -395,31 +400,3 @@ async def update_order_status(
         )
     )
     return (await db.execute(refreshed_stmt)).scalar_one()
-
-
-@router.patch("/{order_id}/cancel", response_model=OrderOut)
-async def cancel_order(
-    order_id: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))],
-) -> OrderOut:
-    return await update_order_status(
-        order_id=order_id,
-        payload=OrderStatusUpdate(status="cancelled"),
-        db=db,
-        user=user
-    )
-
-
-@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_order(
-    order_id: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("admin"))],
-) -> Response:
-    order = await db.get(Order, order_id)
-    if not order:
-        raise HTTPException(404, "Order not found")
-    await db.delete(order)
-    await db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
