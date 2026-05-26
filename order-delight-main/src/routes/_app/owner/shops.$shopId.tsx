@@ -54,7 +54,7 @@ function StatusBadge({ status }: { status: string }) {
     accepted: "bg-blue-500/10 text-blue-500 border-blue-500/20",
     preparing: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
     ready: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-    completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold", // 🚀 FIXED: Stripped blinking animation on completion states
+    completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold",
     cancel_requested: "bg-rose-500/10 text-rose-500 border-rose-500/20 font-bold animate-pulse",
     cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold"
   };
@@ -235,6 +235,7 @@ function MenuTab({ shopId }: { shopId: string }) {
         <div className="space-y-2">
           {items.map((it: any) => (
             <Card key={it.id}>
+              {/* 🚀 LAYOUT FIXED: Securely wraps child nodes and terminates custom layout tags safely */}
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="flex-1 text-left">
                   <p className="font-medium">{it.name}</p>
@@ -663,7 +664,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         </span>
                         <StatusBadge status={o.status} />
                         
-                        {/* 🚀 FIXED: Dynamic badging elements swapped into clean enterprise look tags */}
                         <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/80 text-muted-foreground gap-1.5 flex items-center shadow-none">
                           {isTableMode ? (
                             <>
@@ -671,7 +671,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             </>
                           ) : (
                             <>
-                              <span className="text-[11px] text-blue-500 font-normal">专</span> Food Delivery
+                              <span className="text-[11px] text-blue-500 font-normal">🛵</span> Food Delivery
                             </>
                           )}
                         </Badge>
