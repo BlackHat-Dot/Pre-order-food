@@ -38,10 +38,19 @@ type OrderItem = {
 type Order = {
   id: string;
   status: string;
-  total_price: number;
+ total_price: number;
   payment_status: string;
+
   cancellation_reason?: string | null;
+
+  cancellation_requests_sent?: number;
+
   items?: OrderItem[];
+
+  shop?: {
+    phone?: string;
+    email?: string;
+  };
 };
 
 function getErrorMessage(err: unknown) {
@@ -264,11 +273,45 @@ function CustomerOrderActionModule({ order }: { order: Order }) {
       </div>
 
       {limitReached && (
-        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-[11px] text-red-400">
-          You already used all 3 cancellation requests for this order.
-        </div>
-      )}
+  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+    <div className="flex items-start gap-3">
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
 
+      <div className="flex-1">
+        <p className="text-xs font-bold uppercase text-amber-500">
+          Cancellation Request Limit Reached
+        </p>
+
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          You already used all 3 cancellation requests for this order.
+          Please contact the shop owner directly for further assistance.
+        </p>
+
+        <div className="mt-3 rounded-lg border border-border/60 bg-background/60 p-3 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Shop Phone
+            </span>
+
+            <span className="font-semibold text-foreground">
+              {order.shop?.phone || "Not available"}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Shop Email
+            </span>
+
+            <span className="font-semibold text-foreground">
+              {order.shop?.email || "Not available"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>

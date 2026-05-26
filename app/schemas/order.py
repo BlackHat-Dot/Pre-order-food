@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Literal, List
 
+from app.schemas.shop import ShopOut
 # --- INPUT SCHEMAS ---
 
 class OrderItemInput(BaseModel):
@@ -122,6 +123,8 @@ class OrderOut(BaseModel):
     
     items: List[OrderItemOut] = []
     customer: Optional[UserMinimalOut] = None  # 🚀 Core Fix: Mounts the nested user account profile cleanly
+
+    shop: ShopOut | None = None
 
     model_config = {"from_attributes": True}
 
