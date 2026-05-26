@@ -222,7 +222,8 @@ async def shop_orders(
         .where(Order.shop_id == shop_id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer)
+            selectinload(Order.customer),
+            selectinload(Order.shop)
         )
     )
     if status_filter:
@@ -244,7 +245,8 @@ async def update_order_status(
         .where(Order.id == order_id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer)
+            selectinload(Order.customer),
+            selectinload(Order.shop)
         )
     )
 
