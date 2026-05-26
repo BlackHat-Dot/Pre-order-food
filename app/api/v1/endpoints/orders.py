@@ -235,45 +235,135 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items), selectinload(Order.customer))
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.customer)
+        )
+    )
+
     order = (await db.execute(stmt)).scalar_one_or_none()
-    
+
     if not order:
-        raise HTTPException(status_code=404, detail="Order missing")
+        raise HTTPException(
+            status_code=404,
+            detail="Order missing"
+        )
 
     incoming_status = getattr(payload, "status", None)
 
+    # ─────────────────────────────────────────────
+    # CUSTOMER CANCELLATION REQUEST FLOW
+    # ─────────────────────────────────────────────
+    if incoming_status == "cancel_requested":
+
+        if order.status in ["cancelled", "completed"]:
+            raise HTTPException(
+                status_code=400,
+                detail="This order can no longer be cancelled."
+            )
+
+        if order.cancellation_requests_sent >= 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum cancellation requests reached."
+            )
+
+        if order.is_cancellation_pending:
+            raise HTTPException(
+                status_code=400,
+                detail="Cancellation request already pending approval."
+            )
+
+        order.cancellation_requests_sent += 1
+        order.is_cancellation_pending = True
+        order.cancellation_reason = getattr(payload, "reason", None)
+        order.status = "cancel_requested"
+
+        await db.commit()
+        await db.refresh(order)
+
+        return order
+
+    # ─────────────────────────────────────────────
+    # SHOP OWNER ACTIONS
+    # ─────────────────────────────────────────────
     if user.role == "shop_owner":
-        # 🚀 RESOLVE AMBIGUITY PATH A: Accept Cancellation Request
+
+        # ACCEPT CANCELLATION
         if incoming_status == "cancelled":
+
             order.status = "cancelled"
             order.is_cancellation_pending = False
+
             await db.commit()
+            await db.refresh(order)
+
             return order
-            
-        # 🚀 RESOLVE AMBIGUITY PATH B: Resume Order Pipeline (Decline Cancellation)
+
+        # DECLINE CANCELLATION / RESUME
         elif incoming_status == "resume_order":
-            order.status = "accepted"  # Restores order to active cooking timeline
+
+            order.status = "accepted"
             order.is_cancellation_pending = False
+
             await db.commit()
+            await db.refresh(order)
+
             return order
 
+        # COMPLETE ORDER
         if incoming_status == "completed":
-            if order.payment_method == "cod" and order.payment_status != "paid":
-                raise HTTPException(status_code=400, detail="Collect cash first before completing.")
+
+            if (
+                order.payment_method == "cod"
+                and order.payment_status != "paid"
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Collect cash first before completing."
+                )
+
             order.status = "completed"
+
             await db.commit()
+            await db.refresh(order)
+
             return order
 
+        # PAYMENT CONTROL
         if incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
-            if incoming_status == "mark_as_unpaid" and order.status == "completed":
-                raise HTTPException(status_code=400, detail="Completed orders cannot be marked as unpaid.")
-            order.payment_status = "paid" if incoming_status == "mark_as_paid" else "pending"
+
+            if (
+                incoming_status == "mark_as_unpaid"
+                and order.status == "completed"
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Completed orders cannot be marked as unpaid."
+                )
+
+            order.payment_status = (
+                "paid"
+                if incoming_status == "mark_as_paid"
+                else "pending"
+            )
+
             await db.commit()
+            await db.refresh(order)
+
             return order
 
+    # ─────────────────────────────────────────────
+    # DEFAULT STATUS UPDATE
+    # ─────────────────────────────────────────────
     order.status = incoming_status
+
     await db.commit()
+    await db.refresh(order)
+
     return order
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)

@@ -103,7 +103,7 @@ function CustomerOrderActionModule({ order }: { order: Order }) {
 
   // FIXED
   const cancellationAttempts = Number(
-    (order as any)?.cancellation_attempts ?? 0
+    (order as any)?.cancellation_requests_sent ?? 0
   );
 
   const MAX_REQUESTS = 3;
