@@ -306,9 +306,21 @@ async def update_order_status(
         order.status = "cancel_requested"
 
         await db.commit()
-        await db.refresh(order)
+        refreshed_stmt = (
+            select(Order)
+            .where(Order.id == order.id)
+            .options(
+        selectinload(Order.items),
+        selectinload(Order.customer),
+        selectinload(Order.shop)
+            )
+        )
 
-        return order
+        refreshed_order = (
+            await db.execute(refreshed_stmt)
+        ).scalar_one()
+
+        return refreshed_order
 
     # ─────────────────────────────────────────────
     # SHOP OWNER ACTIONS
@@ -322,9 +334,21 @@ async def update_order_status(
             order.is_cancellation_pending = False
 
             await db.commit()
-            await db.refresh(order)
+            refreshed_stmt = (
+    select(Order)
+    .where(Order.id == order.id)
+    .options(
+        selectinload(Order.items),
+        selectinload(Order.customer),
+        selectinload(Order.shop)
+    )
+)
 
-            return order
+            refreshed_order = (
+                await db.execute(refreshed_stmt)
+            ).scalar_one()
+            
+            return refreshed_order
 
         # DECLINE CANCELLATION / RESUME
         elif incoming_status == "resume_order":
@@ -333,9 +357,21 @@ async def update_order_status(
             order.is_cancellation_pending = False
 
             await db.commit()
-            await db.refresh(order)
+            refreshed_stmt = (
+            select(Order)
+            .where(Order.id == order.id)
+            .options(
+                selectinload(Order.items),
+                selectinload(Order.customer),
+                selectinload(Order.shop)
+                )
+            )
 
-            return order
+            refreshed_order = (
+                await db.execute(refreshed_stmt)
+            ).scalar_one()
+            
+            return refreshed_order
 
         # COMPLETE ORDER
         if incoming_status == "completed":
@@ -352,9 +388,21 @@ async def update_order_status(
             order.status = "completed"
 
             await db.commit()
-            await db.refresh(order)
+            refreshed_stmt = (
+                select(Order)
+                .where(Order.id == order.id)
+                .options(
+                    selectinload(Order.items),
+                    selectinload(Order.customer),
+                    selectinload(Order.shop)
+                )
+            )
 
-            return order
+            refreshed_order = (
+                await db.execute(refreshed_stmt)
+            ).scalar_one()
+
+            return refreshed_order
 
         # PAYMENT CONTROL
         if incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
@@ -375,9 +423,21 @@ async def update_order_status(
             )
 
             await db.commit()
-            await db.refresh(order)
+            refreshed_stmt = (
+    select(Order)
+    .where(Order.id == order.id)
+    .options(
+        selectinload(Order.items),
+        selectinload(Order.customer),
+        selectinload(Order.shop)
+    )
+)
 
-            return order
+            refreshed_order = (
+                await db.execute(refreshed_stmt)
+            ).scalar_one()
+
+            return refreshed_order
 
     # ─────────────────────────────────────────────
     # DEFAULT STATUS UPDATE
@@ -385,9 +445,21 @@ async def update_order_status(
     order.status = incoming_status
 
     await db.commit()
-    await db.refresh(order)
+    refreshed_stmt = (
+    select(Order)
+    .where(Order.id == order.id)
+    .options(
+        selectinload(Order.items),
+        selectinload(Order.customer),
+        selectinload(Order.shop)
+    )
+)
 
-    return order
+    refreshed_order = (
+        await db.execute(refreshed_stmt)
+    ).scalar_one()
+
+    return refreshed_order
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)
 async def cancel_order(
