@@ -92,38 +92,71 @@ function getOrderUiState(order: Order) {
   };
 }
 
-export function CustomerOrderActionModule({ order }: { order: Order }) {
+function CustomerOrderActionModule({ order }: { order: Order }) {
   const qc = useQueryClient();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reasonText, setReasonText] = useState("");
 
   const { canInstantlyCancel, canRequestCancel, requestPending } =
     getOrderUiState(order);
 
+  // FIXED
+  const cancellationAttempts = Number(
+    (order as any)?.cancellation_attempts ?? 0
+  );
+
+  const MAX_REQUESTS = 3;
+
+  const remainingRequests = Math.max(
+    0,
+    MAX_REQUESTS - cancellationAttempts
+  );
+
+  const limitReached = cancellationAttempts >= MAX_REQUESTS;
+
   const updateStatusMutation = useMutation({
-    mutationFn: async (payload: { status: string; reason?: string }) => {
+    mutationFn: async (payload: {
+      status: string;
+      reason?: string;
+    }) => {
       return await apiRequest(`/api/v1/orders/${order.id}/status`, {
         method: "PATCH",
         body: payload,
       });
     },
+
     onSuccess: (updatedOrder: any, variables) => {
-      const nextStatus =
-        (updatedOrder?.status || variables.status || "").toLowerCase();
+      const nextStatus = (
+        updatedOrder?.status ||
+        variables.status ||
+        ""
+      ).toLowerCase();
 
       if (nextStatus === "cancelled") {
-        toast.success("Order cancelled. Vouchers and points have been restored.");
+        toast.success(
+          "Order cancelled. Refund and rewards restored."
+        );
       } else if (nextStatus === "cancel_requested") {
-        toast.success("Cancellation request submitted to the store manager.");
+        toast.success(
+          "Cancellation request submitted."
+        );
       } else {
         toast.success("Order updated.");
       }
 
       setIsModalOpen(false);
       setReasonText("");
-      qc.invalidateQueries({ queryKey: ["order", order.id] });
-      qc.invalidateQueries({ queryKey: ["my-orders"] });
+
+      qc.invalidateQueries({
+        queryKey: ["order", order.id],
+      });
+
+      qc.invalidateQueries({
+        queryKey: ["my-orders"],
+      });
     },
+
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err));
     },
@@ -131,98 +164,153 @@ export function CustomerOrderActionModule({ order }: { order: Order }) {
 
   if (requestPending) {
     return (
-      <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-left">
-        <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-        <div>
-          <p className="text-xs font-bold text-amber-500">
-            Cancellation Request Pending Approval
-          </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Your request is being reviewed by the store owner.
-          </p>
-          {order.cancellation_reason ? (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Reason: {order.cancellation_reason}
+      <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <div className="flex items-start gap-3">
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+
+          <div className="flex-1">
+            <p className="text-xs font-bold uppercase text-amber-500">
+              Cancellation Request Pending
             </p>
-          ) : null}
+
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Store owner is reviewing your request.
+            </p>
+
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              Attempts used:{" "}
+              <span className="font-semibold text-foreground">
+                {cancellationAttempts}/{MAX_REQUESTS}
+              </span>
+            </div>
+
+            {order.cancellation_reason ? (
+              <div className="mt-2 rounded-lg border border-border/50 bg-background/60 p-2 text-[11px]">
+                <span className="font-semibold">Reason:</span>{" "}
+                {order.cancellation_reason}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!canInstantlyCancel && !canRequestCancel) return null;
+  if (!canInstantlyCancel && !canRequestCancel) {
+    return null;
+  }
 
   return (
-    <div className="mt-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row">
-      <div className="space-y-1 text-left">
-        <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-          <AlertTriangle className="h-4 w-4 text-destructive" />
-          Manage Order Lifecycle
-        </p>
-        <p className="max-w-md text-[11px] leading-normal text-muted-foreground">
-          {canInstantlyCancel
-            ? "This order is pending kitchen verification. You can cancel it for an immediate refund."
-            : "The kitchen is already processing this order. You can request cancellation from the store owner."}
-        </p>
+    <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1 text-left">
+          <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            Manage Order Cancellation
+          </p>
+
+          <p className="max-w-md text-[11px] leading-normal text-muted-foreground">
+            {canInstantlyCancel
+              ? "Order is still pending. Instant cancellation available."
+              : "Kitchen already started processing. Request approval from store owner."}
+          </p>
+
+          {!canInstantlyCancel && (
+            <div className="pt-1 text-[11px] text-muted-foreground">
+              Attempts used:{" "}
+              <span className="font-semibold text-foreground">
+                {cancellationAttempts}/{MAX_REQUESTS}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {canInstantlyCancel ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={updateStatusMutation.isPending}
+            className="rounded-xl px-4 text-xs font-semibold"
+            onClick={() =>
+              updateStatusMutation.mutate({
+                status: "cancelled",
+              })
+            }
+          >
+            <XCircle className="mr-1.5 h-4 w-4" />
+            Cancel Order
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              updateStatusMutation.isPending || limitReached
+            }
+            className={`rounded-xl px-4 text-xs font-semibold ${
+              limitReached
+                ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
+                : "border-destructive/20 text-destructive hover:bg-destructive/10"
+            }`}
+            onClick={() => setIsModalOpen(true)}
+          >
+            <HelpCircle className="mr-1.5 h-4 w-4" />
+
+            {limitReached
+              ? "Request Limit Reached"
+              : "Request Cancellation"}
+          </Button>
+        )}
       </div>
 
-      {canInstantlyCancel ? (
-        <Button
-          variant="destructive"
-          size="sm"
-          className="shrink-0 gap-1.5 rounded-xl px-4 text-xs font-semibold"
-          disabled={updateStatusMutation.isPending}
-          onClick={() => updateStatusMutation.mutate({ status: "cancelled" })}
-        >
-          <XCircle className="h-4 w-4" />
-          Cancel Order
-        </Button>
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0 gap-1.5 rounded-xl border-destructive/20 bg-transparent text-xs font-medium text-destructive hover:bg-destructive/10"
-          disabled={updateStatusMutation.isPending}
-          onClick={() => setIsModalOpen(true)}
-        >
-          <HelpCircle className="h-4 w-4" />
-          Request Cancellation
-        </Button>
+      {limitReached && (
+        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-[11px] text-red-400">
+          You already used all 3 cancellation requests for this order.
+        </div>
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-left text-sm font-black tracking-tight">
-              Specify Cancellation Reason
+              Request Cancellation
             </DialogTitle>
+
             <DialogDescription className="pt-1 text-left text-xs">
-              Tell the store owner why you want to cancel this order.
+              Explain why you want to cancel this order.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2 text-left">
+          <div className="py-2">
             <Textarea
-              placeholder="e.g., Selected wrong address / Pickup delays..."
+              placeholder="Wrong item, delayed preparation, changed plans..."
               value={reasonText}
               onChange={(e) => setReasonText(e.target.value)}
-              className="min-h-[90px] rounded-xl text-xs"
+              className="min-h-[100px] rounded-xl text-xs"
               maxLength={250}
             />
+
+            <div className="mt-2 text-right text-[10px] text-muted-foreground">
+              {reasonText.length}/250
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
             <Button
               variant="ghost"
-              className="h-9 rounded-xl text-xs"
+              className="rounded-xl text-xs"
               onClick={() => setIsModalOpen(false)}
             >
               Back
             </Button>
+
             <Button
               variant="destructive"
-              className="h-9 rounded-xl px-4 text-xs font-semibold"
-              disabled={!reasonText.trim() || updateStatusMutation.isPending}
+              className="rounded-xl px-4 text-xs font-semibold"
+              disabled={
+                !reasonText.trim() ||
+                updateStatusMutation.isPending
+              }
               onClick={() =>
                 updateStatusMutation.mutate({
                   status: "cancel_requested",
@@ -230,7 +318,9 @@ export function CustomerOrderActionModule({ order }: { order: Order }) {
                 })
               }
             >
-              {updateStatusMutation.isPending ? "Submitting..." : "Submit Request"}
+              {updateStatusMutation.isPending
+                ? "Submitting..."
+                : "Submit Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
