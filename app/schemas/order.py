@@ -39,19 +39,14 @@ class OrderCreate(BaseModel):
     
 class OrderStatusUpdate(BaseModel):
     status: str
-    # 🚀 THE BACKEND SCHEMA FIX: Register fields safely using default None fallbacks
     decline_action: Optional[str] = None
     reason: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-# --- 🚀 REFACTORED INTERLOCK WORKFLOW SCHEMA ---
+# --- REFACTORED INTERLOCK WORKFLOW SCHEMA ---
 class OrderUpdateSchema(BaseModel):
-    """
-    Schema used to transition order workflow states.
-    Supports customer reason strings for dispute reviews, and merchant actions.
-    """
     status: Literal[
         "pending", 
         "accepted", 
@@ -111,8 +106,15 @@ class OrderOut(BaseModel):
     instructions: Optional[str] = None
     payment_method: str
     payment_status: str
-    order_type: str  # 🚀 Added explicit schema mapping field validation
+    order_type: str  
     delivery_address_id: Optional[str] = None
+
+    # ─── 🚀 THE ENTERPRISE COUPLING PATCH ───
+    coupon_id: Optional[str] = None
+    coupon_discount_applied: float = 0.0
+    loyalty_points_used: int = 0
+    loyalty_discount_amount: float = 0.0
+    loyalty_points_earned: int = 0
 
     cancellation_reason: Optional[str] = None
     is_cancellation_pending: bool
@@ -122,8 +124,7 @@ class OrderOut(BaseModel):
     updated_at: datetime
     
     items: List[OrderItemOut] = []
-    customer: Optional[UserMinimalOut] = None  # 🚀 Core Fix: Mounts the nested user account profile cleanly
-
+    customer: Optional[UserMinimalOut] = None  
     shop: ShopOut | None = None
 
     model_config = {"from_attributes": True}

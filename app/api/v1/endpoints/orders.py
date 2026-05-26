@@ -25,17 +25,13 @@ router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basi
 
 
 async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
-    """
-    🚀 FIXED: Added selectinload(Order.shop) alongside customer and items arrays
-    to completely eliminate all variations of MissingGreenlet validation exceptions.
-    """
     fresh_stmt = (
         select(Order)
         .where(Order.id == order_id)
         .options(
             selectinload(Order.items),
             selectinload(Order.customer),
-            selectinload(Order.shop) # 👈 Fixes subsequent lazy loading crashes
+            selectinload(Order.shop)
         )
     )
     fresh_result = await db.execute(fresh_stmt)
@@ -49,7 +45,7 @@ async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: Use
         
     if user.role == "shop_owner":
         shop = await db.get(Shop, fresh_order.shop_id)
-        if not shop or shop.owner_id != user.id:
+        if not shop or (shop.owner_id != user.id and user.role != "admin"):
             raise HTTPException(status_code=403, detail="Access restricted to authorized merchant profiles.")
             
     return fresh_order
@@ -73,7 +69,7 @@ async def create_order(
     if not shop.is_open or not shop.is_accepting_orders:
         raise HTTPException(400, "Shop is not accepting orders")
 
-    total_price = 0.0
+    base_total_price = 0.0
     prep_times: list[int] = []
     order_items: list[OrderItem] = []
 
@@ -89,7 +85,7 @@ async def create_order(
             if not item or item.shop_id != shop.id or not item.is_available:
                 raise HTTPException(status_code=400, detail="Item unavailable")
                 
-            total_price += variant.price * entry.quantity
+            base_total_price += variant.price * entry.quantity
             prep_times.append(variant.prep_time_minutes)
             order_items.append(
                 OrderItem(
@@ -110,7 +106,7 @@ async def create_order(
             if not item or item.shop_id != shop.id or not item.is_available:
                 raise HTTPException(status_code=400, detail="Dish selection unavailable.")
                 
-            total_price += item.price * entry.quantity
+            base_total_price += item.price * entry.quantity
             prep_times.append(item.prep_time_minutes)
             order_items.append(
                 OrderItem(
@@ -124,6 +120,21 @@ async def create_order(
                     variant_name_snapshot=None,
                 )
             )
+
+    # ─── 🚀 THE LOYALTY DISCOUNT CALCULATION MATRIX ENGINE ───
+    points_to_redeem = payload.redeem_loyalty_points or 0
+    calculated_loyalty_discount = 0.0
+    
+    if points_to_redeem > 0:
+        # Fetch the merchant's programmatic dollar point conversion weight metric multiplier
+        discount_weight = getattr(shop, "loyalty_discount_per_point", 0.1) or 0.1
+        calculated_loyalty_discount = round(float(points_to_redeem) * float(discount_weight), 2)
+        
+        # Verify the calculation matrix boundary conditions do not loop negatively
+        if calculated_loyalty_discount > base_total_price:
+            calculated_loyalty_discount = base_total_price
+
+    final_total_price = max(0.0, base_total_price - calculated_loyalty_discount)
 
     addr_string = None
     incoming_address_id = getattr(payload, "delivery_address_id", None)
@@ -147,14 +158,19 @@ async def create_order(
         id=new_id(),
         customer_id=user.id,
         shop_id=shop.id,
-        total_price=round(total_price, 2),
+        total_price=round(final_total_price, 2),
         prep_time_minutes=max(prep_times) if prep_times else 0,
         scheduled_at=payload.scheduled_at,
         instructions=payload.instructions,
         payment_method=payload.payment_method,
         order_type=payload.order_type,
         delivery_address_id=addr_string if payload.order_type == "delivery" else None,
-        payment_status="paid" if payload.payment_method == "online" else "pending"
+        payment_status="paid" if payload.payment_method == "online" else "pending",
+        # Persist calculations back to columns
+        loyalty_points_used=points_to_redeem,
+        loyalty_discount_amount=calculated_loyalty_discount,
+        coupon_id=payload.coupon_id,
+        coupon_discount_applied=0.0
     )
 
     db.add(order)
@@ -167,7 +183,6 @@ async def create_order(
     await db.commit()
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
     
-    # Reload instance with selectinload for safe schema output return payload
     finalized_order_stmt = (
         select(Order)
         .options(
@@ -226,8 +241,12 @@ async def shop_orders(
     shop = await db.get(Shop, shop_id)
     if not shop:
         raise HTTPException(404, "Shop not found")
+        
     if user.role != "admin" and shop.owner_id != user.id:
-        raise HTTPException(403, "Forbidden")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Access denied. Logged-in profile ({user.id}) does not match the merchant record for this store."
+        )
         
     stmt = (
         select(Order)
@@ -268,9 +287,6 @@ async def update_order_status(
 
     incoming_status = getattr(payload, "status", None)
 
-    # ─────────────────────────────────────────────
-    # CUSTOMER CANCELLATION REQUEST FLOW
-    # ─────────────────────────────────────────────
     if incoming_status == "cancel_requested":
         if order.status in ["cancelled", "completed"]:
             raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
@@ -297,11 +313,7 @@ async def update_order_status(
         )
         return (await db.execute(refreshed_stmt)).scalar_one()
 
-    # ─────────────────────────────────────────────
-    # SHOP OWNER ACTIONS
-    # ─────────────────────────────────────────────
-    if user.role == "shop_owner":
-        # ACCEPT CANCELLATION
+    if user.role in ["shop_owner", "admin"]:
         if incoming_status == "cancelled":
             order.status = "cancelled"
             order.is_cancellation_pending = False
@@ -318,7 +330,6 @@ async def update_order_status(
             )
             return (await db.execute(refreshed_stmt)).scalar_one()
 
-        # DECLINE CANCELLATION / RESUME
         elif incoming_status == "resume_order":
             order.status = "accepted"
             order.is_cancellation_pending = False
@@ -335,7 +346,6 @@ async def update_order_status(
             )
             return (await db.execute(refreshed_stmt)).scalar_one()
 
-        # COMPLETE ORDER
         if incoming_status == "completed":
             if order.payment_method == "cod" and order.payment_status != "paid":
                 raise HTTPException(status_code=400, detail="Collect cash first before completing.")
@@ -354,7 +364,6 @@ async def update_order_status(
             )
             return (await db.execute(refreshed_stmt)).scalar_one()
 
-        # PAYMENT CONTROL
         if incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
             if incoming_status == "mark_as_unpaid" and order.status == "completed":
                 raise HTTPException(status_code=400, detail="Completed orders cannot be marked as unpaid.")
@@ -373,9 +382,6 @@ async def update_order_status(
             )
             return (await db.execute(refreshed_stmt)).scalar_one()
 
-    # ─────────────────────────────────────────────
-    # DEFAULT STATUS UPDATE
-    # ─────────────────────────────────────────────
     order.status = incoming_status
     await db.commit()
     

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, Clock3, ShieldAlert, Package, ClipboardList } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, Clock3, ShieldAlert, Package, ClipboardList, UtensilsCrossed, Bike } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -167,7 +167,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-// Analytics metric tab helper
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
@@ -547,8 +546,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-
-// ─── SHOP OWNER ORDERS WORKSPACE ───────────────────────────────────────────────
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -605,23 +602,23 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         {!forceRequestsOnly ? (
           <Tabs value={status} onValueChange={setStatus}>
-            <TabsList className="h-9 flex-wrap gap-1 rounded-xl border border-border/60 bg-muted/40 p-1 shadow-none">
-              <TabsTrigger value="all" className="rounded-lg px-3 text-xs">
+            <TabsList className="h-8 flex-wrap gap-1 rounded-lg border border-border/60 bg-muted/40 p-0.5 shadow-none">
+              <TabsTrigger value="all" className="rounded-md px-3 text-xs h-7">
                 All Tickets
               </TabsTrigger>
-              <TabsTrigger value="pending" className="rounded-lg px-3 text-xs">
+              <TabsTrigger value="pending" className="rounded-md px-3 text-xs h-7">
                 Pending
               </TabsTrigger>
-              <TabsTrigger value="accepted" className="rounded-lg px-3 text-xs">
+              <TabsTrigger value="accepted" className="rounded-md px-3 text-xs h-7">
                 Accepted
               </TabsTrigger>
-              <TabsTrigger value="preparing" className="rounded-lg px-3 text-xs">
+              <TabsTrigger value="preparing" className="rounded-md px-3 text-xs h-7">
                 Preparing
               </TabsTrigger>
-              <TabsTrigger value="ready" className="rounded-lg px-3 text-xs">
+              <TabsTrigger value="ready" className="rounded-md px-3 text-xs h-7">
                 Ready
               </TabsTrigger>
-              <TabsTrigger value="completed" className="rounded-lg px-3 text-xs">
+              <TabsTrigger value="completed" className="rounded-md px-3 text-xs h-7">
                 Completed
               </TabsTrigger>
             </TabsList>
@@ -635,13 +632,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-12 w-full rounded-lg animate-pulse" />
       ) : visibleOrders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 py-14 text-center text-sm text-muted-foreground">
-          No orders match the current filter.
+        <div className="rounded-xl border border-dashed border-border/60 py-12 text-center text-xs font-medium text-muted-foreground">
+          No active kitchen orders matching context rules.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {visibleOrders.map((o: any) => {
             const isExpanded = !!expandedOrders[o.id];
             const currentStatus = String(o.status || "pending").toLowerCase();
@@ -679,8 +676,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
               >
                 <SelectTrigger
                   className={[
-                    "capitalize font-medium text-[11px] rounded-lg border bg-background shadow-none px-2",
-                    compact ? "h-7 w-32" : "h-8 w-36",
+                    "capitalize font-medium text-[11px] rounded-md border bg-background shadow-none px-2",
+                    compact ? "h-7 w-28" : "h-8 w-32",
                     isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.03] cursor-not-allowed" : "",
                   ].join(" ")}
                 >
@@ -703,87 +700,63 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
               <Card
                 key={o.id}
                 className={[
-                  "overflow-hidden border-border/60 shadow-none transition-all",
-                  isExpanded ? "border-primary/30 bg-muted/25" : "bg-card hover:border-border/100 hover:bg-muted/[0.02]",
+                  "border border-border/50 shadow-none rounded-lg hover:border-border/100 transition-all",
+                  isExpanded ? "bg-muted/40 border-primary/30" : "bg-card",
                 ].join(" ")}
               >
-                <CardContent className="p-4 sm:p-5">
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_auto] xl:items-center">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center rounded-md border border-border/60 bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-foreground">
-                          #{String(o.id).slice(0, 8).toUpperCase()}
-                        </span>
+                <CardContent className="p-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-normal">
+                  
+                  {/* Summary badges layout section panel blocks */}
+                  <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
+                    <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
+                      #{String(o.id).slice(0, 8).toUpperCase()}
+                    </span>
+                    <StatusBadge status={currentStatus} />
+                    
+                    {/* Aligned enterprise indicators from admin model specs */}
+                    <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/50 text-muted-foreground gap-1.5 flex items-center shadow-none">
+                      {isTableMode ? (
+                        <>
+                          <UtensilsCrossed className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Table
+                        </>
+                      ) : (
+                        <>
+                          <Bike className="h-3.5 w-3.5 text-blue-500 shrink-0" /> Delivery
+                        </>
+                      )}
+                    </Badge>
+                    
+                    <Badge className={`text-[10px] font-medium px-2 py-0.5 rounded border shadow-none ${
+                      isSettled 
+                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                        : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                    }`}>
+                      {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
+                    </Badge>
+                  </div>
 
-                        <StatusBadge status={currentStatus} />
+                  {/* Horizontal High-Density Summary Data Ribbon */}
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
+                    <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {buyerName}</div>
+                    <div className="truncate font-mono"><span className="text-foreground font-medium">Phone:</span> {buyerPhone}</div>
+                    <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
+                  </div>
 
-                        <Badge
-                          variant="outline"
-                          className={[
-                            "text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-md shadow-none",
-                            isTableMode
-                              ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
-                              : "border-sky-500/20 bg-sky-500/10 text-sky-400",
-                          ].join(" ")}
-                        >
-                          {isTableMode ? "Table" : "Delivery"}
-                        </Badge>
-
-                        <Badge
-                          variant="outline"
-                          className={[
-                            "text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-md shadow-none",
-                            isSettled
-                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                              : "border-amber-500/20 bg-amber-500/10 text-amber-400",
-                          ].join(" ")}
-                        >
-                          {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock3 className="h-3.5 w-3.5" />
-                          {formatDate(o.created_at)}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Package className="h-3.5 w-3.5" />
-                          {itemCount} item{itemCount === 1 ? "" : "s"}
-                        </span>
-                        <span className="inline-flex items-center gap-1 truncate">
-                          <ClipboardList className="h-3.5 w-3.5" />
-                          {isTableMode ? "Dine-in table booking" : o.delivery_address_id || "Counter pickup"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 rounded-xl border border-border/50 bg-muted/20 p-3 xl:border-l xl:border-y-0 xl:border-r-0 xl:pl-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Order snapshot
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-2xl font-bold tracking-tight text-foreground">
-                          {formatCurrency(o.total_price)}
-                        </span>
-                        <span className="rounded-md border border-border/60 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {itemCount} line{itemCount === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                        Customer details stay inside View to keep the row clean.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row xl:flex-col xl:items-end">
+                  {/* Action elements pipeline trigger block layout splits */}
+                  <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
+                    <span className="font-semibold text-sm text-foreground tracking-tight min-w-[75px] text-right">
+                      {formatCurrency(o.total_price)}
+                    </span>
+                    
+                    <div className="flex items-center gap-2">
                       {isCancelRequested ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-rose-500/10 bg-rose-500/5 p-1.5">
+                        <div className="flex items-center gap-1 bg-rose-500/5 p-1 border border-rose-500/10 rounded-lg">
                           <Button
                             size="sm"
                             variant="destructive"
                             disabled={isAnyRowProcessing}
                             onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled" })}
-                            className="h-8 rounded-lg px-3 text-[11px] font-semibold shadow-none"
+                            className="h-7 text-[10px] font-bold px-2 rounded-md shadow-none"
                           >
                             Accept
                           </Button>
@@ -792,145 +765,115 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             variant="outline"
                             disabled={isAnyRowProcessing}
                             onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
-                            className="h-8 rounded-lg border-border/60 bg-background px-3 text-[11px] font-semibold shadow-none"
+                            className="h-7 text-[10px] font-bold px-2 rounded-md bg-background shadow-none text-foreground"
                           >
                             Resume
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                          {/* Cash Received / Payment Control */}
-{methodDisplay === "COD" &&
-  !isFraudLocked &&
-  !isCancelledState &&
-  !isCompletedState && (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={isAnyRowProcessing || isSettled}
-      onClick={() =>
-        updateStatus.mutate({
-          id: o.id,
-          st: "mark_as_paid",
-        })
-      }
-      className={`h-8 rounded-lg px-3 text-[10px] font-semibold border shadow-none transition-all ${
-        isSettled
-          ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
-          : "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10"
-      }`}
-    >
-      Cash Received
-    </Button>
-)}
+                        <>
+                          {methodDisplay === "COD" &&
+                            !isFraudLocked &&
+                            !isCancelledState &&
+                            !isCompletedState && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAnyRowProcessing || isSettled}
+                                onClick={() =>
+                                  updateStatus.mutate({
+                                    id: o.id,
+                                    st: "mark_as_paid",
+                                  })
+                                }
+                                className={`h-7 rounded-md px-2 text-[10px] font-medium border shadow-none transition-all ${
+                                  isSettled
+                                    ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
+                                    : "border-emerald-500/20 bg-emerald-500/5 text-emerald-600 hover:bg-emerald-500/10"
+                                }`}
+                              >
+                                Paid
+                              </Button>
+                          )}
 
-                          {!isExpanded && canChangePipeline && <OrderStatusSelector compact />}
+                          {/* Action Selector Pipeline Dropdown Link */}
+                          {!isExpanded && canChangePipeline && (
+                            <OrderStatusSelector compact />
+                          )}
 
                           {(isCancelledState || isCompletedState) && !isExpanded && (
-                            <span className="inline-flex h-8 items-center rounded-lg border border-border/60 bg-muted px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-muted border px-2 py-1 rounded-md select-none">
                               Locked
                             </span>
                           )}
-                        </div>
+                        </>
                       )}
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 rounded-lg border border-border/60 bg-background px-3 text-[11px] font-semibold text-primary shadow-none hover:bg-muted/50"
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[11px] font-semibold px-2 rounded text-primary gap-1 border border-border/40 hover:bg-muted/40 transition-all bg-background shrink-0"
                         onClick={() => toggleExpand(o.id)}
                       >
-                        <Eye className="mr-1.5 h-3.5 w-3.5" />
-                        {isExpanded ? "Hide" : "View"}
+                        <Eye className="h-3.5 w-3.5" /> View
                       </Button>
                     </div>
                   </div>
+
                 </CardContent>
 
+                {/* Collapsible item details view container section logs */}
                 {isExpanded && (
-                  <div className="border-t border-border/40 bg-muted/15 p-4 sm:p-5 text-left">
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-xl border border-border/60 bg-background p-3">
-                        <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          <User className="h-3.5 w-3.5" />
-                          Customer
-                        </p>
-                        <p className="text-sm font-semibold text-foreground">{buyerName}</p>
+                  <div className="bg-muted/10 p-4 space-y-4 border-t border-border/30 animate-in slide-in-from-top-1 duration-150 text-left">
+                    
+                    {/* Aligned enterprise structural customer configuration grids mapping profiles */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><User className="h-3 w-3" /> Customer Profile</p>
+                        <p className="font-semibold text-foreground">{buyerName}</p>
                       </div>
-
-                      <div className="rounded-xl border border-border/60 bg-background p-3">
-                        <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5" />
-                          Phone
-                        </p>
-                        <p className="font-mono text-sm font-semibold text-foreground">{buyerPhone}</p>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Phone className="h-3 w-3" /> Phone Channel</p>
+                        <p className="font-medium text-foreground font-mono">{buyerPhone}</p>
                       </div>
-
-                      <div className="rounded-xl border border-border/60 bg-background p-3">
-                        <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          <Mail className="h-3.5 w-3.5" />
-                          Email
-                        </p>
-                        <p className="truncate text-sm font-semibold text-foreground">{buyerEmail}</p>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Mail className="h-3 w-3" /> Email Profile</p>
+                        <p className="font-medium text-foreground truncate max-w-[180px]">{buyerEmail}</p>
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-xl border border-border/60 bg-background p-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          Fulfillment destination
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-foreground">
-                          {isTableMode ? "Dine-in table booking" : o.delivery_address_id || "Counter pickup"}
-                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
+                        <p className="font-medium text-foreground">{isTableMode ? "🪑 Dine-In Table Booking" : o.delivery_address_id || "Counter Pickup"}</p>
                       </div>
-                      <div className="rounded-xl border border-border/60 bg-background p-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          Financial protocol
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-foreground">
-                          {methodDisplay} ({isSettled ? "Settled paid" : "Unpaid state"})
-                        </p>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Financial Protocol</p>
+                        <p className="font-medium text-foreground">{methodDisplay} ({isSettled ? "Settled paid" : "Unpaid state"})</p>
                       </div>
                     </div>
 
-                    <div className="mt-3">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Order items
-                      </p>
-                      <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Order Items Summary</p>
+                      <div className="rounded-lg border bg-background p-2 space-y-1">
                         {Array.isArray(o.items) && o.items.length > 0 ? (
                           o.items.map((item: any, idx: number) => (
-                            <div
-                              key={`${o.id}-${idx}`}
-                              className="flex items-center justify-between gap-3 border-b border-border/30 px-3 py-3 last:border-0"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-foreground">
-                                  {item.item_name_snapshot || "Dish option"}
-                                </p>
-                                {item.variant_name_snapshot ? (
-                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                    {item.variant_name_snapshot}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <span className="shrink-0 rounded-md border border-border/60 bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
-                                ×{item.quantity}
-                              </span>
+                            <div key={`${o.id}-${idx}`} className="flex items-center justify-between text-xs py-1 border-b last:border-0 border-border/20">
+                              <span className="text-foreground font-medium">{item.item_name_snapshot || "Dish Option"}</span>
+                              <span className="font-mono text-[11px] font-bold bg-muted border px-1.5 py-0 rounded">×{item.quantity}</span>
                             </div>
                           ))
                         ) : (
-                          <div className="px-3 py-4 text-sm text-muted-foreground">No item details found.</div>
+                          <p className="text-xs text-muted-foreground italic text-center py-1">No basket snapshot lines logged.</p>
                         )}
                       </div>
                     </div>
 
+                    {/* Status modifier dropdown nested accurately below lines summaries item snapshots inside View expanded panel tray */}
                     {!isCancelledState && !isCompletedState && (
-                      <div className="mt-3 flex flex-col gap-2 border-t border-border/40 pt-3 sm:flex-row sm:items-center">
-                        <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:w-44">
-                          <Zap className="h-3.5 w-3.5 text-primary" />
-                          Modify pipeline
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-border/20 mt-1">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sm:w-28 flex items-center gap-1">
+                          <Zap className="h-3 w-3 text-primary shrink-0" /> Modify Pipeline:
                         </div>
                         <OrderStatusSelector compact={false} />
                       </div>
@@ -945,7 +888,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     </div>
   );
 }
-
 
 function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   const qc = useQueryClient();

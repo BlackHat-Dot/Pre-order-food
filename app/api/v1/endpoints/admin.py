@@ -262,7 +262,6 @@ async def list_orders_admin(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(default=None, alias="status"),
 ) -> list[dict]:
-    # 1. Fetch distinct parent IDs for clean pagination segments
     id_stmt = select(Order.id)
     if status_filter:
         id_stmt = id_stmt.where(Order.status == status_filter)
@@ -273,7 +272,6 @@ async def list_orders_admin(
     if not order_ids:
         return []
 
-    # 2. Gather parent metrics along with relationships
     stmt = (
         select(Order)
         .options(
@@ -289,6 +287,15 @@ async def list_orders_admin(
     
     result = []
     for o in rows:
+        # ─── 🚀 THE ENTERPRISE COUPLING COMPUTATION ENGINE ───
+        # Dynamically evaluate points discount ratios back into flat percentage fields for the summary ledger
+        disc_amt = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
+        final_price = float(o.total_price)
+        calc_percentage = 0.0
+        
+        if disc_amt > 0 and (final_price + disc_amt) > 0:
+            calc_percentage = round((disc_amt / (final_price + disc_amt)) * 100, 0)
+
         result.append({
             "id": o.id,
             "customer_id": o.customer_id,
@@ -297,13 +304,13 @@ async def list_orders_admin(
             "shop_id": o.shop_id,
             "shop_name": o.shop.name if o.shop else "Unknown Store Front",
             "status": o.status,
-            "total_price": float(o.total_price),
+            "total_price": final_price,
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
             "order_type": getattr(o, "order_type", "delivery"),
             "delivery_address": getattr(o, "delivery_address_id", None),
             "loyalty_points_used": int(getattr(o, "loyalty_points_used", 0) or 0),
-            "discount_percentage": float(getattr(o, "discount_percentage", 0.0) or 0.0),
+            "discount_percentage": float(calc_percentage), # 👈 Formats beautifully into {o.discount_percentage}%
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "items": [
                 {
@@ -582,6 +589,7 @@ async def get_admin_escalated_orders(db: Annotated[AsyncSession, Depends(get_db)
     return list(result.scalars().all())
 
 
+# ─── 🚀 THE PLATFORM COMPILATION FIX: ALIGNED WITH FRONTEND OVERRIDE TRIGGER ───
 @router.post("/orders/{order_id}/override")
 async def admin_global_status_override(
     order_id: str, 
