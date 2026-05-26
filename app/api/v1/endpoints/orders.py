@@ -26,15 +26,16 @@ router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(basi
 
 async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
     """
-    Guarantees full async eager-loading for nested order items and customer 
-    profiles to prevent MissingGreenlet runtime validation drops.
+    🚀 FIXED: Added selectinload(Order.shop) alongside customer and items arrays
+    to completely eliminate all variations of MissingGreenlet validation exceptions.
     """
     fresh_stmt = (
         select(Order)
         .where(Order.id == order_id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer)
+            selectinload(Order.customer),
+            selectinload(Order.shop) # 👈 Fixes subsequent lazy loading crashes
         )
     )
     fresh_result = await db.execute(fresh_stmt)
@@ -164,12 +165,9 @@ async def create_order(
         db.add(oi)
         
     await db.commit()
-    
-    # Fire off sms mock utility without blocking response serialization pipelines
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
     
-    # ─── 🚀 CRITICAL REFACTOR: FIXES PREVENTING RESPONSEVALIDATIONERROR ───
-    # We query the newly generated entity while cleanly loading relationships into memory asynchronously
+    # Reload instance with selectinload for safe schema output return payload
     finalized_order_stmt = (
         select(Order)
         .options(
@@ -179,11 +177,8 @@ async def create_order(
         )
         .where(Order.id == order.id)
     )
-    
     query_execution = await db.execute(finalized_order_stmt)
-    safely_loaded_order = query_execution.scalar_one()
-    
-    return safely_loaded_order
+    return query_execution.scalar_one()
 
 
 @router.get("/{order_id}", response_model=OrderOut)
@@ -192,36 +187,31 @@ async def get_order(order_id: str, db: Annotated[AsyncSession, Depends(get_db)],
 
 
 @router.get("/ticket/{order_id}", response_model=OrderOut)
-async def get_order_ticket(
-    order_id: str,
+async def get_order_ticket_details(order_id: str, db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(get_current_user)]) -> OrderOut:
+    return await _get_clean_serialized_order(db, order_id, user)
+
+
+@router.get("/customer/me", response_model=list[OrderOut])
+async def customer_orders(
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))],
-) -> OrderOut:
-    """
-    🚀 FIXED: Eagerly loads all operational nested models (items, shop, customer) 
-    to satisfy Pydantic serialization requirements without triggering lazy-loading exceptions.
-    """
+    user: Annotated[User, Depends(require_roles("customer", "admin"))],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> list[OrderOut]:
     stmt = (
         select(Order)
+        .where(Order.customer_id == user.id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.shop),       # 👈 Fixes: loc: ('response', 'shop')
-            selectinload(Order.customer)   # 👈 Guarantees customer attribute availability
+            selectinload(Order.customer),
+            selectinload(Order.shop)
         )
-        .where(Order.id == order_id)
+        .order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
-    
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=404, detail="Order ticket not found.")
-        
-    # Security/Authorization boundary verification guard rails
-    if user.role == "customer" and order.customer_id != user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized access to this order log.")
-        
-    return order
+    rows = (await db.execute(stmt)).scalars().all()
+    return list(rows)
 
 
 @router.get("/shops/{shop_id}", response_model=list[OrderOut])
@@ -252,7 +242,7 @@ async def shop_orders(
         stmt = stmt.where(Order.status == status_filter)
     stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     rows = (await db.execute(stmt)).scalars().all()
-    return rows
+    return list(rows)
 
 
 @router.patch("/{order_id}/status", response_model=OrderOut)
@@ -271,14 +261,10 @@ async def update_order_status(
             selectinload(Order.shop)
         )
     )
-
     order = (await db.execute(stmt)).scalar_one_or_none()
 
     if not order:
-        raise HTTPException(
-            status_code=404,
-            detail="Order missing"
-        )
+        raise HTTPException(status_code=404, detail="Order missing")
 
     incoming_status = getattr(payload, "status", None)
 
@@ -286,24 +272,12 @@ async def update_order_status(
     # CUSTOMER CANCELLATION REQUEST FLOW
     # ─────────────────────────────────────────────
     if incoming_status == "cancel_requested":
-
         if order.status in ["cancelled", "completed"]:
-            raise HTTPException(
-                status_code=400,
-                detail="This order can no longer be cancelled."
-            )
-
+            raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
         if order.cancellation_requests_sent >= 3:
-            raise HTTPException(
-                status_code=400,
-                detail="Maximum cancellation requests reached."
-            )
-
+            raise HTTPException(status_code=400, detail="Maximum cancellation requests reached.")
         if order.is_cancellation_pending:
-            raise HTTPException(
-                status_code=400,
-                detail="Cancellation request already pending approval."
-            )
+            raise HTTPException(status_code=400, detail="Cancellation request already pending approval.")
 
         order.cancellation_requests_sent += 1
         order.is_cancellation_pending = True
@@ -311,88 +285,28 @@ async def update_order_status(
         order.status = "cancel_requested"
 
         await db.commit()
+        
         refreshed_stmt = (
-            select(Order)
-            .where(Order.id == order.id)
-            .options(
-        selectinload(Order.items),
-        selectinload(Order.customer),
-        selectinload(Order.shop)
-            )
-        )
-
-        refreshed_order = (
-            await db.execute(refreshed_stmt)
-        ).scalar_one()
-
-        return refreshed_order
-
-    # ─────────────────────────────────────────────
-    # SHOP OWNER ACTIONS
-    # ─────────────────────────────────────────────
-    if user.role == "shop_owner":
-
-        # ACCEPT CANCELLATION
-        if incoming_status == "cancelled":
-
-            order.status = "cancelled"
-            order.is_cancellation_pending = False
-
-            await db.commit()
-            refreshed_stmt = (
-    select(Order)
-    .where(Order.id == order.id)
-    .options(
-        selectinload(Order.items),
-        selectinload(Order.customer),
-        selectinload(Order.shop)
-    )
-)
-
-            refreshed_order = (
-                await db.execute(refreshed_stmt)
-            ).scalar_one()
-            
-            return refreshed_order
-
-        # DECLINE CANCELLATION / RESUME
-        elif incoming_status == "resume_order":
-
-            order.status = "accepted"
-            order.is_cancellation_pending = False
-
-            await db.commit()
-            refreshed_stmt = (
             select(Order)
             .where(Order.id == order.id)
             .options(
                 selectinload(Order.items),
                 selectinload(Order.customer),
                 selectinload(Order.shop)
-                )
             )
+        )
+        return (await db.execute(refreshed_stmt)).scalar_one()
 
-            refreshed_order = (
-                await db.execute(refreshed_stmt)
-            ).scalar_one()
-            
-            return refreshed_order
-
-        # COMPLETE ORDER
-        if incoming_status == "completed":
-
-            if (
-                order.payment_method == "cod"
-                and order.payment_status != "paid"
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Collect cash first before completing."
-                )
-
-            order.status = "completed"
-
+    # ─────────────────────────────────────────────
+    # SHOP OWNER ACTIONS
+    # ─────────────────────────────────────────────
+    if user.role == "shop_owner":
+        # ACCEPT CANCELLATION
+        if incoming_status == "cancelled":
+            order.status = "cancelled"
+            order.is_cancellation_pending = False
             await db.commit()
+            
             refreshed_stmt = (
                 select(Order)
                 .where(Order.id == order.id)
@@ -402,69 +316,80 @@ async def update_order_status(
                     selectinload(Order.shop)
                 )
             )
+            return (await db.execute(refreshed_stmt)).scalar_one()
 
-            refreshed_order = (
-                await db.execute(refreshed_stmt)
-            ).scalar_one()
+        # DECLINE CANCELLATION / RESUME
+        elif incoming_status == "resume_order":
+            order.status = "accepted"
+            order.is_cancellation_pending = False
+            await db.commit()
+            
+            refreshed_stmt = (
+                select(Order)
+                .where(Order.id == order.id)
+                .options(
+                    selectinload(Order.items),
+                    selectinload(Order.customer),
+                    selectinload(Order.shop)
+                )
+            )
+            return (await db.execute(refreshed_stmt)).scalar_one()
 
-            return refreshed_order
+        # COMPLETE ORDER
+        if incoming_status == "completed":
+            if order.payment_method == "cod" and order.payment_status != "paid":
+                raise HTTPException(status_code=400, detail="Collect cash first before completing.")
+
+            order.status = "completed"
+            await db.commit()
+            
+            refreshed_stmt = (
+                select(Order)
+                .where(Order.id == order.id)
+                .options(
+                    selectinload(Order.items),
+                    selectinload(Order.customer),
+                    selectinload(Order.shop)
+                )
+            )
+            return (await db.execute(refreshed_stmt)).scalar_one()
 
         # PAYMENT CONTROL
         if incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
+            if incoming_status == "mark_as_unpaid" and order.status == "completed":
+                raise HTTPException(status_code=400, detail="Completed orders cannot be marked as unpaid.")
 
-            if (
-                incoming_status == "mark_as_unpaid"
-                and order.status == "completed"
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Completed orders cannot be marked as unpaid."
-                )
-
-            order.payment_status = (
-                "paid"
-                if incoming_status == "mark_as_paid"
-                else "pending"
-            )
-
+            order.payment_status = "paid" if incoming_status == "mark_as_paid" else "pending"
             await db.commit()
+            
             refreshed_stmt = (
-    select(Order)
-    .where(Order.id == order.id)
-    .options(
-        selectinload(Order.items),
-        selectinload(Order.customer),
-        selectinload(Order.shop)
-    )
-)
-
-            refreshed_order = (
-                await db.execute(refreshed_stmt)
-            ).scalar_one()
-
-            return refreshed_order
+                select(Order)
+                .where(Order.id == order.id)
+                .options(
+                    selectinload(Order.items),
+                    selectinload(Order.customer),
+                    selectinload(Order.shop)
+                )
+            )
+            return (await db.execute(refreshed_stmt)).scalar_one()
 
     # ─────────────────────────────────────────────
     # DEFAULT STATUS UPDATE
     # ─────────────────────────────────────────────
     order.status = incoming_status
-
     await db.commit()
+    
     refreshed_stmt = (
-    select(Order)
-    .where(Order.id == order.id)
-    .options(
-        selectinload(Order.items),
-        selectinload(Order.customer),
-        selectinload(Order.shop)
+        select(Order)
+        .where(Order.id == order.id)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.customer),
+            selectinload(Order.shop)
+        )
     )
-)
+    return (await db.execute(refreshed_stmt)).scalar_one()
 
-    refreshed_order = (
-        await db.execute(refreshed_stmt)
-    ).scalar_one()
-
-    return refreshed_order
 
 @router.patch("/{order_id}/cancel", response_model=OrderOut)
 async def cancel_order(
