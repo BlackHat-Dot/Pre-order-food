@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, ShieldAlert, Eye } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, ShieldAlert, Eye, UtensilsCrossed, Bike, Zap } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -547,7 +547,6 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-// ─── 🚀 HIGH-DENSITY ENTERPRISE ALIGNED SHOP OWNER ORDERS WORKSPACE ───
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -645,6 +644,33 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const buyerPhone = o.customer?.phone || "—";
             const buyerEmail = o.customer?.email || "—";
 
+            // Shared status override dropdown pipeline component block
+            const OrderStatusSelector = ({ compact = true }: { compact?: boolean }) => (
+              <Select
+                value={o.status}
+                disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
+                onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
+              >
+                <SelectTrigger className={`capitalize font-medium text-[11px] rounded-md border bg-background shadow-none px-2 ${
+                  compact ? "w-28 h-7" : "w-32 h-8"
+                } ${
+                  isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.02] cursor-not-allowed" : ""
+                }`}>
+                  <SelectValue placeholder={isCompletionBlocked ? "Collect Cash First" : undefined} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
+                    {o.status.replace("_", " ")}
+                  </SelectItem>
+                  {nextAllowedOptions.map((step) => (
+                    <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                      {step.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+
             return (
               <Card key={o.id} className={`border border-border/50 shadow-none rounded-lg hover:border-border/100 transition-all ${
                 isExpanded ? "bg-muted/40 border-primary/30" : "bg-card"
@@ -658,14 +684,15 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </span>
                     <StatusBadge status={o.status} />
                     
+                    {/* 🚀 FIXED BADGES: Fork/knife and bicycle icons replaced with clean admin-aligned icons */}
                     <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/50 text-muted-foreground gap-1.5 flex items-center shadow-none">
                       {isTableMode ? (
                         <>
-                          <span className="text-amber-500 font-normal">🪑</span> Dine-In Table
+                          <UtensilsCrossed className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Table
                         </>
                       ) : (
                         <>
-                          <span className="text-blue-500 font-normal">专</span> Food Delivery
+                          <Bike className="h-3.5 w-3.5 text-blue-500 shrink-0" /> Delivery
                         </>
                       )}
                     </Badge>
@@ -679,14 +706,14 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </Badge>
                   </div>
 
-                  {/* Horizontal High-Density Summary Data Ribbon */}
+                  {/* Horizontal Data Summary Ribbon */}
                   <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
                     <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {buyerName}</div>
                     <div className="truncate font-mono"><span className="text-foreground font-medium">Phone:</span> {buyerPhone}</div>
                     <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
                   </div>
 
-                  {/* Operational Action Selector Pipeline Controls */}
+                  {/* Operational Action Controls Pipeline */}
                   <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
                     <span className="font-semibold text-sm text-foreground tracking-tight min-w-[75px] text-right">
                       {formatCurrency(o.total_price)}
@@ -707,8 +734,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={isAnyRowProcessing}
-                            onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
+                            disabled={isAnyRowProcessing}                            onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
                             className="h-7 text-[10px] font-bold px-2 rounded-md bg-background shadow-none text-foreground"
                           >
                             Resume
@@ -737,25 +763,12 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             </Button>
                           )}
 
-                          {/* Action Selector Pipeline Dropdown Controls */}
-                          {!isCancelledState && !isCompletedState ? (
-                            <Select
-                              value={o.status}
-                              disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
-                              onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
-                            >
-                              <SelectTrigger className="w-28 capitalize font-medium text-[11px] rounded-md h-7 border bg-background shadow-none px-2">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {nextAllowedOptions.map((step) => (
-                                  <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
-                                    {step.replace("_", " ")}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
+                          {/* Action Selector Pipeline Control (removed for expanded view location) */}
+                          {!isExpanded && !isCancelledState && !isCompletedState && (
+                            <OrderStatusSelector compact />
+                          )}
+
+                          {(isCancelledState || isCompletedState) && !isExpanded && (
                             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-muted border px-2 py-1 rounded-md select-none">
                               Locked
                             </span>
@@ -766,7 +779,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1 border border-border/40 hover:bg-muted/40 transition-all bg-background shrink-0"
+                        className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1 border border-border/40 hover:bg-muted/40 transition-all bg-background shrink-0 font-semibold"
                         onClick={() => toggleExpand(o.id)}
                       >
                         <Eye className="h-3.5 w-3.5" /> View
@@ -776,7 +789,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
                 </CardContent>
 
-                {/* Collapsible item metadata specifications container */}
+                {/* Collapsible item details view container */}
                 {isExpanded && (
                   <div className="bg-muted/10 p-4 space-y-4 border-t border-border/30 animate-in slide-in-from-top-1 duration-150 text-left">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] bg-background border p-3 rounded-lg">
@@ -801,6 +814,16 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         ))}
                       </div>
                     </div>
+
+                    {/* 🚀 RED ARROW FIXED FEATURE: Status modifier dropdown accurately nested inside View Panel view */}
+                    {!isCancelledState && !isCompletedState && (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-border/20 mt-1">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sm:w-28 flex items-center gap-1">
+                          <Zap className="h-3 w-3 text-primary shrink-0" /> Modify Pipeline:
+                        </div>
+                        <OrderStatusSelector compact={false} />
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
