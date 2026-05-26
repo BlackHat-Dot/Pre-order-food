@@ -10,15 +10,13 @@ import {
   CreditCard, 
   Utensils, 
   Bike, 
-  ChevronDown, 
-  ChevronUp, 
-  ChefHat, 
   Phone, 
   MapPin, 
   Percent, 
   Gift,
   Trash2,
-  FileText
+  Eye,
+  X
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,39 +24,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_app/admin/orders")({ component: AdminGlobalOrdersPage });
 
-const tabs: Array<{ value: string; label: string }> = [
-  { value: "all", label: "All Master Tickets" },
-  { value: "pending", label: "Pending" },
-  { value: "accepted", label: "Accepted" },
-  { value: "preparing", label: "Preparing" },
-  { value: "ready", label: "Ready" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
-];
-
-function getCancellationRequestsCount(orderObj: any): number {
-  if (!orderObj) return 0;
-  const rawValue = 
-    orderObj.cancellation_requests_sent ?? 
-    orderObj.cancellationRequestsSent ?? 
-    orderObj.cancellation_request_sent ?? 
-    orderObj.cancellationRequestSent ?? 
-    0;
-  const parsed = Number(rawValue);
-  return isNaN(parsed) ? 0 : parsed;
-}
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  accepted: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  preparing: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  ready: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  cancelled: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+};
 
 function AdminGlobalOrdersPage() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
 
-  // Query platform wide admin order collection endpoint
+  // High-density platform master ledger query
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-global-orders-ledger", statusFilter],
     queryFn: async () => {
@@ -68,7 +52,7 @@ function AdminGlobalOrdersPage() {
     refetchInterval: 5000,
   });
 
-  // Global Administrative Override: Force transition directly to cancelled state
+  // Omnipotent administrative force cancel mutation
   const forceCancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
       setUpdatingId(orderId);
@@ -77,266 +61,223 @@ function AdminGlobalOrdersPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Order administrative cancellation override applied successfully.");
+      toast.success("Administrative cancellation applied.");
       qc.invalidateQueries({ queryKey: ["admin-global-orders-ledger"] });
+      setSelectedOrder(null);
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Override instruction execution rejected.");
+      toast.error(err?.message || "Override operation failed.");
     },
     onSettled: () => setUpdatingId(null),
   });
 
-  const toggleExpand = (orderId: string) => {
-    setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
-  };
-
   const visibleOrders = Array.isArray(orders) ? orders : [];
 
   return (
-    <div className="space-y-6 text-left p-6 max-w-5xl mx-auto animate-in fade-in duration-200">
-      <div className="text-left space-y-1">
-        <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-          Global Orders Management Ledger
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Master Command Center Panel · All System Transactions Matrix
-        </p>
-      </div>
-
-      <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
-        <TabsList className="flex flex-wrap h-auto p-1 bg-muted rounded-xl max-w-fit border border-border/40">
-          {tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="rounded-lg text-xs py-1.5 px-3.5 font-medium">
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-32 w-full rounded-2xl animate-pulse" />
-          <Skeleton className="h-32 w-full rounded-2xl animate-pulse" />
+    <div className="flex h-full w-full overflow-hidden relative">
+      
+      {/* ─── LEFT PANEL: HIGH-DENSITY SCAN LEAN LIST ─── */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-5xl mx-auto w-full transition-all duration-300">
+        <div className="flex items-center justify-between border-b pb-3">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Orders</h1>
+          
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList className="h-8 p-0.5 bg-muted rounded-lg border shadow-none">
+              <TabsTrigger value="all" className="text-xs px-2.5 py-1 rounded-md">All</TabsTrigger>
+              <TabsTrigger value="pending" className="text-xs px-2.5 py-1 rounded-md">Pending</TabsTrigger>
+              <TabsTrigger value="accepted" className="text-xs px-2.5 py-1 rounded-md">Accepted</TabsTrigger>
+              <TabsTrigger value="preparing" className="text-xs px-2.5 py-1 rounded-md">Preparing</TabsTrigger>
+              <TabsTrigger value="ready" className="text-xs px-2.5 py-1 rounded-md">Ready</TabsTrigger>
+              <TabsTrigger value="completed" className="text-xs px-2.5 py-1 rounded-md">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-      ) : visibleOrders.length === 0 ? (
-        <Card className="border-dashed bg-muted/5 rounded-2xl border-2">
-          <CardContent className="py-16 text-center text-muted-foreground text-sm font-medium">
-            No system order logs matching this selected state criterion.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {visibleOrders.map((o: any) => {
-            if (!o) return null;
-            
-            const isExpanded = !!expandedOrders[o.id];
-            const isProcessing = updatingId === o.id;
-            const orderStatusStr = (o.status || "pending").toLowerCase();
-            
-            const methodDisplay = String(o.payment_method || "cod").toUpperCase();
-            const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
-            
-            // Mode of food tracking context resolution (Hotel / Table booking vs Food delivery options)
-            const isTableMode = String(o.order_type || "").toLowerCase() === "table_booking" || !o.delivery_address_id;
-            const cancellationAttemptsCount = getCancellationRequestsCount(o);
 
-            return (
-              <Card key={o.id} className="overflow-hidden border border-border/70 rounded-xl bg-card shadow-sm hover:border-border/100 transition-all duration-200">
-                <CardContent className="p-0">
-                  
-                  {/* MAIN COMPACT COMPONENT GRID METRICS LINE HEADER */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-background/40">
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="font-mono text-xs font-black bg-muted px-2.5 py-0.5 rounded border border-border/60 text-foreground">
-                          #{o.id ? o.id.slice(0, 8).toUpperCase() : "UNKNOWN"}
-                        </span>
-                        <StatusBadge status={o.status} />
-                        
-                        {/* Dynamic Food Delivery or Hotel Table mode specification badges */}
-                        <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background text-muted-foreground gap-1.5 flex items-center shadow-none border-border/80">
-                          {isTableMode ? (
-                            <>
-                              <Utensils className="h-3 w-3 text-amber-500 shrink-0" /> 🪑 Hotel Dine-In Table
-                            </>
-                          ) : (
-                            <>
-                              <Bike className="h-3 w-3 text-blue-500 shrink-0" /> 🛵 Food Delivery Route
-                            </>
-                          )}
-                        </Badge>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        ) : visibleOrders.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground text-xs border border-dashed rounded-lg">
+            No system order logs matching selection constraints.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visibleOrders.map((o: any) => {
+              if (!o) return null;
+              
+              const currentStatus = (o.status || "pending").toLowerCase();
+              const badgeStyle = STATUS_COLORS[currentStatus] || "bg-muted text-muted-foreground border-transparent";
+              const isTableMode = String(o.order_type || "").toLowerCase() === "table_booking" || !o.delivery_address;
 
-                        {orderStatusStr === "cancel_requested" && (
-                          <Badge className="text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-none rounded px-2">
-                            ⚠️ USER CANCEL INTENTS: {cancellationAttemptsCount}/3
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-mono flex items-center gap-1.5 pl-0.5">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" /> Time of Order: {formatDate(o.created_at)}
-                      </p>
+              return (
+                <Card 
+                  key={o.id} 
+                  className={`border border-border/50 shadow-none rounded-lg hover:border-border/100 transition-all cursor-pointer ${
+                    selectedOrder?.id === o.id ? "bg-muted/40 border-primary/30" : "bg-card"
+                  }`}
+                  onClick={() => setSelectedOrder(o)}
+                >
+                  <CardContent className="p-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-normal">
+                    
+                    {/* Index Reference Parameters Column Wrapper */}
+                    <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
+                      <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
+                        #{o.id.slice(0, 8).toUpperCase()}
+                      </span>
+                      <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 rounded border shadow-none capitalize ${badgeStyle}`}>
+                        {currentStatus.replace("_", " ")}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground bg-background px-2 py-0.5 rounded shadow-none border-border/50 gap-1 flex items-center">
+                        {isTableMode ? <Utensils className="h-3 w-3 text-amber-500" /> : <Bike className="h-3 w-3 text-blue-500" />}
+                        {isTableMode ? "Table" : "Delivery"}
+                      </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end flex-wrap gap-4 sm:ml-auto shrink-0 w-full sm:w-auto">
-                      <span className="font-bold text-base text-foreground min-w-[80px] text-right mr-2">
+                    {/* Metadata Context Summary Grid Row Strip */}
+                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
+                      <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {o.customer_name || "Guest"}</div>
+                      <div className="truncate"><span className="text-foreground font-medium">Shop:</span> {o.shop_name || "Store"}</div>
+                      <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
+                    </div>
+
+                    {/* Monetary Totals Action Bar Triggers Segment */}
+                    <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
+                      <span className="font-semibold text-sm text-foreground tracking-tight min-w-[70px] text-right">
                         {formatCurrency(o.total_price)}
                       </span>
-                      
-                      <div className="flex items-center gap-2">
-                        {/* 🚀 OMNIPOTENT CRITICAL CANCEL OVERRIDE ACTION SWITCH ENGINE BUTTON */}
-                        {orderStatusStr !== "cancelled" ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={isProcessing}
-                            onClick={() => {
-                              if (confirm(`ADMIN FORCE RESET WARNING: Unconditionally cancel order ticket #${o.id.slice(0,8).toUpperCase()} bypassing all state transition parameters?`)) {
-                                forceCancelMutation.mutate(o.id);
-                              }
-                            }}
-                            className="h-8.5 text-[11px] font-bold rounded-xl px-4 shadow-none gap-1.5 hover:bg-red-600 tracking-wide transition-all"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Cancel Order
-                          </Button>
-                        ) : (
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted border border-border/40 px-3 py-1.5 rounded-lg select-none">
-                            Archived Cancellation Complete
-                          </span>
-                        )}
-                      </div>
-
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8.5 w-8.5 rounded-lg border shrink-0 bg-background hover:bg-muted/40 transition-colors"
-                        onClick={() => toggleExpand(o.id)}
-                      >
-                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      <Button variant="ghost" size="sm" className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1">
+                        <Eye className="h-3.5 w-3.5" /> View
                       </Button>
                     </div>
+
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ─── RIGHT PANEL: SCALED ENTERPRISE DRAWER (SHEET OVERLAY) ─── */}
+      {selectedOrder && (
+        <div className="w-[380px] h-full bg-card border-l border-border/60 shadow-xl flex flex-col text-left animate-in slide-in-from-right duration-200 shrink-0 z-50">
+          
+          {/* Header block parameters */}
+          <div className="p-4 border-b border-border/40 flex items-center justify-between bg-background/40">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-sm text-foreground">
+                  #{selectedOrder.id.slice(0, 8).toUpperCase()}
+                </span>
+                <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 rounded shadow-none capitalize ${STATUS_COLORS[selectedOrder.status?.toLowerCase()] || ""}`}>
+                  {selectedOrder.status}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-mono">{formatDate(selectedOrder.created_at)}</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" onClick={() => setSelectedOrder(null)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Core Metadata Container Space */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs font-normal">
+            
+            <div className="space-y-2 bg-muted/30 border border-border/40 p-3 rounded-lg">
+              <div className="grid grid-cols-[70px_1fr] gap-x-2 gap-y-1.5 leading-normal">
+                <span className="text-muted-foreground">Customer:</span>
+                <span className="font-semibold text-foreground">{selectedOrder.customer_name}</span>
+                
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="font-mono text-foreground font-medium">{selectedOrder.customer_phone || "—"}</span>
+                
+                <span className="text-muted-foreground">Shop:</span>
+                <span className="font-semibold text-foreground">{selectedOrder.shop_name}</span>
+                
+                <span className="text-muted-foreground">Payment:</span>
+                <span className="font-medium text-foreground uppercase text-[11px]">
+                  {selectedOrder.payment_method} · <span className="text-muted-foreground lowercase">({selectedOrder.payment_status})</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Loyalty Ledger Data Space */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="border border-border/40 bg-background/50 rounded-lg p-2 flex items-center gap-2">
+                <Gift className="h-4 w-4 text-primary/70 shrink-0" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Points Used</p>
+                  <p className="font-bold text-foreground text-sm leading-tight">{selectedOrder.loyalty_points_used ?? 0}</p>
+                </div>
+              </div>
+              <div className="border border-border/40 bg-background/50 rounded-lg p-2 flex items-center gap-2">
+                <Percent className="h-4 w-4 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Discount</p>
+                  <p className="font-bold text-emerald-600 text-sm leading-tight">{selectedOrder.discount_percentage ?? 0}%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Destination Coordinates Envelope */}
+            {String(selectedOrder.order_type).toLowerCase() !== "table_booking" && selectedOrder.delivery_address && (
+              <div className="bg-background border border-border/40 rounded-lg p-3 flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Address</p>
+                  <p className="text-foreground text-[11px] font-normal leading-relaxed">{selectedOrder.delivery_address}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Dense Item Iteration Map Block */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Items Summary</p>
+              <div className="rounded-lg border bg-background p-2 space-y-1">
+                {selectedOrder.items?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0 border-border/20">
+                    <span className="text-foreground font-medium truncate max-w-[220px]">
+                      {item.menu_item_name} {item.variant_name ? `(${item.variant_name})` : ""}
+                    </span>
+                    <span className="font-mono text-[11px] font-bold text-foreground bg-muted border px-1.5 py-0 rounded shrink-0">
+                      ×{item.quantity}
+                    </span>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {/* CRITICAL DATA EXPANSION BLOCK WINDOW MATRICES */}
-                  {isExpanded && (
-                    <div className="bg-muted/10 p-5 space-y-5 border-t border-border/40 animate-in slide-in-from-top-1 duration-200">
-                      
-                      {/* Customer contact and basic merchant identity data slots */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs bg-muted/20 p-4 rounded-xl border border-border/40 shadow-none">
-                        <div className="space-y-1 text-left">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            <User className="h-3 w-3 text-muted-foreground/80" /> Customer & Order Entity
-                          </p>
-                          <p className="font-bold text-foreground text-sm tracking-tight">{o.customer_name || "Guest Account Profile"}</p>
-                          <p className="text-muted-foreground font-mono text-[10px] truncate max-w-xs">{o.customer_id}</p>
-                          {o.customer_phone && (
-                            <p className="text-foreground font-bold flex items-center gap-1 mt-1.5 font-mono text-[11px] bg-background border px-2 py-0.5 rounded max-w-fit shadow-none">
-                              <Phone className="h-3 w-3 text-muted-foreground shrink-0" /> Phone Vector: {o.customer_phone}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-1 text-left md:border-l md:pl-4 border-border/60">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            <Store className="h-3 w-3 text-muted-foreground/80" /> Shop Owner Coordinates
-                          </p>
-                          <p className="font-bold text-foreground text-sm tracking-tight">{o.shop_name || "Restaurant Point Node"}</p>
-                          <p className="text-muted-foreground font-mono text-[10px] truncate max-w-xs">{o.shop_id}</p>
-                        </div>
-                        
-                        <div className="space-y-1 text-left md:border-l md:pl-4 border-border/60">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            <CreditCard className="h-3 w-3 text-muted-foreground/80" /> Payment & Settlement Protocol
-                          </p>
-                          <p className="font-black text-foreground uppercase text-[11px] tracking-wide">{methodDisplay}</p>
-                          <p className={`text-[11px] font-bold ${isSettled ? "text-emerald-600" : "text-amber-600"}`}>
-                            {isSettled ? "SYSTEM PAID FLAG" : "UNPAID DISPUTE ON-HOLD"}
-                          </p>
-                        </div>
-                      </div>
+          </div>
 
-                      {/* Loyalty matrices calculation blocks component values */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-background border p-4 rounded-xl shadow-none">
-                        <div className="flex items-center gap-3 text-left">
-                          <div className="p-2.5 bg-primary/10 rounded-lg text-primary shrink-0 border border-primary/20">
-                            <Gift className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Loyalty Points Applied</p>
-                            <p className="text-sm font-black text-foreground">{o.loyalty_points_used ?? 0} Points Subtracted</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-left border-t sm:border-t-0 sm:border-l pt-3 sm:pt-0 sm:pl-4 border-border/60">
-                          <div className="p-2.5 bg-emerald-500/10 rounded-lg text-emerald-600 shrink-0 border border-emerald-500/20">
-                            <Percent className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Discount Percentage Multiplier</p>
-                            <p className="text-sm font-black text-emerald-600">{o.discount_percentage ?? 0}% Invoice Discount Deduction</p>
-                          </div>
-                        </div>
-                      </div>
+          {/* Terminal Actions Footer Matrix Block */}
+          <div className="p-3 border-t border-border/40 bg-background/40 flex items-center shrink-0">
+            {selectedOrder.status?.toLowerCase() !== "cancelled" && selectedOrder.status?.toLowerCase() !== "completed" ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={updatingId === selectedOrder.id}
+                onClick={() => {
+                  if (confirm(`Force override: Cancel transaction #${selectedOrder.id.slice(0, 8).toUpperCase()} unconditionally?`)) {
+                    forceCancelMutation.mutate(selectedOrder.id);
+                  }
+                }}
+                className="h-8.5 text-xs font-semibold px-4 rounded-lg shadow-none w-full gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Cancel Order
+              </Button>
+            ) : (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted border text-center w-full py-2 rounded-lg select-none">
+                Record Locked (Archive View)
+              </span>
+            )}
+          </div>
 
-                      {/* Customer Address Details Container Segment */}
-                      {!isTableMode && (
-                        <div className="bg-background border border-border/70 rounded-xl p-4 text-xs text-left flex items-start gap-3 shadow-none">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fulfillment Destination Coordinate Address</p>
-                            <p className="text-foreground font-semibold leading-relaxed tracking-tight">
-                              {o.delivery_address || "No customized spatial metadata logged. Customer routing designated as Store Collection / Counter Pickup."}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Items row iterator snapshot map listing parameters */}
-                      <div className="space-y-2 text-left">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">
-                          <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>Food Item Rows snapshot Ledger</span>
-                        </div>
-
-                        <div className="rounded-xl border p-4 space-y-2.5 bg-background shadow-none">
-                          {o.items && o.items.length > 0 ? (
-                            <div className="space-y-2 divide-y divide-border/40">
-                              {o.items.map((item: any, index: number) => (
-                                <div key={index} className="flex items-center justify-between text-xs font-medium pt-2 first:pt-0 gap-4">
-                                  <div className="space-y-0.5 text-left">
-                                    <p className="font-bold text-foreground text-sm tracking-tight">{item.menu_item_name || "Dish Snapdragon snapshot"}</p>
-                                    {item.variant_name && (
-                                      <p className="text-[10px] font-bold text-amber-700 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded max-w-fit mt-1 capitalize tracking-wide">
-                                        {item.variant_name}
-                                      </p>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-4 shrink-0">
-                                    <span className="text-muted-foreground text-xs font-mono">
-                                      {formatCurrency(item.unit_price || 0)} each
-                                    </span>
-                                    <span className="font-mono text-xs font-bold text-foreground bg-muted border px-3 py-1 rounded-lg shrink-0">
-                                      ×{item.quantity}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic py-2 text-center flex items-center justify-center gap-1">
-                              <FileText className="h-4 w-4 text-muted-foreground/60" /> Standard System Itemized Snapshots Missing.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
         </div>
       )}
+
     </div>
   );
 }
