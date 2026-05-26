@@ -192,31 +192,36 @@ async def get_order(order_id: str, db: Annotated[AsyncSession, Depends(get_db)],
 
 
 @router.get("/ticket/{order_id}", response_model=OrderOut)
-async def get_order_ticket_details(order_id: str, db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(get_current_user)]) -> OrderOut:
-    return await _get_clean_serialized_order(db, order_id, user)
-
-
-@router.get("/customer/me", response_model=list[OrderOut])
-async def customer_orders(
+async def get_order_ticket(
+    order_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "admin"))],
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-) -> list[OrderOut]:
+    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))],
+) -> OrderOut:
+    """
+    🚀 FIXED: Eagerly loads all operational nested models (items, shop, customer) 
+    to satisfy Pydantic serialization requirements without triggering lazy-loading exceptions.
+    """
     stmt = (
         select(Order)
-        .where(Order.customer_id == user.id)
         .options(
             selectinload(Order.items),
-            selectinload(Order.customer),
-            selectinload(Order.shop)
-)
-        .order_by(Order.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+            selectinload(Order.shop),       # 👈 Fixes: loc: ('response', 'shop')
+            selectinload(Order.customer)   # 👈 Guarantees customer attribute availability
+        )
+        .where(Order.id == order_id)
     )
-    rows = (await db.execute(stmt)).scalars().all()
-    return rows
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order ticket not found.")
+        
+    # Security/Authorization boundary verification guard rails
+    if user.role == "customer" and order.customer_id != user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this order log.")
+        
+    return order
 
 
 @router.get("/shops/{shop_id}", response_model=list[OrderOut])
