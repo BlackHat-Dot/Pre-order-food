@@ -125,7 +125,6 @@ async def create_order(
             )
 
     addr_string = None
-    # 🚀 SECURE PARSING: Uses defensive attributes evaluation to prevent structural drops
     incoming_address_id = getattr(payload, "delivery_address_id", None)
     
     if getattr(payload, "order_type", "delivery") == "delivery" and incoming_address_id:
@@ -165,8 +164,26 @@ async def create_order(
         db.add(oi)
         
     await db.commit()
+    
+    # Fire off sms mock utility without blocking response serialization pipelines
     await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
-    return await _get_clean_serialized_order(db, order.id, user)
+    
+    # ─── 🚀 CRITICAL REFACTOR: FIXES PREVENTING RESPONSEVALIDATIONERROR ───
+    # We query the newly generated entity while cleanly loading relationships into memory asynchronously
+    finalized_order_stmt = (
+        select(Order)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.shop),
+            selectinload(Order.customer)
+        )
+        .where(Order.id == order.id)
+    )
+    
+    query_execution = await db.execute(finalized_order_stmt)
+    safely_loaded_order = query_execution.scalar_one()
+    
+    return safely_loaded_order
 
 
 @router.get("/{order_id}", response_model=OrderOut)
