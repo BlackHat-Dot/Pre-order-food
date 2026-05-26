@@ -115,8 +115,8 @@ class OrderOut(BaseModel):
 
     cancellation_reason: Optional[str] = None
     is_cancellation_pending: bool
-    is_cancellation_pending: bool
-    
+    cancellation_requests_sent: int = 0
+
     created_at: datetime
     updated_at: datetime
     
