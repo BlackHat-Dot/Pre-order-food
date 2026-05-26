@@ -803,34 +803,38 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-center gap-2">
-                          {!isTableMode && !isFraudLocked && !isCancelledState && !isCompletedState && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isAnyRowProcessing}
-                              onClick={() =>
-                                updateStatus.mutate({
-                                  id: o.id,
-                                  st:
-                                    methodDisplay === "ONLINE"
-                                      ? "raise_payment_dispute"
-                                      : isSettled
-                                        ? "mark_as_unpaid"
-                                        : "mark_as_paid",
-                                })
-                              }
-                              className={[
-                                "h-8 rounded-lg border px-3 text-[11px] font-semibold shadow-none",
-                                methodDisplay === "ONLINE"
-                                  ? "border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
-                                  : isSettled
-                                    ? "border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10"
-                                    : "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10",
-                              ].join(" ")}
-                            >
-                              {methodDisplay === "ONLINE" ? "Dispute" : isSettled ? "Unpaid" : "Paid"}
-                            </Button>
-                          )}
+                          {/* Cash Received / Payment Control */}
+{!isFraudLocked && !isCancelledState && !isCompletedState && (
+  <Button
+    size="sm"
+    variant="outline"
+    disabled={isAnyRowProcessing}
+    onClick={() =>
+      updateStatus.mutate({
+        id: o.id,
+        st:
+          methodDisplay === "ONLINE"
+            ? "raise_payment_dispute"
+            : isSettled
+              ? "mark_as_unpaid"
+              : "mark_as_paid",
+      })
+    }
+    className={`h-8 text-[10px] font-semibold px-3 rounded-md border shadow-none transition-all ${
+      methodDisplay === "ONLINE"
+        ? "text-red-500 bg-red-500/5 hover:bg-red-500/10 border-red-500/20"
+        : isSettled
+          ? "text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20"
+          : "text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
+    }`}
+  >
+    {methodDisplay === "ONLINE"
+      ? "Dispute"
+      : isSettled
+        ? "Cash Revert"
+        : "Cash Received"}
+  </Button>
+)}
 
                           {!isExpanded && canChangePipeline && <OrderStatusSelector compact />}
 
