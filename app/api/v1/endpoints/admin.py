@@ -1,28 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from pydantic import BaseModel
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.deps import require_roles
 from app.core.security import hash_password
 from app.db.session import get_db
-from app.models.order import Order, OrderItem
+from app.models.order import Order
 from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.user import UserOut
-from app.utils.ids import new_id
-
-from sqlalchemy.orm import Session
 from app.schemas.order import OrderOut
-from pydantic import BaseModel
-from typing import List
-
-from sqlalchemy import or_
+from app.utils.ids import new_id
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -259,12 +254,6 @@ async def set_shop_active(
 
 # ─── Orders ───────────────────────────────────────────────────────────────────
 
-# ─── Orders ───────────────────────────────────────────────────────────────────
-
-# ─── Orders ───────────────────────────────────────────────────────────────────
-
-# ─── Orders ───────────────────────────────────────────────────────────────────
-
 @router.get("/orders")
 async def list_orders_admin(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -284,13 +273,13 @@ async def list_orders_admin(
     if not order_ids:
         return []
 
-    # 2. Gather parent metrics along with the raw items row collection collection
+    # 2. Gather parent metrics along with relationships
     stmt = (
         select(Order)
         .options(
-            joinedload(Order.customer),
-            joinedload(Order.shop),
-            joinedload(Order.items)  # Load the collection array directly
+            selectinload(Order.customer),
+            selectinload(Order.shop),
+            selectinload(Order.items)
         )
         .where(Order.id.in_(order_ids))
         .order_by(Order.created_at.desc())
@@ -303,23 +292,27 @@ async def list_orders_admin(
         result.append({
             "id": o.id,
             "customer_id": o.customer_id,
-            "customer_name": o.customer.name if o.customer else "Unknown",
+            "customer_name": o.customer.name if o.customer else "Unknown Customer",
+            "customer_phone": o.customer.phone if o.customer else "No Number Linked",
             "shop_id": o.shop_id,
-            "shop_name": o.shop.name if o.shop else "Unknown",
+            "shop_name": o.shop.name if o.shop else "Unknown Store Front",
             "status": o.status,
             "total_price": float(o.total_price),
             "payment_method": o.payment_method,
             "payment_status": o.payment_status,
+            "order_type": getattr(o, "order_type", "delivery"),
+            "delivery_address": getattr(o, "delivery_address_id", None),
+            "loyalty_points_used": int(getattr(o, "loyalty_points_used", 0) or 0),
+            "discount_percentage": float(getattr(o, "discount_percentage", 0.0) or 0.0),
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "items": [
                 {
                     "id": item.id,
                     "menu_item_id": getattr(item, "menu_item_id", None) or getattr(item, "item_id", None),
-                    # 🚀 Directly grab snapshot values populated during checkout creation
                     "menu_item_name": getattr(item, "item_name_snapshot", None) or getattr(item, "name", "Unknown Item"),
                     "variant_name": getattr(item, "variant_name_snapshot", None),
                     "quantity": int(item.quantity),
-                    "unit_price": float(getattr(item, "unit_price", 0) or getattr(item, "price", 0))
+                    "unit_price": float(getattr(item, "unit_price", 0.0))
                 }
                 for item in o.items
             ]
@@ -545,78 +538,68 @@ async def update_order_status_admin(
     order_id: str,
     status: str = Query(...),
 ) -> dict:
-    from app.models.order import Order
     from app.models.notification import Notification
     from app.api.v1.endpoints.notification import prune_old_notifications_stack
-    from app.utils.ids import new_id
 
-    # 1. Look up the designated order row record
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found")
         
-    # 2. Mutate target status value properties
     order.status = status
     
-    # 3. 🚀 FIXED: Pass explicit non-null tracking text into the database fields
     new_notif = Notification(
         id=new_id(),
         user_id=order.customer_id,
-        title="Order Status Update",  # 🚀 ADDED: Fulfills the strict NOT NULL constraints rule
+        title="Order Status Update",  
         message=f"Your order status has been updated to '{status}'.",
-        type="order_update",          # Added a sensible default placeholder string type
+        type="order_update",          
         is_read=False
     )
     db.add(new_notif)
     
-    # 4. Flush the state memory to process local pruning execution lines
     await db.flush()
     await prune_old_notifications_stack(db, order.customer_id)
-    
-    # 5. Save transaction modifications out to the database securely
     await db.commit()
     await db.refresh(order)
     
     return {"updated": True, "order_id": order.id, "new_status": order.status}
 
+
 class AdminStatusOverride(BaseModel):
-    status: str # Expects either 'cancelled' or 'accepted'
+    status: str
+
 
 @router.get("/orders/escalated", response_model=List[OrderOut])
-def get_admin_escalated_orders(db: Session = Depends(get_db)):
-    """
-    🚀 FIXED: Captures ANY order requesting cancellation, whether or not 
-    the customer provided a text description note.
-    """
-    return db.query(Order).filter(
+async def get_admin_escalated_orders(db: Annotated[AsyncSession, Depends(get_db)]):
+    stmt = select(Order).filter(
         or_(
             Order.status == "cancel_requested",
-            Order.cancellation_reason != None
+            Order.cancellation_reason.is_not(None)
         ),
         Order.status != "cancelled"
-    ).all()
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
 
 @router.post("/orders/{order_id}/override")
-def admin_global_status_override(
+async def admin_global_status_override(
     order_id: str, 
     payload: AdminStatusOverride, 
-    db: Session = Depends(get_db)
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """
-    🚀 ADMIN SUPREME OVERRIDE RIGHTS: Overrules shop latency to resolve disputes instantly.
-    """
-    order = db.query(Order).filter(Order.id == order_id).first()
+    stmt = select(Order).filter(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found.")
         
     if payload.status == "cancelled":
         order.status = "cancelled"
         order.payment_status = "refunded"
-        # Optional: Add hooks to restore voucher points here if applicable
     elif payload.status == "accepted":
         order.status = "accepted"
-        order.cancellation_reason = None # Clear out text history to pull it out of admin queues safely
+        order.cancellation_reason = None 
         
-    db.commit()
-    db.refresh(order)
+    await db.commit()
     return {"message": "Global admin modification sequence executed successfully.", "status": order.status}

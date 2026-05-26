@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Store,
   ShoppingBag,
-  Star,
   User2,
   Users,
   Sparkles,
@@ -12,8 +11,6 @@ import {
   ShieldCheck,
   Gift,
   LogOut,
-  BarChart3,
-  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,13 +48,13 @@ const ownerNav: NavItem[] = [
   { title: "Profile", url: "/profile", icon: User2 },
 ];
 
+// 🚀 REFACTORED ADMIN NAVIGATION LIST: Eliminated redundant user-facing personal orders tab
 const adminNav: NavItem[] = [
   { title: "Command Center", url: "/admin", icon: LayoutDashboard },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Shops", url: "/admin/shops", icon: Store },
   { title: "Orders", url: "/admin/orders", icon: Receipt },
   { title: "Loyalty", url: "/admin/loyalty", icon: Gift },
-  { title: "My orders", url: "/orders", icon: ShoppingBag },
   { title: "Profile", url: "/profile", icon: User2 },
 ];
 
@@ -164,7 +161,7 @@ export function AppSidebar() {
 }
 
 function isActive(current: string, target: string): boolean {
-  if (target === "/" ) return current === "/";
+  if (target === "/") return current === "/";
   if (target === "/admin") return current === "/admin";
   if (target === "/owner") return current === "/owner";
   return current.startsWith(target + "/") || current === target;
