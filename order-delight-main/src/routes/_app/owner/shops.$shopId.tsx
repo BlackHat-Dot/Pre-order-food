@@ -632,10 +632,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             Cancellation requests only
           </div>
         )}
-
-        <div className="text-xs text-muted-foreground">
-          Live refresh every 5 seconds
-        </div>
       </div>
 
       {isLoading ? (
