@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, ShieldAlert, Eye, UtensilsCrossed, Bike, Zap } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, ChevronDown, ChevronUp, ChefHat, ShieldAlert, Eye, UtensilsCrossed, Bike, Zap, User, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -168,6 +168,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// Analytics metric tab helper
 function StatsTab({ shopId }: { shopId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["shop", shopId, "dashboard"],
@@ -547,6 +548,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
+// ─── 🚀 HIGH-DENSITY ENTERPRISE ALIGNED SHOP OWNER ORDERS WORKSPACE ───
 function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
@@ -644,7 +646,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const buyerPhone = o.customer?.phone || "—";
             const buyerEmail = o.customer?.email || "—";
 
-            // Shared status override dropdown pipeline component block
             const OrderStatusSelector = ({ compact = true }: { compact?: boolean }) => (
               <Select
                 value={o.status}
@@ -684,11 +685,11 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </span>
                     <StatusBadge status={o.status} />
                     
-                    {/* 🚀 FIXED BADGES: Fork/knife and bicycle icons replaced with clean admin-aligned icons */}
+                    {/* Aligned enterprise symbols from reference metrics */}
                     <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/50 text-muted-foreground gap-1.5 flex items-center shadow-none">
                       {isTableMode ? (
                         <>
-                          <UtensilsCrossed className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Table
+                          <ChefHat className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Table
                         </>
                       ) : (
                         <>
@@ -734,7 +735,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={isAnyRowProcessing}                            onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
+                            disabled={isAnyRowProcessing}
+                            onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
                             className="h-7 text-[10px] font-bold px-2 rounded-md bg-background shadow-none text-foreground"
                           >
                             Resume
@@ -763,7 +765,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                             </Button>
                           )}
 
-                          {/* Action Selector Pipeline Control (removed for expanded view location) */}
+                          {/* Action Selector Pipeline Control */}
                           {!isExpanded && !isCancelledState && !isCompletedState && (
                             <OrderStatusSelector compact />
                           )}
@@ -779,7 +781,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1 border border-border/40 hover:bg-muted/40 transition-all bg-background shrink-0 font-semibold"
+                        className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1 border border-border/40 hover:bg-muted/40 transition-all bg-background shrink-0 font-semibold shadow-none"
                         onClick={() => toggleExpand(o.id)}
                       >
                         <Eye className="h-3.5 w-3.5" /> View
@@ -792,14 +794,31 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                 {/* Collapsible item details view container */}
                 {isExpanded && (
                   <div className="bg-muted/10 p-4 space-y-4 border-t border-border/30 animate-in slide-in-from-top-1 duration-150 text-left">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] bg-background border p-3 rounded-lg">
+                    
+                    {/* 🚀 FIXED: Injected explicit customer contact parameter rows here inside expansion card list block */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Contact</p>
-                        <p className="font-semibold text-foreground">{buyerName} · <span className="text-muted-foreground font-normal">{buyerEmail}</span></p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><User className="h-3 w-3" /> Customer Profile</p>
+                        <p className="font-semibold text-foreground">{buyerName}</p>
                       </div>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Phone className="h-3 w-3" /> Phone Channel</p>
+                        <p className="font-medium text-foreground font-mono">{buyerPhone}</p>
+                      </div>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Mail className="h-3 w-3" /> Email Profile</p>
+                        <p className="font-medium text-foreground truncate max-w-[180px]">{buyerEmail}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
-                        <p className="font-medium text-foreground">{isTableMode ? "🪑 Dine-In Reservation" : o.delivery_address_id || "Counter Pickup"}</p>
+                        <p className="font-medium text-foreground">{isTableMode ? "🪑 Dine-In Table Booking" : o.delivery_address_id || "Counter Pickup"}</p>
+                      </div>
+                      <div className="space-y-1 md:border-l md:pl-4 border-border/40">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Financial Protocol</p>
+                        <p className="font-medium text-foreground">{methodDisplay} ({isSettled ? "Settled paid" : "Unpaid state"})</p>
                       </div>
                     </div>
 
@@ -815,7 +834,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       </div>
                     </div>
 
-                    {/* 🚀 RED ARROW FIXED FEATURE: Status modifier dropdown accurately nested inside View Panel view */}
+                    {/* RED ARROW FEATURE: Status modifier dropdown nested below items inside View */}
                     {!isCancelledState && !isCompletedState && (
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-border/20 mt-1">
                         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sm:w-28 flex items-center gap-1">
