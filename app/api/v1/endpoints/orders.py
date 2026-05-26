@@ -121,10 +121,9 @@ async def create_order(
                 )
             )
 
-    # ─── 🚀 THE LOYALTY DISCOUNT CALCULATION MATRIX ENGINE ───
+    # ─── 🚀 THE LOYALTY DISCOUNT CALCULATION ───
     points_to_redeem = payload.redeem_loyalty_points or 0
     calculated_loyalty_discount = 0.0
-    computed_percentage = 0.0
     
     if points_to_redeem > 0:
         discount_weight = getattr(shop, "loyalty_discount_per_point", 0.1) or 0.1
@@ -132,10 +131,6 @@ async def create_order(
         
         if calculated_loyalty_discount > base_total_price:
             calculated_loyalty_discount = base_total_price
-
-        # Calculate the dynamic mathematical percentage matching your frontend expectations
-        if base_total_price > 0:
-            computed_percentage = round((calculated_loyalty_discount / base_total_price) * 100, 0)
 
     final_total_price = max(0.0, base_total_price - calculated_loyalty_discount)
 
@@ -170,10 +165,9 @@ async def create_order(
         delivery_address_id=addr_string if payload.order_type == "delivery" else None,
         payment_status="paid" if payload.payment_method == "online" else "pending",
         
-        # ─── 🚀 THE FIXED ALLOCATION MATRIX KEYS ───
+        # ─── 🚀 PERSIST DATA CLEANLY USING SUPPORTED DATABASE COLUMNS ───
         loyalty_points_used=points_to_redeem,
         loyalty_discount_amount=calculated_loyalty_discount,
-        discount_percentage=computed_percentage,  # 👈 Fixed: Write percent directly to persistent table column
         coupon_id=payload.coupon_id,
         coupon_discount_applied=0.0
     )
