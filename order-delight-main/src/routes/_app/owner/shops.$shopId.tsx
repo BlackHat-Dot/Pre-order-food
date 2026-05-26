@@ -549,28 +549,13 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   );
 }
 
-function OrdersTab({
-  shopId,
-  forceRequestsOnly = false,
-}: {
-  shopId: string;
-  forceRequestsOnly?: boolean;
-}) {
+function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forceRequestsOnly?: boolean }) {
   const qc = useQueryClient();
-
-  const [status, setStatus] = useState("all");
-  const [expandedOrders, setExpandedOrders] = useState<
-    Record<string, boolean>
-  >({});
+  const [status, setStatus] = useState<string>("all");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-
-  const queryKey = [
-    "shop",
-    shopId,
-    "orders",
-    status,
-    forceRequestsOnly,
-  ];
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
+  
+  const queryKey = ["shop", shopId, "orders", status, forceRequestsOnly];
 
   const { data, isLoading } = useQuery({
     queryKey,
@@ -578,430 +563,346 @@ function OrdersTab({
       ordersApi.shopOrders(shopId, {
         page: 1,
         page_size: 100,
-        status: undefined,
+        status: undefined, 
       }),
-    refetchInterval: 5000,
+    refetchInterval: 5000, 
   });
-
+  
   const updateStatus = useMutation({
-    mutationFn: async ({
-      id,
-      st,
-    }: {
-      id: string;
-      st: string;
-    }) => {
+    mutationFn: async ({ id, st }: { id: string; st: string }) => {
       setUpdatingOrderId(id);
-
-      return apiRequest(`/api/v1/orders/${id}/status`, {
+      return await apiRequest(`/api/v1/orders/${id}/status`, {
         method: "PATCH",
-        body: {
-          status: st,
-        },
+        body: { status: st },
       });
     },
-
     onSuccess: () => {
-      toast.success("Order updated");
-      qc.invalidateQueries({ queryKey });
+      toast.success("Order status synchronized successfully");
+      qc.invalidateQueries({ queryKey: queryKey });
     },
-
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to update order");
+      toast.error(err?.message || "Failed to update status.");
     },
-
-    onSettled: () => {
-      setUpdatingOrderId(null);
-    },
+    onSettled: () => setUpdatingOrderId(null),
   });
 
-  const toggleExpand = (id: string) => {
-    setExpandedOrders((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+  const toggleExpand = (orderId: string) => {
+    setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
   const visibleOrders = Array.isArray(data)
     ? data.filter((o: any) => {
-        const itemStatus = String(
-          o.status || ""
-        ).toLowerCase();
-
-        if (forceRequestsOnly) {
-          return itemStatus === "cancel_requested";
-        }
-
-        if (itemStatus === "cancel_requested") {
-          return false;
-        }
-
-        if (status === "all") {
-          return true;
-        }
-
+        const itemStatus = (o.status || "").toLowerCase();
+        if (forceRequestsOnly) return itemStatus === "cancel_requested";
+        if (itemStatus === "cancel_requested") return false;
+        if (status === "all") return true;
         return itemStatus === status;
       })
     : [];
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-6 text-left">
       {!forceRequestsOnly && (
         <Tabs value={status} onValueChange={setStatus}>
-          <TabsList className="flex flex-wrap h-auto rounded-xl border border-border/60 bg-muted/40 p-1">
-
-            <TabsTrigger value="all">
-              All
-            </TabsTrigger>
-
-            <TabsTrigger value="pending">
-              Pending
-            </TabsTrigger>
-
-            <TabsTrigger value="accepted">
-              Accepted
-            </TabsTrigger>
-
-            <TabsTrigger value="preparing">
-              Preparing
-            </TabsTrigger>
-
-            <TabsTrigger value="ready">
-              Ready
-            </TabsTrigger>
-
-            <TabsTrigger value="completed">
-              Completed
-            </TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto p-1.5 bg-muted/60 rounded-xl max-w-fit border border-border/60">
+            <TabsTrigger value="all" className="text-xs px-4 py-2 rounded-lg font-medium">All Tickets</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs px-4 py-2 rounded-lg font-medium">Pending</TabsTrigger>
+            <TabsTrigger value="accepted" className="text-xs px-4 py-2 rounded-lg font-medium">Accepted</TabsTrigger>
+            <TabsTrigger value="preparing" className="text-xs px-4 py-2 rounded-lg font-medium">Preparing</TabsTrigger>
+            <TabsTrigger value="ready" className="text-xs px-4 py-2 rounded-lg font-medium">Ready</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs px-4 py-2 rounded-lg font-medium">Completed</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
 
       {isLoading ? (
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-2xl animate-pulse" />
       ) : visibleOrders.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-14 text-center text-sm text-muted-foreground">
-            No orders found.
+        <Card className="border-dashed rounded-2xl bg-muted/10">
+          <CardContent className="py-14 text-center text-muted-foreground text-xs font-medium">
+            No active orders matching this selection segment.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-
           {visibleOrders.map((o: any) => {
-            const isExpanded =
-              !!expandedOrders[o.id];
+            const isExpanded = !!expandedOrders[o.id];
+            const currentStatus = (o.status || "pending").toLowerCase();
+            const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
+            const isAnyRowProcessing = updatingOrderId !== null;
 
-            const currentStatus = String(
-              o.status || "pending"
-            ).toLowerCase();
+            const fulfillmentType = String(o.order_type || "delivery").toLowerCase();
+            const isTableMode = fulfillmentType === "table_booking" || !o.delivery_address_id;
+            
+            const methodDisplay = String(o.payment_method || "cod").toUpperCase();
+            const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
+            const isFraudLocked = !!o.is_locked_by_fraud_flag;
+            const isDisputed = String(o.dispute_status || "none").toLowerCase() === "open";
+            const isCancelledState = currentStatus === "cancelled";
+            const isCompletedState = currentStatus === "completed";
+            
+            const isCancelRequested = currentStatus === "cancel_requested" || !!o.is_cancellation_pending;
+            const isCompletionBlocked = methodDisplay === "COD" && !isSettled;
 
-            const nextAllowedOptions =
-              VALID_TRANSITIONS[currentStatus] || [];
-
-            const fulfillmentType = String(
-              o.order_type || "delivery"
-            ).toLowerCase();
-
-            const isTableMode =
-              fulfillmentType ===
-                "table_booking" ||
-              !o.delivery_address_id;
-
-            const methodDisplay = String(
-              o.payment_method || "cod"
-            ).toUpperCase();
-
-            const isSettled =
-              String(
-                o.payment_status || "pending"
-              ).toLowerCase() === "paid";
-
-            const isCancelledState =
-              currentStatus === "cancelled";
-
-            const isCompletedState =
-              currentStatus === "completed";
-
-            const isCompletionBlocked =
-              methodDisplay === "COD" &&
-              !isSettled;
-
-            const buyerName =
-              o.customer?.name || "Customer";
-
-            const buyerPhone =
-              o.customer?.phone || "No phone";
-
-            const buyerEmail =
-              o.customer?.email || "No email";
+            const buyerName = o.customer?.name || "Customer Account";
+            const buyerPhone = o.customer?.phone || "No Mobile Number Linked";
+            const buyerEmail = o.customer?.email || "No Email Provided";
+            
+            const nameInitials = buyerName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
             return (
-              <Card
-                key={o.id}
-                className="overflow-hidden rounded-xl border border-border/70 shadow-none transition-colors"
-              >
+              <Card key={o.id} className={`overflow-hidden rounded-xl border shadow-none transition-all duration-200 ${
+                isFraudLocked ? "border-red-500 bg-red-500/[0.01]" : "border-border/70 bg-card hover:border-border/100"
+              }`}>
                 <CardContent className="p-0">
-
-                  {/* MAIN */}
-                  <div className="p-5">
-
-                    {/* HEADER */}
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr_140px_180px_44px] lg:items-center">
-
-                      {/* ORDER META */}
-                      <div className="min-w-0 space-y-1">
-
-                        <div className="flex flex-wrap items-center gap-2">
-
-                          <span className="rounded-md border bg-muted px-2.5 py-1 font-mono text-xs font-bold">
-                            #
-                            {o.id
-                              .slice(0, 8)
-                              .toUpperCase()}
-                          </span>
-
-                          <StatusBadge
-                            status={o.status}
-                          />
-                        </div>
-
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(
-                            o.created_at
-                          )}
-                        </p>
-                      </div>
-
-                      {/* TAGS */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-background/40">
+                    
+                    <div className="space-y-2 flex-1 text-left">
                       <div className="flex flex-wrap items-center gap-2">
-
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] uppercase tracking-wide"
-                        >
-                          {isTableMode
-                            ? "Table Booking"
-                            : "Food Delivery"}
+                        <span className="font-mono text-xs font-bold text-foreground bg-muted border px-2.5 py-0.5 rounded-md">
+                          #{o.id.slice(0, 8).toUpperCase()}
+                        </span>
+                        <StatusBadge status={o.status} />
+                        
+                        <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/80 text-muted-foreground gap-1.5 flex items-center shadow-none">
+                          {isTableMode ? (
+                            <>
+                              <span className="text-[11px] text-amber-500 font-normal">🪑</span> Dine-In Table
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[11px] text-blue-500 font-normal">🛵</span> Food Delivery
+                            </>
+                          )}
+                        </Badge>
+                        
+                        <Badge className={`text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded border shadow-none ${
+                          isSettled 
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                        }`}>
+                          {methodDisplay} · {isSettled ? "PAID" : "UNPAID"}
                         </Badge>
 
-                        <Badge
-                          className={`border text-[10px] uppercase tracking-wide ${
-                            isSettled
-                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"
-                              : "border-amber-500/20 bg-amber-500/10 text-amber-500"
-                          }`}
-                        >
-                          {methodDisplay} ·{" "}
-                          {isSettled
-                            ? "Paid"
-                            : "Unpaid"}
-                        </Badge>
+                        {isCancelRequested && (
+                          <Badge className="text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded bg-rose-600/10 text-rose-600 border-rose-600/20 animate-pulse">
+                            ⚠️ Cancellation Requested ({o.cancellation_requests_sent || 1}/3)
+                          </Badge>
+                        )}
+
+                        {!isTableMode && isDisputed && (
+                          <Badge className="text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded border bg-red-600/10 text-red-600 border-red-600/20 animate-pulse">
+                            🚨 DISPUTE OPEN
+                          </Badge>
+                        )}
 
                         {isCancelledState && (
-                          <Badge className="border-red-500/20 bg-red-500/10 text-[10px] uppercase tracking-wide text-red-500">
-                            Cancelled
+                          <Badge className={`text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded border shadow-none ${
+                            methodDisplay === "ONLINE" ? "bg-emerald-600/10 text-emerald-600 border-emerald-600/30" : "bg-rose-600/10 text-rose-600 border-rose-600/30"
+                          }`}>
+                            {methodDisplay === "ONLINE" ? "✨ REFUNDED" : "COD VOID"}
                           </Badge>
                         )}
                       </div>
-
-                      {/* AMOUNT */}
-                      <div className="text-left lg:text-right">
-
-                        <span className="text-base font-bold">
-                          {formatCurrency(
-                            o.total_price
-                          )}
-                        </span>
-                      </div>
-
-                      {/* STATUS */}
-                      <div className="flex justify-start lg:justify-end">
-
-                        {!isCancelledState &&
-                          !isCompletedState && (
-                            <Select
-                              value={o.status}
-                              disabled={
-                                updatingOrderId !==
-                                  null ||
-                                nextAllowedOptions.length ===
-                                  0 ||
-                                isCompletionBlocked
-                              }
-                              onValueChange={(v) =>
-                                updateStatus.mutate({
-                                  id: o.id,
-                                  st: v,
-                                })
-                              }
-                            >
-                              <SelectTrigger className="h-8 w-36 text-xs">
-
-                                <SelectValue />
-                              </SelectTrigger>
-
-                              <SelectContent>
-
-                                <SelectItem
-                                  value={o.status}
-                                  disabled
-                                >
-                                  {o.status}
-                                </SelectItem>
-
-                                {nextAllowedOptions.map(
-                                  (step) => (
-                                    <SelectItem
-                                      key={step}
-                                      value={step}
-                                    >
-                                      {step.replace(
-                                        "_",
-                                        " "
-                                      )}
-                                    </SelectItem>
-                                  )
-                                )}
-                              </SelectContent>
-                            </Select>
-                          )}
-                      </div>
-
-                      {/* EXPAND */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          toggleExpand(o.id)
-                        }
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <p className="text-[11px] text-muted-foreground font-medium pl-0.5 mt-1">
+                        Received: {formatDate(o.created_at)}
+                      </p>
                     </div>
 
-                    {/* DETAILS */}
-                    {isExpanded && (
-                      <div className="mt-5 space-y-5 border-t border-border/50 pt-5">
-
-                        {/* CUSTOMER + FULFILLMENT */}
-                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-
-                          {/* CUSTOMER */}
-                          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-
-                            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Customer
-                            </p>
-
-                            <div className="space-y-1">
-
-                              <p className="text-sm font-semibold">
-                                {buyerName}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {buyerPhone}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {buyerEmail}
-                              </p>
-                            </div>
+                    <div className="flex items-center justify-end flex-wrap gap-4 sm:ml-auto shrink-0">
+                      <span className="font-bold text-base text-foreground min-w-[80px] text-right">{formatCurrency(o.total_price)}</span>
+                      
+                      <div className="flex items-center gap-2">
+                        {isCancelRequested ? (
+                          <div className="flex items-center gap-2 bg-rose-500/5 p-1.5 border border-rose-500/10 rounded-xl">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isAnyRowProcessing}
+                              onClick={() => updateStatus.mutate({ id: o.id, st: "cancelled" })}
+                              className="h-8 text-[11px] font-bold px-3 rounded-lg shadow-none"
+                            >
+                              Accept Cancellation
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isAnyRowProcessing}
+                              onClick={() => updateStatus.mutate({ id: o.id, st: "resume_order" })}
+                              className="h-8 text-[11px] font-bold px-3 rounded-lg bg-background shadow-none text-foreground"
+                            >
+                              Resume Order
+                            </Button>
                           </div>
-
-                          {/* FULFILLMENT */}
-                          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-
-                            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Fulfillment
-                            </p>
-
-                            {isTableMode ? (
-                              <p className="text-sm font-medium">
-                                Dine-In Table
-                                Booking
-                              </p>
-                            ) : (
-                              <p className="text-sm leading-relaxed">
-                                {o.delivery_address_id ||
-                                  "Store Pickup"}
-                              </p>
+                        ) : (
+                          <>
+                            {!isTableMode && !isFraudLocked && !isCancelledState && !isCompletedState && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAnyRowProcessing}
+                                onClick={() => updateStatus.mutate({ 
+                                  id: o.id, 
+                                  st: methodDisplay === "ONLINE" ? "raise_payment_dispute" : isSettled ? "mark_as_unpaid" : "mark_as_paid" 
+                                })}
+                                className={`h-8.5 text-[11px] font-bold px-3.5 rounded-lg border shadow-none transition-all ${
+                                  methodDisplay === "ONLINE"
+                                    ? "text-red-600 bg-red-500/5 hover:bg-red-500/10 border-red-500/20 gap-1.5"
+                                    : isSettled 
+                                      ? "text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20" 
+                                      : "text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20"
+                                }`}
+                              >
+                                {methodDisplay === "ONLINE" ? (
+                                  <>
+                                    <ShieldAlert className="h-3.5 w-3.5 shrink-0" /> Raise Payment Dispute
+                                  </>
+                                ) : isSettled ? (
+                                  "Mark Unpaid"
+                                ) : (
+                                  "Collect Cash"
+                                )}
+                              </Button>
                             )}
+
+                            {methodDisplay === "COD" && isCompletedState && (
+                              <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg">
+                                ✓ Cash Confirmed
+                              </span>
+                            )}
+
+                            <Select
+                              value={o.status}
+                              disabled={isAnyRowProcessing || nextAllowedOptions.length === 0 || isFraudLocked || isCompletionBlocked}
+                              onValueChange={(v) => updateStatus.mutate({ id: o.id, st: v })}
+                            >
+                              <SelectTrigger className={`w-36 capitalize font-semibold text-xs rounded-lg h-8.5 border bg-background shadow-none ${
+                                isCompletionBlocked ? "border-amber-500/40 bg-amber-500/[0.02] cursor-not-allowed" : ""
+                              }`}>
+                                <SelectValue placeholder={isCompletionBlocked ? "Collect Cash First" : undefined} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={o.status} disabled className="text-muted-foreground text-xs font-semibold bg-muted/30">
+                                  {o.status.replace("_", " ")}
+                                </SelectItem>
+                                {nextAllowedOptions.map((step) => (
+                                  <SelectItem key={step} value={step} className="capitalize text-xs font-medium">
+                                    {step.replace("_", " ")}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </>
+                        )}
+
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8.5 w-8.5 rounded-lg border shrink-0 bg-background hover:bg-muted/40 transition-colors"
+                          onClick={() => toggleExpand(o.id)}
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="bg-muted/10 p-5 space-y-5 animate-in slide-in-from-top-1 duration-200 border-t border-b border-border/40">
+                      
+                      {!isTableMode && isFraudLocked && (
+                        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex items-start gap-3">
+                          <ShieldAlert className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5 text-xs text-left">
+                            <p className="font-bold text-red-600 dark:text-red-400">Transaction Locked Under Administrative Review</p>
+                            <p className="text-muted-foreground leading-relaxed text-[11px]">
+                              This online payment record has been frozen due to an owner mismatch challenge. Our support staff are validating gateway bank logs manually.
+                            </p>
                           </div>
                         </div>
+                      )}
 
-                        {/* ITEMS */}
-                        <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs bg-background/50 border border-border/60 p-4 rounded-xl shadow-none">
+                        <div className="flex items-start gap-3 text-left">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 select-none">
+                            {nameInitials}
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Profile</p>
+                            <p className="font-bold text-foreground text-sm tracking-tight">{buyerName}</p>
+                            <p className="font-mono text-xs font-bold text-primary/90">{buyerPhone}</p>
+                            <p className="text-[11px] text-muted-foreground font-medium">{buyerEmail}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-border/60 pt-4 md:pt-0 md:pl-6">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
+                          {isTableMode ? (
+                            <div className="py-1">
+                              <p className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-lg text-[11px] max-w-fit shadow-none">
+                                🪑 Dine-In Table Reservation Ticket
+                              </p>
+                            </div>
+                          ) : o.delivery_address_id ? (
+                            <div className="space-y-1">
+                              <p className="text-foreground font-semibold leading-relaxed text-xs">
+                                {o.delivery_address_id}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground italic text-[11px] py-1">
+                              No delivery coordinates snapshotted. Defaulting to Store Pickup.
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                          <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Items
-                          </p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5 text-left">
+                          <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Ordered Items Ticket</span>
+                        </div>
 
-                          <div className="space-y-3">
-
-                            {o.items?.length > 0 ? (
-                              o.items.map(
-                                (
-                                  item: any,
-                                  idx: number
-                                ) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center justify-between gap-4"
-                                  >
-
-                                    <div className="min-w-0">
-
-                                      <p className="truncate text-sm font-medium">
-                                        {item.item_name_snapshot ||
-                                          "Menu Item"}
-                                      </p>
-
-                                      {item.variant_name_snapshot && (
-                                        <p className="text-xs text-muted-foreground">
-                                          {
-                                            item.variant_name_snapshot
-                                          }
+                        <div className="space-y-1.5 rounded-xl border border-border/70 bg-background p-4 shadow-none">
+                          {o.items && o.items.length > 0 ? (
+                            <div className="space-y-2 divide-y divide-border/40">
+                              {o.items.map((item: any, idx: number) => {
+                                const itemTitle = item.item_name_snapshot || "Dish Option";
+                                const variantTitle = item.variant_name_snapshot || null;
+                                
+                                return (
+                                  <div key={idx} className="flex items-center justify-between text-xs py-1 gap-4">
+                                    <div className="space-y-0.5 text-left">
+                                      <p className="font-semibold text-foreground text-sm">{itemTitle}</p>
+                                      {variantTitle && (
+                                        <p className="text-[10px] font-bold text-amber-700 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded max-w-fit mt-1 capitalize tracking-wide">
+                                          {variantTitle}
                                         </p>
                                       )}
                                     </div>
-
-                                    <span className="shrink-0 font-mono text-xs">
-                                      ×
-                                      {
-                                        item.quantity
-                                      }
+                                    <span className="font-mono text-xs font-bold text-foreground bg-muted border px-3 py-1 rounded-lg shrink-0">
+                                      ×{item.quantity}
                                     </span>
                                   </div>
-                                )
-                              )
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                No items available.
-                              </p>
-                            )}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic text-center py-1">No custom lines listed.</p>
+                          )}
                         </div>
-
-                        {/* NOTES */}
-                        {o.instructions && (
-                          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-
-                            <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-                              {o.instructions}
-                            </p>
-                          </div>
-                        )}
                       </div>
-                    )}
-                  </div>
+
+                      {o.instructions && (
+                        <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3.5 text-xs text-left">
+                          <p className="text-amber-800 dark:text-amber-400 font-normal leading-relaxed">
+                            <span className="font-bold mr-1">Kitchen/Host Logistics Note:</span> 
+                            "{o.instructions}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -1052,7 +953,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
             />
           </div>
         ))}
-        <div className="space-y-2"> 
+        <div className="space-y-2">
           <Label>Loyalty discount per point</Label>
           <Input
             type="number"
