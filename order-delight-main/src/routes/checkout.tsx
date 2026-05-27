@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Gift, Sparkles, CheckCircle, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
+import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { shopsApi, apiRequest } from "@/lib/api";
+import { ordersApi, shopsApi, apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,20 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
 // ==========================================
-// 1. INTERACTIVE ADDRESS SELECTION MODULE
+// 1. ENGAGING, PREMIUM "FREE ORDER" SUCCESS MODAL
+// ==========================================
+interface FreeOrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  shopName: string;
+  couponCode?: string;
+  couponDiscountUsed: number;
+  leftoverBalance?: number;
+}
+
+
+// ==========================================
+// 2. INTERACTIVE ADDRESS SELECTION MODULE
 // ==========================================
 function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelected: (id: string | null) => void; disabled?: boolean }) {
   const qc = useQueryClient();
@@ -127,7 +140,9 @@ function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelec
                     </span>
                     <div className="flex items-center gap-2">
                       {addr.is_default ? (
-                        <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">Default</span>
+                        <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">
+                          Default
+                        </span>
                       ) : (
                         <button
                           type="button"
@@ -202,7 +217,7 @@ function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelec
 }
 
 // ==========================================
-// 2. MAIN CHECKOUT PAGE
+// 3. MAIN CHECKOUT PAGE
 // ==========================================
 function CheckoutPage() {
   const { user, loading } = useAuth();
@@ -215,13 +230,20 @@ function CheckoutPage() {
   const [pickup, setPickup] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
+  // Fulfillment Configuration Forms States
   const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
+  // 💡 Restructured: paymentMethod state now tracks base payment channels ("cod" | "online") instead of isolating coupons.
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
 
+  // Modal display logic control states
   const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
+  
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  const [freeOrderShopName, setFreeOrderShopName] = useState<string | null>(null);
+  const [freeOrderId, setFreeOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -237,6 +259,7 @@ function CheckoutPage() {
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
+  // ─── 🚀 STATE FOR COMBINED PAYMENT TYPE RESOLUTION ───
   const combinedPaymentLabel = appliedCoupon 
     ? payableTotal === 0 
       ? "COUPON VOUCHER" 
@@ -288,15 +311,23 @@ function CheckoutPage() {
     onSuccess: async (order: any) => {
       qc.invalidateQueries({ queryKey: ["coupons"] });
       qc.invalidateQueries({ queryKey: ["coupon"] });
-      
+      if (appliedCoupon?.code) {
+        qc.invalidateQueries({ queryKey: ["coupons", "validate", appliedCoupon.code] });
+      }
+
       setAppliedCoupon(null);
       setCouponCode("");
       cart.clear();
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       setShowPaymentGatewayModal(false);
 
-      // ─── 🚀 IMMEDATE ROUTE SUCCESS REDIRECT ───
-      toast.success("Order placed successfully!");
+      if (payableTotal === 0) {
+        setFreeOrderShopName((shop as any)?.name ?? "the shop");
+        setFreeOrderId(order.id);
+        return;
+      }
+
+      toast.success(paymentMethod === "online" ? "Payment confirmed & order successfully placed!" : "Order placed successfully!");
       navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
     },
     onError: (err: any) => {
@@ -305,7 +336,9 @@ function CheckoutPage() {
   });
 
   function handleCheckoutClick() {
-    if (paymentMethod === "online" && payableTotal > 0) {
+    if (payableTotal === 0) {
+      placePaidOrderMutation.mutate();
+    } else if (paymentMethod === "online") {
       setShowPaymentGatewayModal(true);
     } else {
       placePaidOrderMutation.mutate();
@@ -314,7 +347,7 @@ function CheckoutPage() {
 
   const isFormValid = orderType === "table_booking" || !!selectedAddressId;
 
-  if (count === 0) {
+  if (count === 0 && !freeOrderId) {
     return (
       <div className="min-h-screen">
         <PublicNav />
@@ -339,24 +372,41 @@ function CheckoutPage() {
 
         <div className="grid gap-6 md:grid-cols-[1fr_320px]">
           <div className="space-y-4">
+            
+            {/* MODULAR COMPONENT 1: CHOOSE FULFILLMENT PROFILE */}
             <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-5 space-y-3 text-left">
                 <div className="flex items-center gap-1.5">
                   <Utensils className="h-4 w-4 text-primary" />
                   <Label className="text-sm font-bold text-foreground">Fulfillment Choice</Label>
                 </div>
-                <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-3">
+                <RadioGroup 
+                  value={orderType} 
+                  onValueChange={(v: any) => setOrderType(v)}
+                  className="grid grid-cols-2 gap-3"
+                >
                   <div>
                     <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
-                    <Label htmlFor="delivery" className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 cursor-pointer text-center transition-all ${orderType === "delivery" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"}`}>
-                      <Bike className="h-5 w-5 mb-1 text-primary" />
+                    <Label
+                      htmlFor="delivery"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        orderType === "delivery" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Bike className={`h-5 w-5 mb-1 ${orderType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Food Delivery</span>
                     </Label>
                   </div>
+
                   <div>
                     <RadioGroupItem value="table_booking" id="table_booking" className="sr-only" />
-                    <Label htmlFor="table_booking" className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 cursor-pointer text-center transition-all ${orderType === "table_booking" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"}`}>
-                      <Utensils className="h-5 w-5 mb-1 text-muted-foreground" />
+                    <Label
+                      htmlFor="table_booking"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        orderType === "table_booking" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Utensils className={`h-5 w-5 mb-1 ${orderType === "table_booking" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Book a Table</span>
                     </Label>
                   </div>
@@ -364,28 +414,49 @@ function CheckoutPage() {
               </CardContent>
             </Card>
 
-            <CheckoutAddressModule onAddressSelected={setSelectedAddressId} disabled={orderType === "table_booking"} />
+            {/* MODULAR COMPONENT 2: CUSTOMER DELIVERY LOCATION MAPS */}
+            <CheckoutAddressModule 
+              onAddressSelected={setSelectedAddressId} 
+              disabled={orderType === "table_booking"} 
+            />
 
+            {/* MODULAR COMPONENT 3: ACCOUNT SETTLEMENT TYPE CHANNELS */}
             <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-5 space-y-3 text-left">
                 <div className="flex items-center gap-1.5">
                   <Coins className="h-4 w-4 text-primary" />
+                  {/* 💡 Label shifts dynamically to state how remainder bill charges are handled */}
                   <Label className="text-sm font-bold text-foreground">
                     {payableTotal === 0 ? "Select Payment Mode" : "Settle Remaining Balance Via"}
                   </Label>
                 </div>
-                <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="grid grid-cols-2 gap-3">
+                <RadioGroup 
+                  value={paymentMethod} 
+                  onValueChange={(v: any) => setPaymentMethod(v)}
+                  className="grid grid-cols-2 gap-3"
+                >
                   <div>
                     <RadioGroupItem value="cod" id="cod" className="sr-only" />
-                    <Label htmlFor="cod" className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${paymentMethod === "cod" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"}`}>
-                      <Coins className="h-5 w-5 mb-1 text-primary" />
+                    <Label
+                      htmlFor="cod"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${
+                        paymentMethod === "cod" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <Coins className={`h-5 w-5 mb-1 ${paymentMethod === "cod" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Cash on Delivery</span>
                     </Label>
                   </div>
+
                   <div>
                     <RadioGroupItem value="online" id="online" className="sr-only" />
-                    <Label htmlFor="online" className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${paymentMethod === "online" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"}`}>
-                      <CreditCard className="h-5 w-5 mb-1 text-primary" />
+                    <Label
+                      htmlFor="online"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${
+                        paymentMethod === "online" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
+                      }`}
+                    >
+                      <CreditCard className={`h-5 w-5 mb-1 ${paymentMethod === "online" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Online Banking</span>
                     </Label>
                   </div>
@@ -403,12 +474,27 @@ function CheckoutPage() {
                   <Label htmlFor="pickup">
                     {orderType === "table_booking" ? "Table Reservation Timing Slot" : "Scheduled Delivery Time (optional)"}
                   </Label>
-                  <Input id="pickup" type="datetime-local" value={pickup} onChange={(e) => setPickup(e.target.value)} />
+                  <Input
+                    id="pickup"
+                    type="datetime-local"
+                    value={pickup}
+                    onChange={(e) => setPickup(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2 text-left">
                   <Label htmlFor="notes">Notes for the kitchen / host (optional)</Label>
-                  <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, extra spicy, etc." />
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder={orderType === "table_booking" ? "Window seat preference, allergies, etc." : "Allergies, extra spicy, leave at door..."}
+                  />
                 </div>
+                {shop && !(shop as any).is_verified && (
+                  <p className="text-sm text-destructive text-left font-medium">
+                    Warning: This shop is not admin-verified. Proceed with caution.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -417,64 +503,187 @@ function CheckoutPage() {
                 <div className="flex items-center gap-1.5">
                   <Tag className="h-4 w-4 text-primary" />
                   <Label className="text-sm font-bold text-foreground">Have a Gift Coupon Voucher?</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-foreground outline-none transition-colors">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="p-3 max-w-xs space-y-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
+                        <p className="text-xs font-bold">🎟️ Shared Discounts:</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          You can convert loyalty points into vouchers inside your Loyalty Wallet profile section. Vouchers are transferable to friends!
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
+                
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g. CHET-A8F2NB"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     disabled={!!appliedCoupon || isValidatingCoupon}
-                    className="font-mono tracking-wider h-10 rounded-xl text-xs uppercase"
+                    className="font-mono tracking-wider h-10 rounded-xl focused uppercase text-xs"
                   />
                   {appliedCoupon ? (
-                    <Button type="button" variant="destructive" onClick={() => { setAppliedCoupon(null); setCouponCode(""); }} className="h-10 rounded-xl text-xs">Remove</Button>
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                      className="h-10 rounded-xl text-xs font-medium px-4"
+                    >
+                      Remove
+                    </Button>
                   ) : (
-                    <Button type="button" onClick={handleApplyCoupon} disabled={isValidatingCoupon || !couponCode.trim()} className="h-10 rounded-xl text-xs px-5">Apply</Button>
+                    <Button 
+                      type="button" 
+                      onClick={handleApplyCoupon}
+                      disabled={isValidatingCoupon || !couponCode.trim()}
+                      className="h-10 rounded-xl text-xs px-5 font-semibold"
+                    >
+                      {isValidatingCoupon ? "Checking..." : "Apply"}
+                    </Button>
                   )}
                 </div>
+
+                {/* ─── PREMIUM REAL-TIME VOUCHER BALANCE VIEW BANNER ─── */}
+                {appliedCoupon && (
+                  <div className="mt-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/5 p-3 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-400 space-y-1 animate-in slide-in-from-top-1 duration-200">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="flex items-center gap-1">🎉 Coupon Active: <code className="text-primary bg-background border px-1 rounded uppercase font-mono">{appliedCoupon.code}</code></span>
+                      <span>Max Balance: {formatCurrency(appliedCoupon.discount_value)}</span>
+                    </div>
+                    <div className="h-px bg-emerald-500/20 my-1" />
+                    <div className="flex justify-between text-[11px] font-medium opacity-90">
+                      <span>Deducted on checkout:</span>
+                      <span className="font-bold text-foreground">-{formatCurrency(couponDiscount)}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-medium opacity-90">
+                      <span>Remaining balance for next order:</span>
+                      <span className="font-bold underline text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(Math.max(0, appliedCoupon.discount_value - total))}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
+          {/* SIDEBAR TOTAL VALUE EVALUATION BOX CARD */}
           <Card className="h-fit text-left">
             <CardContent className="space-y-3 p-6">
               <h3 className="font-semibold text-sm">Order Summary</h3>
               <div className="space-y-1.5 text-xs">
                 {lines.map((l) => (
                   <div key={`${l.item_id}-${l.variant_id ?? "_"}`} className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">{l.quantity} × {l.name}</span>
-                    <span className="font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
+                    <span className="text-muted-foreground line-clamp-2">
+                      {l.quantity} × {l.name}
+                      {l.variant_name ? ` (${l.variant_name})` : ""}
+                    </span>
+                    <span className="shrink-0 font-medium">{formatCurrency(l.unit_price * l.quantity)}</span>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
+              <div className="flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
                 <span>Items Subtotal</span>
                 <span>{formatCurrency(total)}</span>
               </div>
+              
+              {/* ─── DEDICATED VISUAL REVENUE SUMMARY SAVINGS ROW ─── */}
               {couponDiscount > 0 && (
-                <div className="flex items-center justify-between text-xs text-emerald-600 font-bold bg-emerald-500/5 p-2 rounded-lg">
+                <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/10 animate-in fade-in-50 duration-200">
                   <span>🎟️ Voucher Savings</span>
                   <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between border-t pt-2.5 text-base font-bold">
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground py-0.5">
+                <span>Fulfillment Type:</span>
+                <span className="font-semibold capitalize text-foreground">{orderType.replace("_", " ")}</span>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground pb-1">
+                <span>Payment Mode:</span>
+                <span className="font-semibold uppercase text-foreground">
+                  {combinedPaymentLabel}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-dashed pt-2.5 text-base font-bold">
                 <span>Payable Total</span>
-                <span className={payableTotal === 0 ? "text-emerald-600" : ""}>
+                <span className={payableTotal === 0 ? "text-emerald-600 dark:text-emerald-400 font-black animate-pulse" : ""}>
                   {payableTotal === 0 ? "FREE" : formatCurrency(payableTotal)}
                 </span>
               </div>
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                You will accumulate approximately <span className="font-semibold text-primary">{estimatedEarn}</span> loyalty points balance items post confirmation.
+              </p>
+              
               <Button
-                className="w-full rounded-xl mt-2"
+                className={`w-full rounded-xl mt-2 ${payableTotal === 0 && isFormValid ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : ""}`}
                 size="lg"
                 disabled={placePaidOrderMutation.isPending || !isFormValid}
                 onClick={handleCheckoutClick}
               >
-                {!isFormValid ? "Select Address" : placePaidOrderMutation.isPending ? "Processing..." : payableTotal === 0 ? "Claim Free Order!" : "Place Order"}
+                {
+                !isFormValid
+                  ? "Select Delivery Address"
+                  : placePaidOrderMutation.isPending
+                    ? "Processing..."
+                    : payableTotal === 0
+                      ? "Claim Free Order! 🎉"
+                      : paymentMethod === "online"
+                        ? "Proceed to Online Pay"
+                        : "Place COD Order"
+                }
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* ONLINE AUTHORIZATION PAYMENT GATEWAY MODAL LOOPS */}
+      <Dialog open={showPaymentGatewayModal} onOpenChange={setShowPaymentGatewayModal}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>Confirm Secure Online Payment</DialogTitle>
+            <DialogDescription className="text-xs pt-1">
+              This is a sandbox online checkout gateway authentication frame module. Confirming this sequence completes the transaction and passes parameters to your back-end ecosystem instantly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs space-y-1 text-left">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Original Total</span>
+              <span className="font-medium text-foreground">{formatCurrency(total)}</span> 
+            </div>
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+              <span>Voucher Applied</span>
+              <span>-{formatCurrency(couponDiscount)}</span> 
+            </div>
+            <div className="h-px bg-border my-1" />
+            <div className="flex justify-between font-bold">
+              <span className="text-muted-foreground">Net Amount Due</span>
+              <span className="text-foreground">{formatCurrency(payableTotal)}</span> 
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="rounded-xl text-xs" onClick={() => setShowPaymentGatewayModal(false)}>
+              Cancel Transaction
+            </Button>
+            <Button 
+              className="rounded-xl text-xs font-semibold px-5"
+              onClick={() => placePaidOrderMutation.mutate()} 
+              disabled={placePaidOrderMutation.isPending}
+            >
+              {placePaidOrderMutation.isPending ? "Authorizing..." : "Confirm & Pay"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
