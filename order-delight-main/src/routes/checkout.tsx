@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Gift, Sparkles, ArrowRight, CheckCircle, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
+import { ChevronLeft, Gift, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { ordersApi, shopsApi, apiRequest } from "@/lib/api";
+import { shopsApi, apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -27,20 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
 
 // ==========================================
-// 1. ENGAGING, PREMIUM "FREE ORDER" SUCCESS MODAL
-// ==========================================
-interface FreeOrderModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  shopName: string;
-  couponCode?: string;
-  couponDiscountUsed: number;
-  leftoverBalance?: number;
-}
-
-
-// ==========================================
-// 2. INTERACTIVE ADDRESS SELECTION MODULE
+// 1. INTERACTIVE ADDRESS SELECTION MODULE
 // ==========================================
 function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelected: (id: string | null) => void; disabled?: boolean }) {
   const qc = useQueryClient();
@@ -217,7 +204,7 @@ function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelec
 }
 
 // ==========================================
-// 3. MAIN CHECKOUT PAGE
+// 2. MAIN CHECKOUT PAGE
 // ==========================================
 function CheckoutPage() {
   const { user, loading } = useAuth();
@@ -232,7 +219,6 @@ function CheckoutPage() {
 
   // Fulfillment Configuration Forms States
   const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
-  // 💡 Restructured: paymentMethod state now tracks base payment channels ("cod" | "online") instead of isolating coupons.
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
 
   // Modal display logic control states
@@ -241,9 +227,6 @@ function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-
-  const [freeOrderShopName, setFreeOrderShopName] = useState<string | null>(null);
-  const [freeOrderId, setFreeOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -259,7 +242,6 @@ function CheckoutPage() {
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
-  // ─── 🚀 STATE FOR COMBINED PAYMENT TYPE RESOLUTION ───
   const combinedPaymentLabel = appliedCoupon 
     ? payableTotal === 0 
       ? "COUPON VOUCHER" 
@@ -321,13 +303,14 @@ function CheckoutPage() {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       setShowPaymentGatewayModal(false);
 
+      // ─── 🚀 UNIFIED IMMEDATE ROUTE SUCCESS REDIRECT ───
+      // Triggers seamlessly for both zero-balance and split-balance checkouts
       if (payableTotal === 0) {
-        setFreeOrderShopName((shop as any)?.name ?? "the shop");
-        setFreeOrderId(order.id);
-        return;
+        toast.success("Free Order claimed and placed successfully!");
+      } else {
+        toast.success(paymentMethod === "online" ? "Payment confirmed & order successfully placed!" : "Order placed successfully!");
       }
-
-      toast.success(paymentMethod === "online" ? "Payment confirmed & order successfully placed!" : "Order placed successfully!");
+      
       navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
     },
     onError: (err: any) => {
@@ -347,15 +330,13 @@ function CheckoutPage() {
 
   const isFormValid = orderType === "table_booking" || !!selectedAddressId;
 
-  if (count === 0 && !freeOrderId) {
+  if (count === 0) {
     return (
       <div className="min-h-screen">
         <PublicNav />
         <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-          <p className="text-muted-foreground">Your cart is empty.</p>
-          <Link to="/" className="mt-4 inline-block">
-            <Button>Browse shops</Button>
-          </Link>
+          <p className="text-muted-foreground mb-4">Your cart is empty.</p>
+          <Button onClick={() => navigate({ to: "/" })}>Browse shops</Button>
         </div>
       </div>
     );
@@ -425,7 +406,6 @@ function CheckoutPage() {
               <CardContent className="p-5 space-y-3 text-left">
                 <div className="flex items-center gap-1.5">
                   <Coins className="h-4 w-4 text-primary" />
-                  {/* 💡 Label shifts dynamically to state how remainder bill charges are handled */}
                   <Label className="text-sm font-bold text-foreground">
                     {payableTotal === 0 ? "Select Payment Mode" : "Settle Remaining Balance Via"}
                   </Label>
