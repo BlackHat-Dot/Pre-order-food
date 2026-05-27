@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, Integer, Boolean, DateTime, Float
+from sqlalchemy import String, ForeignKey, Integer, Boolean, DateTime, Float, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 import json
@@ -21,3 +21,5 @@ class Coupon(Base):
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     redeemed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))

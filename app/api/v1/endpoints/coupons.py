@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 import string
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -33,7 +35,6 @@ async def mint_shop_coupon(
     discount_per_point = getattr(shop, "loyalty_discount_per_point", 0.1)
 
     # 2. Get the user's active loyalty wallet row for this shop
-    # 🔑 FIXED: Changed LoyaltyAccount.user_id to customer_id to align with your schema profile
     stmt = select(LoyaltyAccount).where(
         LoyaltyAccount.shop_id == payload.shop_id, 
         LoyaltyAccount.customer_id == user.id
@@ -63,7 +64,8 @@ async def mint_shop_coupon(
         creator_id=user.id,
         points_spent=payload.points,
         discount_value=computed_discount,
-        is_redeemed=False
+        is_redeemed=False,
+        is_active=True  # 👈 Explicitly initialize as active/usable upon minting
     )
     
     db.add(new_coupon)
@@ -78,8 +80,6 @@ async def validate_coupon_code(
     shop_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    # 🔑 FIXED: Re-targeted query to pull from the actual Coupon table by code,
-    # and cleaned out the broken 'payload' / 'user' references.
     stmt = select(Coupon).where(Coupon.code == code.upper().strip())
     coupon = (await db.execute(stmt)).scalar_one_or_none()
     
@@ -87,6 +87,14 @@ async def validate_coupon_code(
         raise HTTPException(404, "Invalid voucher code combination token")
     if coupon.shop_id != shop_id:
         raise HTTPException(400, "This voucher code is locked to a different shop provider profile")
+    
+    # ─── 🛡️ THE GLOBAL ACTIVATION GUARD SWITCH ───
+    if hasattr(coupon, "is_active") and not coupon.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="This voucher campaign has been temporarily deactivated or suspended by the store merchant."
+        )
+
     if coupon.is_redeemed or coupon.discount_value <= 0:
         raise HTTPException(410, "This voucher string code has already been fully redeemed")
         

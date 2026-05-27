@@ -299,9 +299,7 @@ function CheckoutPage() {
 
   // Fulfillment Configuration Forms States
   const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<
-  "cod" | "online" | "coupon"
-  >("cod");
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online" | "coupon">("cod");
 
   // Modal display logic control states
   const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
@@ -324,9 +322,9 @@ function CheckoutPage() {
   });
 
   const couponDiscount =
-  paymentMethod === "coupon" && appliedCoupon
-    ? appliedCoupon.discount_value
-    : 0;
+    paymentMethod === "coupon" && appliedCoupon
+      ? Math.min(total, appliedCoupon.discount_value)
+      : 0;
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
@@ -344,7 +342,6 @@ function CheckoutPage() {
       toast.error(err?.message || "Invalid or unresolvable shop voucher code.");
       setAppliedCoupon(null);
     } finally {
-      setAppliedCoupon(null);
       setIsValidatingCoupon(false);
     }
   };
@@ -363,10 +360,7 @@ function CheckoutPage() {
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,
         delivery_address_id: orderType === "delivery" ? selectedAddressId : null, 
-        coupon_id:
-        paymentMethod === "coupon" && appliedCoupon
-        ? appliedCoupon.id
-        : undefined,
+        coupon_id: paymentMethod === "coupon" && appliedCoupon ? appliedCoupon.id : undefined,
         payment_method: paymentMethod,
         order_type: orderType,
         payment_confirmed: isOnlinePay ? true : false, 
@@ -529,7 +523,6 @@ function CheckoutPage() {
 
                   <div>
                     <RadioGroupItem value="coupon" id="coupon" className="sr-only" />
-
                     <Label
                       htmlFor="coupon"
                       className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
@@ -549,10 +542,7 @@ function CheckoutPage() {
                             : "text-muted-foreground"
                         }`}
                       />
-
-                      <span className="text-xs">
-                        Coupon Order
-                      </span>
+                      <span className="text-xs">Coupon Order</span>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -627,7 +617,11 @@ function CheckoutPage() {
                     <Button 
                       type="button" 
                       variant="destructive" 
-                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                      onClick={() => { 
+                        setAppliedCoupon(null); 
+                        setCouponCode(""); 
+                        setPaymentMethod("cod"); // 👈 FALLBACK AUTO-TOGGLE PATCH
+                      }}
                       className="h-10 rounded-xl text-xs font-medium px-4"
                     >
                       Remove
@@ -643,6 +637,27 @@ function CheckoutPage() {
                     </Button>
                   )}
                 </div>
+
+                {/* ─── PREMIUM REAL-TIME VOUCHER BALANCE VIEW BANNER ─── */}
+                {appliedCoupon && (
+                  <div className="mt-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/5 p-3 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-400 space-y-1 animate-in slide-in-from-top-1 duration-200">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="flex items-center gap-1">🎉 Coupon Active: <code className="text-primary bg-background border px-1 rounded uppercase font-mono">{appliedCoupon.code}</code></span>
+                      <span>Max Balance: {formatCurrency(appliedCoupon.discount_value)}</span>
+                    </div>
+                    <div className="h-px bg-emerald-500/20 my-1" />
+                    <div className="flex justify-between text-[11px] font-medium opacity-90">
+                      <span>Deducted on checkout:</span>
+                      <span className="font-bold text-foreground">-{formatCurrency(couponDiscount)}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-medium opacity-90">
+                      <span>Remaining balance for next order:</span>
+                      <span className="font-bold underline text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(Math.max(0, appliedCoupon.discount_value - total))}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -666,9 +681,11 @@ function CheckoutPage() {
                 <span>Items Subtotal</span>
                 <span>{formatCurrency(total)}</span>
               </div>
+              
+              {/* ─── DEDICATED VISUAL REVENUE SUMMARY SAVINGS ROW ─── */}
               {couponDiscount > 0 && (
-                <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Voucher Applied</span>
+                <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/10 animate-in fade-in-50 duration-200">
+                  <span>🎟️ Voucher Savings</span>
                   <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
@@ -681,10 +698,8 @@ function CheckoutPage() {
               <div className="flex justify-between items-center text-xs text-muted-foreground pb-1">
                 <span>Payment Mode:</span>
                 <span className="font-semibold uppercase text-foreground">
-                {paymentMethod === "coupon"
-                  ? "COUPON"
-                  : paymentMethod}
-              </span>
+                  {paymentMethod === "coupon" ? "COUPON VOUCHER" : paymentMethod}
+                </span>
               </div>
 
               <div className="flex items-center justify-between border-t border-dashed pt-2.5 text-base font-bold">
@@ -763,7 +778,7 @@ function CheckoutPage() {
       <FreeOrderSuccessModal
         isOpen={!!freeOrderId}
         shopName={freeOrderShopName || ""}
-        couponCode={appliedCoupon?.code}
+        couponCode={couponCode}
         couponDiscountUsed={total} 
         leftoverBalance={appliedCoupon ? Math.max(0, appliedCoupon.discount_value - total) : 0}
         onClose={() => {

@@ -76,7 +76,7 @@ async def create_order(
 ) -> OrderOut:
     if user.role == "shop_owner":
         raise HTTPException(
-            status_code=403,
+            status_code=403, 
             detail="Shop Owners are strictly unauthorized to place pre-orders.",
         )
 
@@ -174,6 +174,32 @@ async def create_order(
                 detail="Coupon not found.",
             )
 
+        # ─── 🛡️ THE GLOBAL ADMINISTRATIVE ACTIVATION SWITCH GATE ───
+        if hasattr(active_coupon, "is_active") and not active_coupon.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="This coupon campaign has been temporarily deactivated or suspended by the store merchant.",
+            )
+
+        # ─── THE CONCURRENCY SPLIT EXPLOITATION PROTECTION ───
+        is_coupon_locked = getattr(active_coupon, "is_locked", False) or False
+        
+        if not is_coupon_locked:
+            existing_active_use = await db.execute(
+                select(Order).where(
+                    Order.coupon_id == payload.coupon_id,
+                    Order.status.notin_(["cancelled", "completed", "cancel_requested"])
+                )
+            )
+            if existing_active_use.scalars().first():
+                is_coupon_locked = True
+
+        if is_coupon_locked:
+            raise HTTPException(
+                status_code=400,
+                detail="This coupon code is currently locked by another active processing order. Please complete or cancel that checkout first.",
+            )
+
         if active_coupon.is_redeemed:
             raise HTTPException(
                 status_code=400,
@@ -198,6 +224,9 @@ async def create_order(
         if active_coupon.discount_value <= 0:
             active_coupon.discount_value = 0
             active_coupon.is_redeemed = True
+            
+        if hasattr(active_coupon, "is_locked"):
+            active_coupon.is_locked = True
 
     final_total_price = max(
         0.0,
@@ -370,6 +399,33 @@ async def update_order_status(
 
     incoming_status = getattr(payload, "status", None)
 
+    # ─── UNIFIED ATOMIC REVERSION PRE-HOOK FOR CANCELLATION ───
+    if incoming_status == "cancelled":
+        if order.status in ["cancelled", "completed"]:
+            raise HTTPException(status_code=400, detail="Terminal order states cannot be altered.")
+            
+        if order.coupon_id:
+            coupon = await db.get(Coupon, order.coupon_id)
+            if coupon:
+                if order.coupon_discount_applied > 0:
+                    coupon.discount_value = round(
+                        float(coupon.discount_value) + float(order.coupon_discount_applied),
+                        2,
+                    )
+                coupon.is_redeemed = False
+                # 🔓 Unlock coupon state natively upon cancellation loop termination
+                if hasattr(coupon, "is_locked"):
+                    coupon.is_locked = False
+                
+                order.coupon_discount_applied = 0.0
+
+    # ─── UNIFIED LOCK RELEASE ON COMPLETED ORDER FINALIZE ───
+    if incoming_status == "completed" and order.coupon_id:
+        coupon = await db.get(Coupon, order.coupon_id)
+        if coupon and hasattr(coupon, "is_locked"):
+            coupon.is_locked = False
+
+    # Process Customer Intent Rules
     if incoming_status == "cancel_requested":
         if order.status in ["cancelled", "completed"]:
             raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
@@ -391,20 +447,12 @@ async def update_order_status(
 
         return refreshed
 
+    # Process Administrative / Merchant Intent Rules
     if user.role in ["shop_owner", "admin"]:
         if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
         if incoming_status == "cancelled":
-            if order.coupon_id and order.coupon_discount_applied > 0:
-                coupon = await db.get(Coupon, order.coupon_id)
-                if coupon:
-                    coupon.discount_value = round(
-                        float(coupon.discount_value) + float(order.coupon_discount_applied),
-                        2,
-                    )
-                    coupon.is_redeemed = False
-
             order.status = "cancelled"
             order.is_cancellation_pending = False
 
@@ -454,6 +502,7 @@ async def update_order_status(
 
             return refreshed
 
+    # Catch-all status fallback channel handler
     order.status = incoming_status
     await db.commit()
 
