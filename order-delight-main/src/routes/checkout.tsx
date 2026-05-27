@@ -299,7 +299,8 @@ function CheckoutPage() {
 
   // Fulfillment Configuration Forms States
   const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online" | "coupon">("cod");
+  // 💡 Restructured: paymentMethod state now tracks base payment channels ("cod" | "online") instead of isolating coupons.
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
 
   // Modal display logic control states
   const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
@@ -321,12 +322,16 @@ function CheckoutPage() {
     enabled: !!shopId,
   });
 
-  const couponDiscount =
-    paymentMethod === "coupon" && appliedCoupon
-      ? Math.min(total, appliedCoupon.discount_value)
-      : 0;
+  const couponDiscount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
+
+  // ─── 🚀 STATE FOR COMBINED PAYMENT TYPE RESOLUTION ───
+  const combinedPaymentLabel = appliedCoupon 
+    ? payableTotal === 0 
+      ? "COUPON VOUCHER" 
+      : `SPLIT (${paymentMethod.toUpperCase()} + COUPON)`
+    : paymentMethod.toUpperCase();
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -336,7 +341,6 @@ function CheckoutPage() {
         method: "GET"
       });
       setAppliedCoupon(couponData);
-      setPaymentMethod("coupon");
       toast.success(`Coupon code applied: ${formatCurrency(couponData.discount_value)} discount added!`);
     } catch (err: any) {
       toast.error(err?.message || "Invalid or unresolvable shop voucher code.");
@@ -360,7 +364,7 @@ function CheckoutPage() {
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,
         delivery_address_id: orderType === "delivery" ? selectedAddressId : null, 
-        coupon_id: paymentMethod === "coupon" && appliedCoupon ? appliedCoupon.id : undefined,
+        coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
         payment_method: paymentMethod,
         order_type: orderType,
         payment_confirmed: isOnlinePay ? true : false, 
@@ -488,18 +492,21 @@ function CheckoutPage() {
               <CardContent className="p-5 space-y-3 text-left">
                 <div className="flex items-center gap-1.5">
                   <Coins className="h-4 w-4 text-primary" />
-                  <Label className="text-sm font-bold text-foreground">Select Payment Mode</Label>
+                  {/* 💡 Label shifts dynamically to state how remainder bill charges are handled */}
+                  <Label className="text-sm font-bold text-foreground">
+                    {payableTotal === 0 ? "Select Payment Mode" : "Settle Remaining Balance Via"}
+                  </Label>
                 </div>
                 <RadioGroup 
                   value={paymentMethod} 
                   onValueChange={(v: any) => setPaymentMethod(v)}
-                  className="grid grid-cols-3 gap-3"
+                  className="grid grid-cols-2 gap-3"
                 >
                   <div>
                     <RadioGroupItem value="cod" id="cod" className="sr-only" />
                     <Label
                       htmlFor="cod"
-                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${
                         paymentMethod === "cod" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
                       }`}
                     >
@@ -512,37 +519,12 @@ function CheckoutPage() {
                     <RadioGroupItem value="online" id="online" className="sr-only" />
                     <Label
                       htmlFor="online"
-                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${payableTotal === 0 ? "opacity-50 pointer-events-none" : ""} ${
                         paymentMethod === "online" ? "border-primary bg-primary/5 font-semibold" : "border-border/60"
                       }`}
                     >
                       <CreditCard className={`h-5 w-5 mb-1 ${paymentMethod === "online" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Online Banking</span>
-                    </Label>
-                  </div>
-
-                  <div>
-                    <RadioGroupItem value="coupon" id="coupon" className="sr-only" />
-                    <Label
-                      htmlFor="coupon"
-                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
-                        paymentMethod === "coupon"
-                          ? "border-primary bg-primary/5 font-semibold"
-                          : "border-border/60"
-                      } ${
-                        !appliedCoupon
-                          ? "opacity-40 pointer-events-none"
-                          : ""
-                      }`}
-                    >
-                      <Gift
-                        className={`h-5 w-5 mb-1 ${
-                          paymentMethod === "coupon"
-                            ? "text-primary"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                      <span className="text-xs">Coupon Order</span>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -617,11 +599,7 @@ function CheckoutPage() {
                     <Button 
                       type="button" 
                       variant="destructive" 
-                      onClick={() => { 
-                        setAppliedCoupon(null); 
-                        setCouponCode(""); 
-                        setPaymentMethod("cod"); // 👈 FALLBACK AUTO-TOGGLE PATCH
-                      }}
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
                       className="h-10 rounded-xl text-xs font-medium px-4"
                     >
                       Remove
@@ -698,7 +676,7 @@ function CheckoutPage() {
               <div className="flex justify-between items-center text-xs text-muted-foreground pb-1">
                 <span>Payment Mode:</span>
                 <span className="font-semibold uppercase text-foreground">
-                  {paymentMethod === "coupon" ? "COUPON VOUCHER" : paymentMethod}
+                  {combinedPaymentLabel}
                 </span>
               </div>
 
@@ -725,11 +703,9 @@ function CheckoutPage() {
                     ? "Processing..."
                     : payableTotal === 0
                       ? "Claim Free Order! 🎉"
-                      : paymentMethod === "coupon"
-                        ? "Place Coupon Order"
-                        : paymentMethod === "online"
-                          ? "Proceed to Online Pay"
-                          : "Place COD Order"
+                      : paymentMethod === "online"
+                        ? "Proceed to Online Pay"
+                        : "Place COD Order"
                 }
               </Button>
             </CardContent>
@@ -748,16 +724,17 @@ function CheckoutPage() {
           </DialogHeader>
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs space-y-1 text-left">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount Due</span>
-              <span className="font-bold text-foreground">{formatCurrency(payableTotal)}</span> 
+              <span className="text-muted-foreground">Original Total</span>
+              <span className="font-medium text-foreground">{formatCurrency(total)}</span> 
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Mode Type</span>
-              <span className="font-medium text-primary uppercase">{orderType.replace("_", " ")}</span> 
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+              <span>Voucher Applied</span>
+              <span>-{formatCurrency(couponDiscount)}</span> 
             </div>
-            <div className="flex justify-between pt-1 border-t border-border/40 mt-1">
-              <span className="text-muted-foreground">Gateway Session ID</span>
-              <span className="font-mono text-[10px] text-muted-foreground">mock_net_gateway_checkout</span>
+            <div className="h-px bg-border my-1" />
+            <div className="flex justify-between font-bold">
+              <span className="text-muted-foreground">Net Amount Due</span>
+              <span className="text-foreground">{formatCurrency(payableTotal)}</span> 
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -778,7 +755,7 @@ function CheckoutPage() {
       <FreeOrderSuccessModal
         isOpen={!!freeOrderId}
         shopName={freeOrderShopName || ""}
-        couponCode={couponCode}
+        couponCode={appliedCoupon?.code}
         couponDiscountUsed={total} 
         leftoverBalance={appliedCoupon ? Math.max(0, appliedCoupon.discount_value - total) : 0}
         onClose={() => {

@@ -231,6 +231,14 @@ async def create_order(
         base_total_price - calculated_loyalty_discount - coupon_discount_applied,
     )
 
+    # ─── 🚀 SMART SPLIT-PAYMENT STATUS METHOD ASSIGNMENTS ───
+    if final_total_price == 0.0:
+        assigned_payment_method = "coupon"
+        assigned_payment_status = "paid"
+    else:
+        assigned_payment_method = payload.payment_method
+        assigned_payment_status = "paid" if payload.payment_method == "online" else "pending"
+
     addr_string = None
     incoming_address_id = getattr(payload, "delivery_address_id", None)
 
@@ -265,14 +273,10 @@ async def create_order(
         prep_time_minutes=max(prep_times) if prep_times else 0,
         scheduled_at=payload.scheduled_at,
         instructions=payload.instructions,
-        payment_method=payload.payment_method,
+        payment_method=assigned_payment_method,  # 👈 Saves core remainder option if split-payment occurs
         order_type=payload.order_type,
         delivery_address_id=addr_string if payload.order_type == "delivery" else None,
-        payment_status=(
-            "paid"
-            if payload.payment_method in ["online", "coupon"]
-            else "pending"
-        ),
+        payment_status=assigned_payment_status,
         loyalty_points_used=points_to_redeem,
         loyalty_discount_amount=calculated_loyalty_discount,
         coupon_id=payload.coupon_id,
@@ -402,7 +406,6 @@ async def update_order_status(
         if order.status in ["cancelled", "completed"]:
             raise HTTPException(status_code=400, detail="Terminal order states cannot be altered.")
             
-        # Enforce merchant boundary validations before reverting properties
         if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
             raise HTTPException(status_code=403, detail="Unauthorized merchant boundary profile.")
 
@@ -418,7 +421,6 @@ async def update_order_status(
                 if hasattr(coupon, "is_locked"):
                     coupon.is_locked = False
                 
-                # Enforce atomic idempotency cleanly
                 order.coupon_discount_applied = 0.0
 
         order.status = "cancelled"
