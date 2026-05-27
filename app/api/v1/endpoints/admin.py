@@ -287,12 +287,10 @@ async def list_orders_admin(
     
     result = []
     for o in rows:
-        # ─── 🚀 DYNAMIC MATHEMATICAL EVALUATION ENGINE ───
         disc_amt = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
         final_price = float(o.total_price)
         calc_percentage = 0.0
         
-        # Original price = final price + the discount amount that was deducted
         original_price = final_price + disc_amt
         if disc_amt > 0 and original_price > 0:
             calc_percentage = round((disc_amt / original_price) * 100, 0)
@@ -311,8 +309,7 @@ async def list_orders_admin(
             "order_type": getattr(o, "order_type", "delivery"),
             "delivery_address": getattr(o, "delivery_address_id", None),
             
-            # Map values back to match what the admin frontend view models expect
-            "loyalty_points_used": int(getattr(o, "loyalty_points_used", 0) or 0),
+            # ─── 🚀 LOYALTY POINTS REMOVED CLEANLY · RETAINED ONLY PERCENTAGE ───
             "discount_percentage": float(calc_percentage), 
             
             "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -329,6 +326,7 @@ async def list_orders_admin(
             ]
         })
     return result
+
 
 # ─── Analytics ────────────────────────────────────────────────────────────────
 
@@ -592,7 +590,6 @@ async def get_admin_escalated_orders(db: Annotated[AsyncSession, Depends(get_db)
     return list(result.scalars().all())
 
 
-# ─── 🚀 THE PLATFORM COMPILATION FIX: ALIGNED WITH FRONTEND OVERRIDE TRIGGER ───
 @router.post("/orders/{order_id}/override")
 async def admin_global_status_override(
     order_id: str, 

@@ -13,7 +13,6 @@ import {
   Phone, 
   MapPin, 
   Percent, 
-  Gift,
   Trash2,
   Eye,
   X
@@ -42,7 +41,6 @@ function AdminGlobalOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // High-density platform master ledger query
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-global-orders-ledger", statusFilter],
     queryFn: async () => {
@@ -52,12 +50,12 @@ function AdminGlobalOrdersPage() {
     refetchInterval: 5000,
   });
 
-  // Omnipotent administrative force cancel mutation
   const forceCancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
       setUpdatingId(orderId);
-      return await apiRequest(`/api/v1/admin/orders/${orderId}/status?status=cancelled`, {
-        method: "PUT",
+      return await apiRequest(`/api/v1/admin/orders/${orderId}/override`, {
+        method: "POST",
+        body: { status: "cancelled" }
       });
     },
     onSuccess: () => {
@@ -122,7 +120,6 @@ function AdminGlobalOrdersPage() {
                 >
                   <CardContent className="p-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-normal">
                     
-                    {/* Index Reference Parameters Column Wrapper */}
                     <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
                       <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
                         #{o.id.slice(0, 8).toUpperCase()}
@@ -136,14 +133,12 @@ function AdminGlobalOrdersPage() {
                       </Badge>
                     </div>
 
-                    {/* Metadata Context Summary Grid Row Strip */}
                     <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
                       <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {o.customer_name || "Guest"}</div>
                       <div className="truncate"><span className="text-foreground font-medium">Shop:</span> {o.shop_name || "Store"}</div>
                       <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
                     </div>
 
-                    {/* Monetary Totals Action Bar Triggers Segment */}
                     <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
                       <span className="font-semibold text-sm text-foreground tracking-tight min-w-[70px] text-right">
                         {formatCurrency(o.total_price)}
@@ -161,11 +156,10 @@ function AdminGlobalOrdersPage() {
         )}
       </div>
 
-      {/* ─── RIGHT PANEL: SCALED ENTERPRISE DRAWER (SHEET OVERLAY) ─── */}
+      {/* ─── RIGHT PANEL: SCALED ENTERPRISE DRAWER ─── */}
       {selectedOrder && (
         <div className="w-[380px] h-full bg-card border-l border-border/60 shadow-xl flex flex-col text-left animate-in slide-in-from-right duration-200 shrink-0 z-50">
           
-          {/* Header block parameters */}
           <div className="p-4 border-b border-border/40 flex items-center justify-between bg-background/40">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
@@ -183,7 +177,6 @@ function AdminGlobalOrdersPage() {
             </Button>
           </div>
 
-          {/* Core Metadata Container Space */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs font-normal">
             
             <div className="space-y-2 bg-muted/30 border border-border/40 p-3 rounded-lg">
@@ -204,25 +197,17 @@ function AdminGlobalOrdersPage() {
               </div>
             </div>
 
-            {/* Loyalty Ledger Data Space */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="border border-border/40 bg-background/50 rounded-lg p-2 flex items-center gap-2">
-                <Gift className="h-4 w-4 text-primary/70 shrink-0" />
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Points Used</p>
-                  <p className="font-bold text-foreground text-sm leading-tight">{selectedOrder.loyalty_points_used ?? 0}</p>
-                </div>
-              </div>
-              <div className="border border-border/40 bg-background/50 rounded-lg p-2 flex items-center gap-2">
+            {/* ─── 🚀 UPDATED LOYALTY GRID DRAWER FIELD PANEL ─── */}
+            <div className="w-full">
+              <div className="border border-border/40 bg-background/50 rounded-lg p-2.5 flex items-center gap-2.5">
                 <Percent className="h-4 w-4 text-emerald-600 shrink-0" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Discount</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Discount Rate</p>
                   <p className="font-bold text-emerald-600 text-sm leading-tight">{selectedOrder.discount_percentage ?? 0}%</p>
                 </div>
               </div>
             </div>
 
-            {/* Destination Coordinates Envelope */}
             {String(selectedOrder.order_type).toLowerCase() !== "table_booking" && selectedOrder.delivery_address && (
               <div className="bg-background border border-border/40 rounded-lg p-3 flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -233,7 +218,6 @@ function AdminGlobalOrdersPage() {
               </div>
             )}
 
-            {/* Dense Item Iteration Map Block */}
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Items Summary</p>
               <div className="rounded-lg border bg-background p-2 space-y-1">
@@ -252,7 +236,6 @@ function AdminGlobalOrdersPage() {
 
           </div>
 
-          {/* Terminal Actions Footer Matrix Block */}
           <div className="p-3 border-t border-border/40 bg-background/40 flex items-center shrink-0">
             {selectedOrder.status?.toLowerCase() !== "cancelled" && selectedOrder.status?.toLowerCase() !== "completed" ? (
               <Button

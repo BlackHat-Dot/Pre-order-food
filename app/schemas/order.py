@@ -31,7 +31,7 @@ class OrderCreate(BaseModel):
     redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
     coupon_id: str | None = None
 
-    payment_method: Literal["cod", "online"] = "cod"
+    payment_method: Literal["cod", "online", "coupon"] = "cod"
     order_type: Literal["delivery", "table_booking"] = "delivery"
     payment_confirmed: Optional[bool] = False
 

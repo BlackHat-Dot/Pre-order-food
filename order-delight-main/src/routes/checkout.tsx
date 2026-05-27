@@ -191,6 +191,7 @@ function CheckoutAddressModule({ onAddressSelected, disabled }: { onAddressSelec
               const isSelected = selectedId === addr.id;
               return (
                 <div 
+                  box-id={addr.id}
                   key={addr.id}
                   onClick={() => {
                     setSelectedId(addr.id);
@@ -298,7 +299,9 @@ function CheckoutPage() {
 
   // Fulfillment Configuration Forms States
   const [orderType, setOrderType] = useState<"delivery" | "table_booking">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
+  const [paymentMethod, setPaymentMethod] = useState<
+  "cod" | "online" | "coupon"
+  >("cod");
 
   // Modal display logic control states
   const [showPaymentGatewayModal, setShowPaymentGatewayModal] = useState(false);
@@ -320,7 +323,10 @@ function CheckoutPage() {
     enabled: !!shopId,
   });
 
-  const couponDiscount = appliedCoupon ? appliedCoupon.discount_value : 0;
+  const couponDiscount =
+  paymentMethod === "coupon" && appliedCoupon
+    ? appliedCoupon.discount_value
+    : 0;
   const payableTotal = Math.max(total - couponDiscount, 0);
   const estimatedEarn = Math.floor(payableTotal * 0.05);
 
@@ -332,11 +338,13 @@ function CheckoutPage() {
         method: "GET"
       });
       setAppliedCoupon(couponData);
+      setPaymentMethod("coupon");
       toast.success(`Coupon code applied: ${formatCurrency(couponData.discount_value)} discount added!`);
     } catch (err: any) {
       toast.error(err?.message || "Invalid or unresolvable shop voucher code.");
       setAppliedCoupon(null);
     } finally {
+      setAppliedCoupon(null);
       setIsValidatingCoupon(false);
     }
   };
@@ -355,7 +363,10 @@ function CheckoutPage() {
         instructions: notes || undefined,    
         scheduled_at: pickup || undefined,
         delivery_address_id: orderType === "delivery" ? selectedAddressId : null, 
-        coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
+        coupon_id:
+        paymentMethod === "coupon" && appliedCoupon
+        ? appliedCoupon.id
+        : undefined,
         payment_method: paymentMethod,
         order_type: orderType,
         payment_confirmed: isOnlinePay ? true : false, 
@@ -399,12 +410,10 @@ function CheckoutPage() {
     } else if (paymentMethod === "online") {
       setShowPaymentGatewayModal(true);
     } else {
-      // Direct submission path for standard COD requests
       placePaidOrderMutation.mutate();
     }
   }
 
-  // Verification requirements: delivery mode requires a selected location id; table booking bypasses it
   const isFormValid = orderType === "table_booking" || !!selectedAddressId;
 
   if (count === 0 && !freeOrderId) {
@@ -490,7 +499,7 @@ function CheckoutPage() {
                 <RadioGroup 
                   value={paymentMethod} 
                   onValueChange={(v: any) => setPaymentMethod(v)}
-                  className="grid grid-cols-2 gap-3"
+                  className="grid grid-cols-3 gap-3"
                 >
                   <div>
                     <RadioGroupItem value="cod" id="cod" className="sr-only" />
@@ -515,6 +524,35 @@ function CheckoutPage() {
                     >
                       <CreditCard className={`h-5 w-5 mb-1 ${paymentMethod === "online" ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-xs">Online Banking</span>
+                    </Label>
+                  </div>
+
+                  <div>
+                    <RadioGroupItem value="coupon" id="coupon" className="sr-only" />
+
+                    <Label
+                      htmlFor="coupon"
+                      className={`flex flex-col items-center justify-between rounded-xl border-2 p-3.5 bg-popover hover:bg-muted/50 cursor-pointer text-center transition-all ${
+                        paymentMethod === "coupon"
+                          ? "border-primary bg-primary/5 font-semibold"
+                          : "border-border/60"
+                      } ${
+                        !appliedCoupon
+                          ? "opacity-40 pointer-events-none"
+                          : ""
+                      }`}
+                    >
+                      <Gift
+                        className={`h-5 w-5 mb-1 ${
+                          paymentMethod === "coupon"
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+
+                      <span className="text-xs">
+                        Coupon Order
+                      </span>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -642,7 +680,11 @@ function CheckoutPage() {
               
               <div className="flex justify-between items-center text-xs text-muted-foreground pb-1">
                 <span>Payment Mode:</span>
-                <span className="font-semibold uppercase text-foreground">{paymentMethod}</span>
+                <span className="font-semibold uppercase text-foreground">
+                {paymentMethod === "coupon"
+                  ? "COUPON"
+                  : paymentMethod}
+              </span>
               </div>
 
               <div className="flex items-center justify-between border-t border-dashed pt-2.5 text-base font-bold">
@@ -661,15 +703,19 @@ function CheckoutPage() {
                 disabled={placePaidOrderMutation.isPending || !isFormValid}
                 onClick={handleCheckoutClick}
               >
-                {!isFormValid 
-                  ? "Select Delivery Address" 
-                  : placePaidOrderMutation.isPending 
-                    ? "Processing..." 
-                    : payableTotal === 0 
-                      ? "Claim Free Order! 🎉" 
-                      : paymentMethod === "online" 
-                        ? "Proceed to Online Pay" 
-                        : "Place COD Order"}
+                {
+                !isFormValid
+                  ? "Select Delivery Address"
+                  : placePaidOrderMutation.isPending
+                    ? "Processing..."
+                    : payableTotal === 0
+                      ? "Claim Free Order! 🎉"
+                      : paymentMethod === "coupon"
+                        ? "Place Coupon Order"
+                        : paymentMethod === "online"
+                          ? "Proceed to Online Pay"
+                          : "Place COD Order"
+                }
               </Button>
             </CardContent>
           </Card>
