@@ -174,14 +174,12 @@ async def create_order(
                 detail="Coupon not found.",
             )
 
-        # ─── 🛡️ THE GLOBAL ADMINISTRATIVE ACTIVATION SWITCH GATE ───
         if hasattr(active_coupon, "is_active") and not active_coupon.is_active:
             raise HTTPException(
                 status_code=400,
                 detail="This coupon campaign has been temporarily deactivated or suspended by the store merchant.",
             )
 
-        # ─── THE CONCURRENCY SPLIT EXPLOITATION PROTECTION ───
         is_coupon_locked = getattr(active_coupon, "is_locked", False) or False
         
         if not is_coupon_locked:
@@ -399,11 +397,15 @@ async def update_order_status(
 
     incoming_status = getattr(payload, "status", None)
 
-    # ─── UNIFIED ATOMIC REVERSION PRE-HOOK FOR CANCELLATION ───
+    # ─── 🛡️ THE BULLETPROOF ATOMIC CANCELLATION ENGINE ───
     if incoming_status == "cancelled":
         if order.status in ["cancelled", "completed"]:
             raise HTTPException(status_code=400, detail="Terminal order states cannot be altered.")
             
+        # Enforce merchant boundary validations before reverting properties
+        if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
+            raise HTTPException(status_code=403, detail="Unauthorized merchant boundary profile.")
+
         if order.coupon_id:
             coupon = await db.get(Coupon, order.coupon_id)
             if coupon:
@@ -413,11 +415,20 @@ async def update_order_status(
                         2,
                     )
                 coupon.is_redeemed = False
-                # 🔓 Unlock coupon state natively upon cancellation loop termination
                 if hasattr(coupon, "is_locked"):
                     coupon.is_locked = False
                 
+                # Enforce atomic idempotency cleanly
                 order.coupon_discount_applied = 0.0
+
+        order.status = "cancelled"
+        order.is_cancellation_pending = False
+        await db.commit()
+
+        refreshed = await _load_order_with_relations(db, order.id)
+        if not refreshed:
+            raise HTTPException(status_code=500, detail="Failed to reload updated order workflow state.")
+        return refreshed
 
     # ─── UNIFIED LOCK RELEASE ON COMPLETED ORDER FINALIZE ───
     if incoming_status == "completed" and order.coupon_id:
@@ -452,19 +463,7 @@ async def update_order_status(
         if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        if incoming_status == "cancelled":
-            order.status = "cancelled"
-            order.is_cancellation_pending = False
-
-            await db.commit()
-
-            refreshed = await _load_order_with_relations(db, order.id)
-            if not refreshed:
-                raise HTTPException(status_code=500, detail="Failed to reload updated order.")
-
-            return refreshed
-
-        elif incoming_status == "resume_order":
+        if incoming_status == "resume_order":
             order.status = "accepted"
             order.is_cancellation_pending = False
 

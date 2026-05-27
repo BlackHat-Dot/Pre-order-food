@@ -15,6 +15,7 @@ from app.db.session import get_db
 from app.models.order import Order
 from app.models.shop import Shop
 from app.models.user import User
+from app.models.coupon import Coupon
 from app.schemas.user import UserOut
 from app.schemas.order import OrderOut
 from app.utils.ids import new_id
@@ -287,13 +288,17 @@ async def list_orders_admin(
     
     result = []
     for o in rows:
-        disc_amt = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
+        loyalty_disc = float(getattr(o, "loyalty_discount_amount", 0.0) or 0.0)
+        coupon_disc = float(getattr(o, "coupon_discount_applied", 0.0) or 0.0)
+        
+        # ─── 🚀 DYNAMIC MULTI-CHANNEL DISCOUNT CALCULATION ───
+        total_discount_combined = loyalty_disc + coupon_disc
         final_price = float(o.total_price)
         calc_percentage = 0.0
         
-        original_price = final_price + disc_amt
-        if disc_amt > 0 and original_price > 0:
-            calc_percentage = round((disc_amt / original_price) * 100, 0)
+        original_price = final_price + total_discount_combined
+        if total_discount_combined > 0 and original_price > 0:
+            calc_percentage = round((total_discount_combined / original_price) * 100, 0)
 
         result.append({
             "id": o.id,
@@ -309,7 +314,10 @@ async def list_orders_admin(
             "order_type": getattr(o, "order_type", "delivery"),
             "delivery_address": getattr(o, "delivery_address_id", None),
             
-            # ─── 🚀 LOYALTY POINTS REMOVED CLEANLY · RETAINED ONLY PERCENTAGE ───
+            # Surface explicit coupon columns directly to the admin view panel
+            "coupon_id": getattr(o, "coupon_id", None),
+            "coupon_discount_applied": coupon_disc,
+            "loyalty_discount_amount": loyalty_disc,
             "discount_percentage": float(calc_percentage), 
             
             "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -553,6 +561,21 @@ async def update_order_status_admin(
     if not order:
         raise HTTPException(status_code=404, detail="Order record not found")
         
+    # ─── 🛡️ REVERSION IMMUNITY HOOK FOR ADMIN MANUAL ADJUSTMENT ───
+    if status == "cancelled" and order.status not in ["cancelled", "completed"]:
+        if order.coupon_id:
+            coupon = await db.get(Coupon, order.coupon_id)
+            if coupon:
+                if order.coupon_discount_applied > 0:
+                    coupon.discount_value = round(
+                        float(coupon.discount_value) + float(order.coupon_discount_applied),
+                        2,
+                    )
+                coupon.is_redeemed = False
+                if hasattr(coupon, "is_locked"):
+                    coupon.is_locked = False
+                order.coupon_discount_applied = 0.0
+
     order.status = status
     
     new_notif = Notification(
@@ -603,6 +626,21 @@ async def admin_global_status_override(
         raise HTTPException(status_code=404, detail="Order record not found.")
         
     if payload.status == "cancelled":
+        if order.status not in ["cancelled", "completed"]:
+            # ─── 🛡️ REVERSION IMMUNITY HOOK FOR ADMIN OVERRIDE TERMINAL ───
+            if order.coupon_id:
+                coupon = await db.get(Coupon, order.coupon_id)
+                if coupon:
+                    if order.coupon_discount_applied > 0:
+                        coupon.discount_value = round(
+                            float(coupon.discount_value) + float(order.coupon_discount_applied),
+                            2,
+                        )
+                    coupon.is_redeemed = False
+                    if hasattr(coupon, "is_locked"):
+                        coupon.is_locked = False
+                    order.coupon_discount_applied = 0.0
+
         order.status = "cancelled"
         order.payment_status = "refunded"
     elif payload.status == "accepted":

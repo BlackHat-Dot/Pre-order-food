@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 import { 
@@ -15,7 +15,9 @@ import {
   Percent, 
   Trash2,
   Eye,
-  X
+  X,
+  Tag,
+  Coins
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,6 +73,16 @@ function AdminGlobalOrdersPage() {
 
   const visibleOrders = Array.isArray(orders) ? orders : [];
 
+  // Keep selected order data fresh when query background polling updates list data
+  useEffect(() => {
+    if (selectedOrder && visibleOrders.length > 0) {
+      const currentFreshInstance = visibleOrders.find((o: any) => o?.id === selectedOrder.id);
+      if (currentFreshInstance) {
+        setSelectedOrder(currentFreshInstance);
+      }
+    }
+  }, [visibleOrders, selectedOrder]);
+
   return (
     <div className="flex h-full w-full overflow-hidden relative">
       
@@ -109,6 +121,7 @@ function AdminGlobalOrdersPage() {
               const currentStatus = (o.status || "pending").toLowerCase();
               const badgeStyle = STATUS_COLORS[currentStatus] || "bg-muted text-muted-foreground border-transparent";
               const isTableMode = String(o.order_type || "").toLowerCase() === "table_booking" || !o.delivery_address;
+              const hasCouponDiscount = Number(o.coupon_discount_applied || 0) > 0;
 
               return (
                 <Card 
@@ -131,6 +144,11 @@ function AdminGlobalOrdersPage() {
                         {isTableMode ? <Utensils className="h-3 w-3 text-amber-500" /> : <Bike className="h-3 w-3 text-blue-500" />}
                         {isTableMode ? "Table" : "Delivery"}
                       </Badge>
+                      {hasCouponDiscount && (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20 font-medium px-1.5 py-0.5 rounded gap-1 flex items-center shadow-none">
+                          <Tag className="h-2.5 w-2.5" /> Coupon
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
@@ -197,15 +215,35 @@ function AdminGlobalOrdersPage() {
               </div>
             </div>
 
-            {/* ─── 🚀 UPDATED LOYALTY GRID DRAWER FIELD PANEL ─── */}
-            <div className="w-full">
+            {/* ─── DYNAMIC SUB-TOTAL EXPLICIT VOUCHER BREAKDOWN GRID ─── */}
+            <div className="grid grid-cols-2 gap-2">
               <div className="border border-border/40 bg-background/50 rounded-lg p-2.5 flex items-center gap-2.5">
                 <Percent className="h-4 w-4 text-emerald-600 shrink-0" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Discount Rate</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Off Rate</p>
                   <p className="font-bold text-emerald-600 text-sm leading-tight">{selectedOrder.discount_percentage ?? 0}%</p>
                 </div>
               </div>
+
+              {Number(selectedOrder.coupon_discount_applied || 0) > 0 && (
+                <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-lg p-2.5 flex items-center gap-2.5">
+                  <Tag className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-emerald-700/80 uppercase tracking-wider font-medium">Coupon Off</p>
+                    <p className="font-black text-emerald-600 text-[13px] leading-tight">-{formatCurrency(selectedOrder.coupon_discount_applied)}</p>
+                  </div>
+                </div>
+              )}
+
+              {Number(selectedOrder.loyalty_discount_amount || 0) > 0 && (
+                <div className="border border-blue-500/20 bg-blue-500/5 rounded-lg p-2.5 flex items-center gap-2.5">
+                  <Coins className="h-4 w-4 text-blue-600 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-blue-700/80 uppercase tracking-wider font-medium">Loyalty Off</p>
+                    <p className="font-black text-blue-600 text-[13px] leading-tight">-{formatCurrency(selectedOrder.loyalty_discount_amount)}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {String(selectedOrder.order_type).toLowerCase() !== "table_booking" && selectedOrder.delivery_address && (
@@ -226,11 +264,37 @@ function AdminGlobalOrdersPage() {
                     <span className="text-foreground font-medium truncate max-w-[220px]">
                       {item.menu_item_name} {item.variant_name ? `(${item.variant_name})` : ""}
                     </span>
-                    <span className="font-mono text-[11px] font-bold text-foreground bg-muted border px-1.5 py-0 rounded shrink-0">
-                      ×{item.quantity}
-                    </span>
+                    <div className="flex items-center gap-2 text-right shrink-0">
+                      <span className="text-muted-foreground font-mono text-[11px]">
+                        {formatCurrency(item.unit_price)}
+                      </span>
+                      <span className="font-mono text-[11px] font-bold text-foreground bg-muted border px-1.5 py-0 rounded">
+                        ×{item.quantity}
+                      </span>
+                    </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* TOTAL COST SUMMARY BLOCK FOR ADMINISTRATIVE TRACKING */}
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5 text-[11px]">
+              {Number(selectedOrder.coupon_discount_applied || 0) > 0 && (
+                <div className="flex justify-between font-medium text-muted-foreground">
+                  <span>Coupon Deduction applied:</span>
+                  <span className="text-emerald-600 font-bold">-{formatCurrency(selectedOrder.coupon_discount_applied)}</span>
+                </div>
+              )}
+              {Number(selectedOrder.loyalty_discount_amount || 0) > 0 && (
+                <div className="flex justify-between font-medium text-muted-foreground">
+                  <span>Loyalty Discount applied:</span>
+                  <span className="text-blue-600 font-bold">-{formatCurrency(selectedOrder.loyalty_discount_amount)}</span>
+                </div>
+              )}
+              <div className="h-px bg-border/40 my-1" />
+              <div className="flex justify-between font-bold text-sm text-foreground">
+                <span>Payable Total:</span>
+                <span>{formatCurrency(selectedOrder.total_price)}</span>
               </div>
             </div>
 
