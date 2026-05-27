@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Gift, Info, Tag, MapPin, PlusCircle, CheckCircle2, Bike, Utensils, Coins, CreditCard } from "lucide-react";
+import { ChevronLeft, Gift, CheckCircle2, Info, Tag, MapPin, PlusCircle, Bike, Utensils, Coins, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { PublicNav } from "@/components/app/PublicNav";
 import { useCart, cart } from "@/lib/cart";
@@ -303,8 +303,6 @@ function CheckoutPage() {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       setShowPaymentGatewayModal(false);
 
-      // ─── 🚀 UNIFIED IMMEDATE ROUTE SUCCESS REDIRECT ───
-      // Triggers seamlessly for both zero-balance and split-balance checkouts
       if (payableTotal === 0) {
         toast.success("Free Order claimed and placed successfully!");
       } else {
@@ -407,7 +405,7 @@ function CheckoutPage() {
                 <div className="flex items-center gap-1.5">
                   <Coins className="h-4 w-4 text-primary" />
                   <Label className="text-sm font-bold text-foreground">
-                    {payableTotal === 0 ? "Select Payment Mode" : "Settle Remaining Balance Via"}
+                    {appliedCoupon && payableTotal > 0 ? "Settle Remaining Balance Via" : "Select Payment Mode"}
                   </Label>
                 </div>
                 <RadioGroup 
