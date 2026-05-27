@@ -57,15 +57,6 @@ function FreeOrderSuccessModal({
             <Gift className="h-7 w-7 animate-bounce" />
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center justify-center gap-1.5">
-              Invoice Settled! <Sparkles className="h-5 w-5 text-amber-400 fill-amber-400" />
-            </h2>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Your transaction at <span className="font-semibold text-foreground">{shopName}</span> has been completely covered by your gift voucher.
-            </p>
-          </div>
-
           {couponCode && (
             <div className="rounded-xl bg-muted/50 border border-border/80 p-3.5 text-left space-y-2.5 max-w-xs mx-auto shadow-inner">
               <div className="flex justify-between items-center text-[11px] text-muted-foreground font-medium">
