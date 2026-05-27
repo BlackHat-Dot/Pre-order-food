@@ -252,9 +252,13 @@ function CheckoutPage() {
     if (!couponCode.trim()) return;
     setIsValidatingCoupon(true);
     try {
-      const couponData = await apiRequest<any>(`/api/v1/coupons/validate/${couponCode.trim()}?shop_id=${shopId}`, {
-        method: "GET"
-      });
+      // 🚀 Added `&_t=${Date.now()}` cache-buster to prevent the browser from serving stale DB states
+      const couponData = await apiRequest<any>(
+        `/api/v1/coupons/validate/${couponCode.trim()}?shop_id=${shopId}&_t=${Date.now()}`, 
+        {
+          method: "GET"
+        }
+      );
       setAppliedCoupon(couponData);
       toast.success(`Coupon code applied: ${formatCurrency(couponData.discount_value)} discount added!`);
     } catch (err: any) {
