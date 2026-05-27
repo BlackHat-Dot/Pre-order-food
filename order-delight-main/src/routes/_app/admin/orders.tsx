@@ -73,7 +73,6 @@ function AdminGlobalOrdersPage() {
 
   const visibleOrders = Array.isArray(orders) ? orders : [];
 
-  // Keep selected order data fresh when query background polling updates list data
   useEffect(() => {
     if (selectedOrder && visibleOrders.length > 0) {
       const currentFreshInstance = visibleOrders.find((o: any) => o?.id === selectedOrder.id);
@@ -145,7 +144,7 @@ function AdminGlobalOrdersPage() {
                         {isTableMode ? "Table" : "Delivery"}
                       </Badge>
                       {hasCouponDiscount && (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20 font-medium px-1.5 py-0.5 rounded gap-1 flex items-center shadow-none">
+                        <Badge variant="outline" className={`text-[10px] ${currentStatus === 'cancelled' ? 'bg-rose-500/10 text-rose-700 border-rose-500/20 line-through opacity-70' : 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'} font-medium px-1.5 py-0.5 rounded gap-1 flex items-center shadow-none`}>
                           <Tag className="h-2.5 w-2.5" /> Coupon
                         </Badge>
                       )}
@@ -158,7 +157,7 @@ function AdminGlobalOrdersPage() {
                     </div>
 
                     <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
-                      <span className="font-semibold text-sm text-foreground tracking-tight min-w-[70px] text-right">
+                      <span className={`font-semibold text-sm text-foreground tracking-tight min-w-[70px] text-right ${currentStatus === 'cancelled' ? 'line-through text-muted-foreground opacity-60' : ''}`}>
                         {formatCurrency(o.total_price)}
                       </span>
                       <Button variant="ghost" size="sm" className="h-7 text-[11px] font-medium px-2 rounded text-primary gap-1">
@@ -216,21 +215,27 @@ function AdminGlobalOrdersPage() {
             </div>
 
             {/* ─── DYNAMIC SUB-TOTAL EXPLICIT VOUCHER BREAKDOWN GRID ─── */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid grid-cols-2 gap-2 ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'opacity-70 grayscale' : ''}`}>
               <div className="border border-border/40 bg-background/50 rounded-lg p-2.5 flex items-center gap-2.5">
                 <Percent className="h-4 w-4 text-emerald-600 shrink-0" />
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Off Rate</p>
-                  <p className="font-bold text-emerald-600 text-sm leading-tight">{selectedOrder.discount_percentage ?? 0}%</p>
+                  <p className="font-bold text-emerald-600 text-sm leading-tight">
+                    {selectedOrder.discount_percentage ?? 0}%
+                  </p>
                 </div>
               </div>
 
               {Number(selectedOrder.coupon_discount_applied || 0) > 0 && (
-                <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-lg p-2.5 flex items-center gap-2.5">
-                  <Tag className="h-4 w-4 text-emerald-600 shrink-0" />
+                <div className={`border ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'border-rose-500/20 bg-rose-500/5' : 'border-emerald-500/20 bg-emerald-500/5'} rounded-lg p-2.5 flex items-center gap-2.5`}>
+                  <Tag className={`h-4 w-4 ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-600' : 'text-emerald-600'} shrink-0`} />
                   <div>
-                    <p className="text-[10px] text-emerald-700/80 uppercase tracking-wider font-medium">Coupon Off</p>
-                    <p className="font-black text-emerald-600 text-[13px] leading-tight">-{formatCurrency(selectedOrder.coupon_discount_applied)}</p>
+                    <p className={`text-[10px] ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-700/80' : 'text-emerald-700/80'} uppercase tracking-wider font-medium`}>
+                      {selectedOrder.status?.toLowerCase() === 'cancelled' ? 'Refunded Off' : 'Coupon Off'}
+                    </p>
+                    <p className={`font-black ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-600 line-through' : 'text-emerald-600'} text-[13px] leading-tight`}>
+                      -{formatCurrency(selectedOrder.coupon_discount_applied)}
+                    </p>
                   </div>
                 </div>
               )}
@@ -280,9 +285,11 @@ function AdminGlobalOrdersPage() {
             {/* TOTAL COST SUMMARY BLOCK FOR ADMINISTRATIVE TRACKING */}
             <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5 text-[11px]">
               {Number(selectedOrder.coupon_discount_applied || 0) > 0 && (
-                <div className="flex justify-between font-medium text-muted-foreground">
+                <div className={`flex justify-between font-medium ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-600/80 line-through' : 'text-muted-foreground'}`}>
                   <span>Coupon Deduction applied:</span>
-                  <span className="text-emerald-600 font-bold">-{formatCurrency(selectedOrder.coupon_discount_applied)}</span>
+                  <span className={`${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-600' : 'text-emerald-600'} font-bold`}>
+                    -{formatCurrency(selectedOrder.coupon_discount_applied)}
+                  </span>
                 </div>
               )}
               {Number(selectedOrder.loyalty_discount_amount || 0) > 0 && (
@@ -292,7 +299,7 @@ function AdminGlobalOrdersPage() {
                 </div>
               )}
               <div className="h-px bg-border/40 my-1" />
-              <div className="flex justify-between font-bold text-sm text-foreground">
+              <div className={`flex justify-between font-bold text-sm ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-muted-foreground line-through opacity-60' : 'text-foreground'}`}>
                 <span>Payable Total:</span>
                 <span>{formatCurrency(selectedOrder.total_price)}</span>
               </div>

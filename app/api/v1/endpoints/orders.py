@@ -421,7 +421,6 @@ async def update_order_status(
                 if hasattr(coupon, "is_locked"):
                     coupon.is_locked = False
                 
-                order.coupon_discount_applied = 0.0
 
         order.status = "cancelled"
         order.is_cancellation_pending = False

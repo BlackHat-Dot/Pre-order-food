@@ -574,7 +574,6 @@ async def update_order_status_admin(
                 coupon.is_redeemed = False
                 if hasattr(coupon, "is_locked"):
                     coupon.is_locked = False
-                order.coupon_discount_applied = 0.0
 
     order.status = status
     
@@ -639,7 +638,6 @@ async def admin_global_status_override(
                     coupon.is_redeemed = False
                     if hasattr(coupon, "is_locked"):
                         coupon.is_locked = False
-                    order.coupon_discount_applied = 0.0
 
         order.status = "cancelled"
         order.payment_status = "refunded"
