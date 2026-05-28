@@ -1,139 +1,331 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Literal, List
+from typing import (
+    Literal,
+)
 
-from app.schemas.shop import ShopOut
-# --- INPUT SCHEMAS ---
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 
-class OrderItemInput(BaseModel):
+from app.schemas.shop import (
+    ShopOut,
+)
+
+
+# ─────────────────────────────────────────────────────────────
+# Minimal User
+# ─────────────────────────────────────────────────────────────
+
+class UserMinimalOut(
+    BaseModel
+):
+
+    id: str
+
+    name: str | None = None
+
+    phone: str | None = None
+
+    email: str | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# Order Item Input
+# ─────────────────────────────────────────────────────────────
+
+class OrderItemInput(
+    BaseModel
+):
+
     item_id: str | None = None
-    variant_id: str | None = None
-    quantity: int = Field(ge=1, le=50)
 
-    @model_validator(mode="after")
-    def check_choice(self) -> "OrderItemInput":
-        if self.item_id is None and self.variant_id is None:
-            raise ValueError("Provide item_id for a base item or variant_id for a variant")
-        if self.item_id is not None and isinstance(self.item_id, str) and not self.item_id.strip():
-            raise ValueError("item_id cannot be blank")
-        if self.variant_id is not None and isinstance(self.variant_id, str) and not self.variant_id.strip():
-            raise ValueError("variant_id cannot be blank")
+    variant_id: str | None = None
+
+    quantity: int = Field(
+        ge=1,
+        le=50,
+    )
+
+    @model_validator(
+        mode="after"
+    )
+    def validate_selection(
+        self,
+    ) -> "OrderItemInput":
+
+        item_id = (
+            self.item_id.strip()
+            if self.item_id
+            else None
+        )
+
+        variant_id = (
+            self.variant_id.strip()
+            if self.variant_id
+            else None
+        )
+
+        if (
+            not item_id
+            and not variant_id
+        ):
+            raise ValueError(
+                (
+                    "Provide item_id "
+                    "or variant_id"
+                )
+            )
+
+        self.item_id = item_id
+        self.variant_id = variant_id
+
         return self
 
 
-class OrderCreate(BaseModel):
+# ─────────────────────────────────────────────────────────────
+# Create Order
+# ─────────────────────────────────────────────────────────────
+
+class OrderCreate(
+    BaseModel
+):
+
     shop_id: str
-    items: list[OrderItemInput] = Field(min_length=1)
-    scheduled_at: datetime | None = None
-    instructions: str | None = None
-    redeem_loyalty_points: int | None = Field(default=0, ge=0, le=10000)
+
+    items: list[
+        OrderItemInput
+    ] = Field(
+        min_length=1,
+    )
+
+    scheduled_at: (
+        datetime | None
+    ) = None
+
+    instructions: (
+        str | None
+    ) = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    redeem_loyalty_points: int = (
+        Field(
+            default=0,
+            ge=0,
+            le=10000,
+        )
+    )
+
     coupon_id: str | None = None
 
-    payment_method: Literal["cod", "online", "coupon"] = "cod"
-    order_type: Literal["delivery", "table_booking"] = "delivery"
-    payment_confirmed: Optional[bool] = False
+    payment_method: Literal[
+        "cod",
+        "online",
+        "coupon",
+    ] = "cod"
 
-    delivery_address_id: Optional[str] = None
-    
-class OrderStatusUpdate(BaseModel):
+    order_type: Literal[
+        "delivery",
+        "table_booking",
+    ] = "delivery"
+
+    payment_confirmed: bool = False
+
+    delivery_address_id: (
+        str | None
+    ) = None
+
+
+# ─────────────────────────────────────────────────────────────
+# Status Updates
+# ─────────────────────────────────────────────────────────────
+
+class OrderStatusUpdate(
+    BaseModel
+):
+
     status: str
-    decline_action: Optional[str] = None
-    reason: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    decline_action: (
+        str | None
+    ) = None
 
-# --- REFACTORED INTERLOCK WORKFLOW SCHEMA ---
-class OrderUpdateSchema(BaseModel):
+    reason: str | None = Field(
+        default=None,
+        max_length=250,
+    )
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+class OrderUpdateSchema(
+    BaseModel
+):
+
     status: Literal[
-        "pending", 
-        "accepted", 
-        "preparing", 
-        "ready", 
-        "completed", 
-        "cancelled", 
-        "cancel_requested"
-    ] = Field(
-        ..., 
-        description="Target status workflow lane to transition the order into."
-    )
-    
-    reason: Optional[str] = Field(
-        None, 
-        max_length=250, 
-        description="Customer-provided reason string required during cancel_requested transitions."
-    )
-    
-    decline_action: Optional[Literal["decline_cancellation"]] = Field(
-        None,
-        description="Flag sent by shop owner to explicitly decline a pending cancel request."
+        "pending",
+        "accepted",
+        "preparing",
+        "ready",
+        "completed",
+        "cancelled",
+        "cancel_requested",
+    ]
+
+    reason: str | None = Field(
+        default=None,
+        max_length=250,
+        description=(
+            "Reason for "
+            "cancellation request"
+        ),
     )
 
-    class Config:
-        json_schema_extra = {
+    decline_action: Literal[
+        "decline_cancellation"
+    ] | None = Field(
+        default=None,
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
-                "status": "cancel_requested",
-                "reason": "Selected wrong delivery location coordinates accidentally."
+                "status": (
+                    "cancel_requested"
+                ),
+                "reason": (
+                    "Selected wrong "
+                    "delivery address"
+                ),
             }
         }
+    )
 
 
-# --- OUTPUT SCHEMAS ---
+# ─────────────────────────────────────────────────────────────
+# Order Item Output
+# ─────────────────────────────────────────────────────────────
 
-class OrderItemOut(BaseModel):
+class OrderItemOut(
+    BaseModel
+):
+
     id: str
+
     order_id: str
+
     item_id: str | None
+
     variant_id: str | None
+
     quantity: int
+
     unit_price: float
+
     item_name_snapshot: str
-    variant_name_snapshot: str | None
 
-    model_config = {"from_attributes": True}
+    variant_name_snapshot: (
+        str | None
+    )
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
 
-class OrderOut(BaseModel):
+# ─────────────────────────────────────────────────────────────
+# Order Output
+# ─────────────────────────────────────────────────────────────
+
+class OrderOut(
+    BaseModel
+):
+
     id: str
+
     customer_id: str
+
     shop_id: str
+
     status: str
+
     total_price: float
+
     prep_time_minutes: int
-    scheduled_at: Optional[datetime] = None
-    instructions: Optional[str] = None
+
+    scheduled_at: (
+        datetime | None
+    ) = None
+
+    instructions: (
+        str | None
+    ) = None
+
     payment_method: str
+
     payment_status: str
-    order_type: str  
-    delivery_address_id: Optional[str] = None
 
-    # ─── 🚀 THE ENTERPRISE COUPLING PATCH ───
-    coupon_id: Optional[str] = None
-    coupon_discount_applied: float = 0.0
+    order_type: str
+
+    delivery_address_id: (
+        str | None
+    ) = None
+
+    coupon_id: str | None = None
+
+    coupon_discount_applied: (
+        float
+    ) = 0.0
+
     loyalty_points_used: int = 0
-    loyalty_discount_amount: float = 0.0
-    loyalty_points_earned: int = 0
 
-    cancellation_reason: Optional[str] = None
+    loyalty_discount_amount: (
+        float
+    ) = 0.0
+
+    loyalty_points_earned: (
+        int
+    ) = 0
+
+    cancellation_reason: (
+        str | None
+    ) = None
+
     is_cancellation_pending: bool
-    cancellation_requests_sent: int = 0
+
+    cancellation_requests_sent: (
+        int
+    ) = 0
 
     created_at: datetime
+
     updated_at: datetime
-    
-    items: List[OrderItemOut] = []
-    customer: Optional[UserMinimalOut] = None  
+
+    items: list[
+        OrderItemOut
+    ] = Field(
+        default_factory=list
+    )
+
+    customer: (
+        UserMinimalOut
+        | None
+    ) = None
+
     shop: ShopOut | None = None
 
-    model_config = {"from_attributes": True}
-
-class UserMinimalOut(BaseModel):
-    id: str
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+    )

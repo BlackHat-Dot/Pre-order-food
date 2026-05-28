@@ -1,41 +1,119 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import (
+    datetime,
+    timezone,
+)
 
-from sqlalchemy import DateTime, Index, Integer, String, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    DateTime,
+    Index,
+    Integer,
+    String,
+    text,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+)
 
 from app.db.base import Base
+from app.utils.ids import new_id
 
 
 class OtpChallenge(Base):
     """
-    Stores one active OTP per phone/email when using database-backed OTP storage.
-    The real OTP is never stored — only a hash — so leaks are less dangerous.
+    Stores active OTP challenges.
+
+    Real OTP values are never stored.
+    Only hashed versions are persisted.
     """
 
     __tablename__ = "otp_challenges"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    __table_args__ = (
+        Index(
+            (
+                "ix_otp_challenges_"
+                "channel_target"
+            ),
+            "channel",
+            "target",
+        ),
+        Index(
+            (
+                "ix_otp_challenges_"
+                "expires_at"
+            ),
+            "expires_at",
+        ),
+        Index(
+            (
+                "ix_otp_challenges_"
+                "purpose"
+            ),
+            "purpose",
+        ),
+    )
 
-    # "phone" or "email"
-    channel: Mapped[str] = mapped_column(String(16), nullable=False)
-    # Normalized phone (10 digits) or lowercased email
-    target: Mapped[str] = mapped_column(String(255), nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=new_id,
+    )
 
-    code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    purpose: Mapped[str] = mapped_column(String(32), nullable=False)  # signup_phone | profile_email
+    channel: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        index=True,
+    )  # phone|email
 
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
+    target: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+    )  # normalized phone/email
+
+    code_hash: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+    )
+
+    purpose: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )  # signup_phone|profile_email
+
+    expires_at: Mapped[
+        datetime
+    ] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        index=True,
     )
-    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    resend_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[
+        datetime
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
 
+    consumed_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
 
-Index("ix_otp_challenges_channel_target", OtpChallenge.channel, OtpChallenge.target)
-Index("ix_otp_challenges_expires_at", OtpChallenge.expires_at)
+    resend_count: Mapped[
+        int
+    ] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("0"),
+    )

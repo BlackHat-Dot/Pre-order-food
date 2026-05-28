@@ -2,88 +2,227 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
-from app.utils.phone import normalize_e164
+from app.utils.phone import (
+    normalize_e164,
+)
 
 
-class SendOtpRequest(BaseModel):
-    """Body for POST /send-otp — asks the server to create a fresh OTP."""
+# ─────────────────────────────────────────────────────────────
+# Send OTP
+# ─────────────────────────────────────────────────────────────
 
-    channel: Literal["phone", "email"]
-    purpose: Literal["signup_phone", "profile_email"]
+class SendOtpRequest(
+    BaseModel
+):
+
+    channel: Literal[
+        "phone",
+        "email",
+    ]
+
+    purpose: Literal[
+        "signup_phone",
+        "profile_email",
+    ]
+
     phone: str | None = None
+
     email: EmailStr | None = None
 
-    @model_validator(mode="after")
-    def check_target_matches_channel(self) -> "SendOtpRequest":
-        if self.channel == "phone":
-            if not self.phone or not str(self.phone).strip():
-                raise ValueError("phone is required when channel is phone")
-        else:
-            if not self.email:
-                raise ValueError("email is required when channel is email")
-        return self
+    @model_validator(
+        mode="after"
+    )
+    def validate_target(
+        self,
+    ) -> "SendOtpRequest":
 
-    @field_validator("phone")
-    @classmethod
-    def normalize_phone(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        try:
-            return normalize_e164(str(v))
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
-
-
-class VerifyOtpRequest(BaseModel):
-    """Body for POST /verify-otp — user types the 6-digit code they received."""
-
-    channel: Literal["phone", "email"]
-    purpose: Literal["signup_phone", "profile_email"]
-    code: str = Field(min_length=6, max_length=6)
-    phone: str | None = None
-    email: EmailStr | None = None
-
-    @model_validator(mode="after")
-    def check_target_matches_channel(self) -> "VerifyOtpRequest":
         if self.channel == "phone":
             if not self.phone:
-                raise ValueError("phone is required when channel is phone")
+                raise ValueError(
+                    (
+                        "phone is required "
+                        "for phone channel"
+                    )
+                )
+
         else:
             if not self.email:
-                raise ValueError("email is required when channel is email")
+                raise ValueError(
+                    (
+                        "email is required "
+                        "for email channel"
+                    )
+                )
+
         return self
 
-    @field_validator("phone")
+    @field_validator(
+        "phone"
+    )
     @classmethod
-    def normalize_phone(cls, v: str | None) -> str | None:
-        if v is None:
+    def normalize_phone(
+        cls,
+        value: str | None,
+    ) -> str | None:
+
+        if value is None:
             return None
+
         try:
-            return normalize_e164(str(v))
+            return normalize_e164(
+                value.strip()
+            )
+
         except ValueError as exc:
-            raise ValueError(str(exc)) from exc
+            raise ValueError(
+                str(exc)
+            ) from exc
 
-    @field_validator("code")
+
+# ─────────────────────────────────────────────────────────────
+# Verify OTP
+# ─────────────────────────────────────────────────────────────
+
+class VerifyOtpRequest(
+    BaseModel
+):
+
+    channel: Literal[
+        "phone",
+        "email",
+    ]
+
+    purpose: Literal[
+        "signup_phone",
+        "profile_email",
+    ]
+
+    code: str = Field(
+        min_length=6,
+        max_length=6,
+    )
+
+    phone: str | None = None
+
+    email: EmailStr | None = None
+
+    @model_validator(
+        mode="after"
+    )
+    def validate_target(
+        self,
+    ) -> "VerifyOtpRequest":
+
+        if self.channel == "phone":
+            if not self.phone:
+                raise ValueError(
+                    (
+                        "phone is required "
+                        "for phone channel"
+                    )
+                )
+
+        else:
+            if not self.email:
+                raise ValueError(
+                    (
+                        "email is required "
+                        "for email channel"
+                    )
+                )
+
+        return self
+
+    @field_validator(
+        "phone"
+    )
     @classmethod
-    def digits_only(cls, v: str) -> str:
-        if not v.isdigit():
-            raise ValueError("code must be 6 digits")
-        return v
+    def normalize_phone(
+        cls,
+        value: str | None,
+    ) -> str | None:
 
+        if value is None:
+            return None
 
-class Msg91VerifyRequest(BaseModel):
-    """Body for POST /verify-msg91 — exchange a MSG91 widget access_token for our proof JWT."""
-
-    access_token: str = Field(min_length=1, max_length=2048)
-    phone: str  # E.164 with + (e.g. "+919876543210")
-    purpose: Literal["signup_phone", "profile_phone"]
-
-    @field_validator("phone")
-    @classmethod
-    def normalize_phone(cls, v: str) -> str:
         try:
-            return normalize_e164(str(v))
+            return normalize_e164(
+                value.strip()
+            )
+
         except ValueError as exc:
-            raise ValueError(str(exc)) from exc
+            raise ValueError(
+                str(exc)
+            ) from exc
+
+    @field_validator(
+        "code"
+    )
+    @classmethod
+    def validate_code(
+        cls,
+        value: str,
+    ) -> str:
+
+        code = value.strip()
+
+        if (
+            not code.isdigit()
+            or len(code) != 6
+        ):
+            raise ValueError(
+                (
+                    "code must be "
+                    "exactly 6 digits"
+                )
+            )
+
+        return code
+
+
+# ─────────────────────────────────────────────────────────────
+# MSG91 Verification
+# ─────────────────────────────────────────────────────────────
+
+class Msg91VerifyRequest(
+    BaseModel
+):
+
+    access_token: str = Field(
+        min_length=1,
+        max_length=2048,
+    )
+
+    phone: str
+
+    purpose: Literal[
+        "signup_phone",
+        "profile_phone",
+    ]
+
+    @field_validator(
+        "phone"
+    )
+    @classmethod
+    def normalize_phone(
+        cls,
+        value: str,
+    ) -> str:
+
+        try:
+            return normalize_e164(
+                value.strip()
+            )
+
+        except ValueError as exc:
+            raise ValueError(
+                str(exc)
+            ) from exc

@@ -3,21 +3,46 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select, or_, text
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+)
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import basic_rate_limit, require_roles, get_current_user
+from app.core.deps import (
+    basic_rate_limit,
+    get_current_user,
+    require_roles,
+)
 from app.db.session import get_db
-from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
-from app.models.menu import MenuItem, MenuItemVariant
-from app.models.notification import Notification
-from app.models.order import Order, OrderItem
+from app.models.coupon import Coupon
+from app.models.loyalty import (
+    LoyaltyAccount,
+    LoyaltyTransaction,
+)
+from app.models.menu import (
+    MenuItem,
+    MenuItemVariant,
+)
+from app.models.order import (
+    Order,
+    OrderItem,
+)
 from app.models.shop import Shop
 from app.models.user import User
-from app.models.coupon import Coupon
-from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate
+from app.schemas.order import (
+    OrderCreate,
+    OrderOut,
+    OrderStatusUpdate,
+)
+from app.services.cache import (
+    acquire_lock,
+    release_lock,
+)
 from app.services.sms import send_sms
 from app.utils.ids import new_id
 
@@ -28,7 +53,32 @@ router = APIRouter(
 )
 
 
-async def _load_order_with_relations(db: AsyncSession, order_id: str) -> Order | None:
+# ─────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────
+
+async def get_shop_or_404(
+    db: AsyncSession,
+    shop_id: str,
+) -> Shop:
+    shop = await db.get(
+        Shop,
+        shop_id,
+    )
+
+    if not shop or not shop.is_active:
+        raise HTTPException(
+            status_code=404,
+            detail="Shop not found",
+        )
+
+    return shop
+
+
+async def get_order_with_relations(
+    db: AsyncSession,
+    order_id: str,
+) -> Order | None:
     stmt = (
         select(Order)
         .where(Order.id == order_id)
@@ -38,79 +88,217 @@ async def _load_order_with_relations(db: AsyncSession, order_id: str) -> Order |
             selectinload(Order.shop),
         )
     )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+
+    return (
+        await db.execute(stmt)
+    ).scalar_one_or_none()
 
 
-async def _get_clean_serialized_order(db: AsyncSession, order_id: str, user: User) -> Order:
-    fresh_order = await _load_order_with_relations(db, order_id)
+async def get_order_or_404(
+    db: AsyncSession,
+    order_id: str,
+) -> Order:
+    order = await get_order_with_relations(
+        db,
+        order_id,
+    )
 
-    if not fresh_order:
+    if not order:
         raise HTTPException(
             status_code=404,
-            detail="Requested order could not be located.",
+            detail="Order not found",
         )
 
-    if user.role == "customer" and fresh_order.customer_id != user.id:
+    return order
+
+
+async def verify_order_access(
+    db: AsyncSession,
+    user: User,
+    order: Order,
+) -> None:
+
+    if (
+        user.role == "customer"
+        and order.customer_id != user.id
+    ):
         raise HTTPException(
             status_code=403,
-            detail="Access denied to this order tracking token.",
+            detail="Forbidden",
         )
 
     if user.role == "shop_owner":
-        shop = await db.get(Shop, fresh_order.shop_id)
-        if not shop or shop.owner_id != user.id:
+        shop = await db.get(
+            Shop,
+            order.shop_id,
+        )
+
+        if (
+            not shop
+            or shop.owner_id != user.id
+        ):
             raise HTTPException(
                 status_code=403,
-                detail="Access restricted to authorized merchant profiles.",
+                detail="Forbidden",
             )
 
-    return fresh_order
 
+async def restore_coupon(
+    db: AsyncSession,
+    order: Order,
+) -> None:
 
-@router.post("", response_model=OrderOut, status_code=201)
-async def create_order(
-    payload: OrderCreate,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "admin"))],
-) -> OrderOut:
-    if user.role == "shop_owner":
-        raise HTTPException(
-            status_code=403, 
-            detail="Shop Owners are strictly unauthorized to place pre-orders.",
+    if not order.coupon_id:
+        return
+
+    coupon = await db.get(
+        Coupon,
+        order.coupon_id,
+    )
+
+    if not coupon:
+        return
+
+    discount = float(
+        order.coupon_discount_applied
+        or 0
+    )
+
+    if discount > 0:
+        coupon.discount_value = round(
+            float(coupon.discount_value)
+            + discount,
+            2,
         )
 
-    shop = await db.get(Shop, payload.shop_id)
-    if not shop or not shop.is_active:
-        raise HTTPException(404, "Shop not found")
-    if not shop.is_open or not shop.is_accepting_orders:
-        raise HTTPException(400, "Shop is not accepting orders")
+    coupon.is_redeemed = False
 
-    base_total_price = 0.0
+    await release_lock(
+        f"coupon:{coupon.id}"
+    )
+
+
+async def unlock_coupon(
+    order: Order,
+) -> None:
+
+    if not order.coupon_id:
+        return
+
+    await release_lock(
+        f"coupon:{order.coupon_id}"
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# Create Order
+# ─────────────────────────────────────────────────────────────
+
+@router.post(
+    "",
+    response_model=OrderOut,
+    status_code=201,
+)
+async def create_order(
+    payload: OrderCreate,
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(
+            require_roles(
+                "customer",
+                "admin",
+            )
+        ),
+    ],
+) -> OrderOut:
+
+    if user.role == "shop_owner":
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Shop owners cannot "
+                "place orders"
+            ),
+        )
+
+    shop = await get_shop_or_404(
+        db,
+        payload.shop_id,
+    )
+
+    if (
+        not shop.is_open
+        or not shop.is_accepting_orders
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Shop is not "
+                "accepting orders"
+            ),
+        )
+
+    total_price = 0.0
+
     prep_times: list[int] = []
-    order_items: list[OrderItem] = []
+
+    order_items: list[
+        OrderItem
+    ] = []
 
     for entry in payload.items:
-        if entry.variant_id is not None:
-            if entry.variant_id == "":
-                raise HTTPException(400, "Invalid variant_id")
 
-            variant = await db.get(MenuItemVariant, entry.variant_id)
-            if not variant or not variant.is_available:
+        if entry.variant_id:
+
+            variant = await db.get(
+                MenuItemVariant,
+                entry.variant_id,
+            )
+
+            if (
+                not variant
+                or not variant.is_available
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Variant configuration unavailable.",
+                    detail=(
+                        "Variant unavailable"
+                    ),
                 )
 
-            item = await db.get(MenuItem, variant.item_id)
-            if not item or item.shop_id != shop.id or not item.is_available:
+            item = await db.get(
+                MenuItem,
+                variant.item_id,
+            )
+
+            if (
+                not item
+                or item.shop_id != shop.id
+                or not item.is_available
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Item unavailable",
+                    detail=(
+                        "Item unavailable"
+                    ),
                 )
 
-            base_total_price += variant.price * entry.quantity
-            prep_times.append(variant.prep_time_minutes)
+            price = float(
+                variant.price
+            )
+
+            total_price += (
+                price * entry.quantity
+            )
+
+            prep_times.append(
+                variant.prep_time_minutes
+            )
+
             order_items.append(
                 OrderItem(
                     id=new_id(),
@@ -118,24 +306,51 @@ async def create_order(
                     item_id=item.id,
                     variant_id=variant.id,
                     quantity=entry.quantity,
-                    unit_price=variant.price,
+                    unit_price=price,
                     item_name_snapshot=item.name,
                     variant_name_snapshot=variant.name,
                 )
             )
-        else:
-            if not entry.item_id:
-                raise HTTPException(400, "Item ID is required for base items")
 
-            item = await db.get(MenuItem, entry.item_id)
-            if not item or item.shop_id != shop.id or not item.is_available:
+        else:
+
+            if not entry.item_id:
                 raise HTTPException(
                     status_code=400,
-                    detail="Dish selection unavailable.",
+                    detail=(
+                        "Item ID required"
+                    ),
                 )
 
-            base_total_price += item.price * entry.quantity
-            prep_times.append(item.prep_time_minutes)
+            item = await db.get(
+                MenuItem,
+                entry.item_id,
+            )
+
+            if (
+                not item
+                or item.shop_id != shop.id
+                or not item.is_available
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Item unavailable"
+                    ),
+                )
+
+            price = float(
+                item.price
+            )
+
+            total_price += (
+                price * entry.quantity
+            )
+
+            prep_times.append(
+                item.prep_time_minutes
+            )
+
             order_items.append(
                 OrderItem(
                     id=new_id(),
@@ -143,371 +358,745 @@ async def create_order(
                     item_id=item.id,
                     variant_id=None,
                     quantity=entry.quantity,
-                    unit_price=item.price,
+                    unit_price=price,
                     item_name_snapshot=item.name,
                     variant_name_snapshot=None,
                 )
             )
 
-    points_to_redeem = payload.redeem_loyalty_points or 0
-    calculated_loyalty_discount = 0.0
+    loyalty_points = (
+        payload.redeem_loyalty_points
+        or 0
+    )
 
-    if points_to_redeem > 0:
-        discount_weight = getattr(shop, "loyalty_discount_per_point", 0.1) or 0.1
-        calculated_loyalty_discount = round(
-            float(points_to_redeem) * float(discount_weight),
+    loyalty_discount = 0.0
+
+    if loyalty_points > 0:
+
+        loyalty_account_stmt = (
+            select(
+                LoyaltyAccount
+            ).where(
+                LoyaltyAccount.customer_id
+                == user.id,
+                LoyaltyAccount.shop_id
+                == shop.id,
+            )
+        )
+
+        loyalty_account = (
+            await db.execute(
+                loyalty_account_stmt
+            )
+        ).scalar_one_or_none()
+
+        if (
+            not loyalty_account
+            or loyalty_account.points_balance
+            < loyalty_points
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Insufficient "
+                    "loyalty points"
+                ),
+            )
+
+        discount_per_point = getattr(
+            shop,
+            "loyalty_discount_per_point",
+            0.1,
+        )
+
+        loyalty_discount = round(
+            loyalty_points
+            * float(
+                discount_per_point
+            ),
             2,
         )
 
-        if calculated_loyalty_discount > base_total_price:
-            calculated_loyalty_discount = base_total_price
+        loyalty_discount = min(
+            loyalty_discount,
+            total_price,
+        )
 
-    coupon_discount_applied = 0.0
-    active_coupon = None
+        loyalty_account.points_balance -= (
+            loyalty_points
+        )
+
+        db.add(
+            LoyaltyTransaction(
+                id=new_id(),
+                account_id=(
+                    loyalty_account.id
+                ),
+                points=-loyalty_points,
+                action="redeemed",
+            )
+        )
+
+    coupon_discount = 0.0
+
+    coupon = None
+
+    coupon_lock_key = None
 
     if payload.coupon_id:
-        active_coupon = await db.get(Coupon, payload.coupon_id)
 
-        if not active_coupon:
+        coupon = await db.get(
+            Coupon,
+            payload.coupon_id,
+        )
+
+        if not coupon:
             raise HTTPException(
                 status_code=404,
-                detail="Coupon not found.",
+                detail="Coupon not found",
             )
 
-        if hasattr(active_coupon, "is_active") and not active_coupon.is_active:
+        if (
+            hasattr(
+                coupon,
+                "is_active",
+            )
+            and not coupon.is_active
+        ):
             raise HTTPException(
                 status_code=400,
-                detail="This coupon campaign has been temporarily deactivated or suspended by the store merchant.",
+                detail="Coupon inactive",
             )
 
-        is_coupon_locked = getattr(active_coupon, "is_locked", False) or False
-        
-        if not is_coupon_locked:
-            existing_active_use = await db.execute(
-                select(Order).where(
-                    Order.coupon_id == payload.coupon_id,
-                    Order.status.notin_(["cancelled", "completed", "cancel_requested"])
-                )
-            )
-            if existing_active_use.scalars().first():
-                is_coupon_locked = True
-
-        if is_coupon_locked:
+        if coupon.is_redeemed:
             raise HTTPException(
                 status_code=400,
-                detail="This coupon code is currently locked by another active processing order. Please complete or cancel that checkout first.",
+                detail=(
+                    "Coupon already redeemed"
+                ),
             )
 
-        if active_coupon.is_redeemed:
+        coupon_lock_key = (
+            f"coupon:{coupon.id}"
+        )
+
+        lock_acquired = (
+            await acquire_lock(
+                coupon_lock_key,
+                ttl_seconds=120,
+            )
+        )
+
+        if not lock_acquired:
             raise HTTPException(
                 status_code=400,
-                detail="Coupon already exhausted.",
+                detail=(
+                    "Coupon currently "
+                    "being used"
+                ),
             )
 
-        remaining_after_loyalty = max(
+        remaining_total = max(
             0.0,
-            base_total_price - calculated_loyalty_discount,
+            total_price
+            - loyalty_discount,
         )
 
-        coupon_discount_applied = min(
-            float(active_coupon.discount_value),
-            float(remaining_after_loyalty),
+        coupon_discount = min(
+            float(
+                coupon.discount_value
+            ),
+            remaining_total,
         )
 
-        active_coupon.discount_value = round(
-            float(active_coupon.discount_value) - coupon_discount_applied,
+        coupon.discount_value = round(
+            float(
+                coupon.discount_value
+            )
+            - coupon_discount,
             2,
         )
 
-        if active_coupon.discount_value <= 0:
-            active_coupon.discount_value = 0
-            active_coupon.is_redeemed = True
-            
-        if hasattr(active_coupon, "is_locked"):
-            active_coupon.is_locked = True
+        if (
+            coupon.discount_value
+            <= 0
+        ):
+            coupon.discount_value = 0
+            coupon.is_redeemed = True
 
-    final_total_price = max(
+    final_total = max(
         0.0,
-        base_total_price - calculated_loyalty_discount - coupon_discount_applied,
+        total_price
+        - loyalty_discount
+        - coupon_discount,
     )
 
-    # ─── 🚀 SMART SPLIT-PAYMENT STATUS METHOD ASSIGNMENTS ───
-    if final_total_price == 0.0:
-        assigned_payment_method = "coupon"
-        assigned_payment_status = "paid"
-    else:
-        assigned_payment_method = payload.payment_method
-        assigned_payment_status = "paid" if payload.payment_method == "online" else "pending"
+    payment_method = (
+        "coupon"
+        if final_total == 0
+        else payload.payment_method
+    )
 
-    addr_string = None
-    incoming_address_id = getattr(payload, "delivery_address_id", None)
+    payment_status = (
+        "paid"
+        if payment_method
+        in ["online", "coupon"]
+        else "pending"
+    )
 
-    if getattr(payload, "order_type", "delivery") == "delivery" and incoming_address_id:
-        try:
-            addr_id = incoming_address_id
-            cursor = await db.execute(
-                text(
-                    f"SELECT title, address_line, landmark FROM user_addresses WHERE id = '{addr_id}'"
-                )
+    try:
+
+        order = Order(
+            id=new_id(),
+            customer_id=user.id,
+            shop_id=shop.id,
+            total_price=round(
+                final_total,
+                2,
+            ),
+            prep_time_minutes=max(
+                prep_times
+            ) if prep_times else 0,
+            scheduled_at=(
+                payload.scheduled_at
+            ),
+            instructions=(
+                payload.instructions
+            ),
+            payment_method=(
+                payment_method
+            ),
+            payment_status=(
+                payment_status
+            ),
+            order_type=(
+                payload.order_type
+            ),
+            delivery_address_id=getattr(
+                payload,
+                "delivery_address_id",
+                None,
+            ),
+            loyalty_points_used=(
+                loyalty_points
+            ),
+            loyalty_discount_amount=(
+                loyalty_discount
+            ),
+            coupon_id=(
+                payload.coupon_id
+            ),
+            coupon_discount_applied=(
+                coupon_discount
+            ),
+        )
+
+        db.add(order)
+
+        await db.flush()
+
+        for item in order_items:
+            item.order_id = order.id
+            db.add(item)
+
+        await db.commit()
+
+    except Exception:
+
+        if coupon_lock_key:
+            await release_lock(
+                coupon_lock_key
             )
-            row = cursor.fetchone()
-            if row:
-                addr_string = f"[{row[0]}] {row[1]}" + (f" (Landmark: {row[2]})" if row[2] else "")
-            else:
-                cursor_alt = await db.execute(
-                    text(
-                        f"SELECT title, address_line, landmark FROM addresses WHERE id = '{addr_id}'"
-                    )
-                )
-                row_alt = cursor_alt.fetchone()
-                if row_alt:
-                    addr_string = f"[{row_alt[0]}] {row_alt[1]}" + (f" (Landmark: {row_alt[2]})" if row_alt[2] else "")
-        except Exception:
-            addr_string = incoming_address_id
 
-    order = Order(
-        id=new_id(),
-        customer_id=user.id,
-        shop_id=shop.id,
-        total_price=round(final_total_price, 2),
-        prep_time_minutes=max(prep_times) if prep_times else 0,
-        scheduled_at=payload.scheduled_at,
-        instructions=payload.instructions,
-        payment_method=assigned_payment_method,  # 👈 Saves core remainder option if split-payment occurs
-        order_type=payload.order_type,
-        delivery_address_id=addr_string if payload.order_type == "delivery" else None,
-        payment_status=assigned_payment_status,
-        loyalty_points_used=points_to_redeem,
-        loyalty_discount_amount=calculated_loyalty_discount,
-        coupon_id=payload.coupon_id,
-        coupon_discount_applied=coupon_discount_applied,
+        raise
+
+    await send_sms(
+        user.phone,
+        (
+            f"Order {order.id} "
+            f"placed successfully "
+            f"at {shop.name}"
+        ),
     )
 
-    db.add(order)
-    await db.flush()
+    created_order = (
+        await get_order_or_404(
+            db,
+            order.id,
+        )
+    )
 
-    for oi in order_items:
-        oi.order_id = order.id
-        db.add(oi)
-
-    await db.commit()
-
-    await send_sms(user.phone, f"Order {order.id} placed successfully at {shop.name}")
-
-    finalized_order = await _load_order_with_relations(db, order.id)
-    if not finalized_order:
-        raise HTTPException(status_code=500, detail="Failed to reload created order.")
-
-    return finalized_order
+    return created_order
 
 
-@router.get("/{order_id}", response_model=OrderOut)
+# ─────────────────────────────────────────────────────────────
+# Get Single Order
+# ─────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{order_id}",
+    response_model=OrderOut,
+)
 async def get_order(
     order_id: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "shop_owner", "admin"))],
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(
+            require_roles(
+                "customer",
+                "shop_owner",
+                "admin",
+            )
+        ),
+    ],
 ) -> OrderOut:
-    return await _get_clean_serialized_order(db, order_id, user)
+
+    order = await get_order_or_404(
+        db,
+        order_id,
+    )
+
+    await verify_order_access(
+        db,
+        user,
+        order,
+    )
+
+    return order
 
 
-@router.get("/ticket/{order_id}", response_model=OrderOut)
+@router.get(
+    "/ticket/{order_id}",
+    response_model=OrderOut,
+)
 async def get_order_ticket_details(
     order_id: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
 ) -> OrderOut:
-    return await _get_clean_serialized_order(db, order_id, user)
+
+    order = await get_order_or_404(
+        db,
+        order_id,
+    )
+
+    await verify_order_access(
+        db,
+        user,
+        order,
+    )
+
+    return order
 
 
-@router.get("/customer/me", response_model=list[OrderOut])
+# ─────────────────────────────────────────────────────────────
+# Customer Orders
+# ─────────────────────────────────────────────────────────────
+
+@router.get(
+    "/customer/me",
+    response_model=list[OrderOut],
+)
 async def customer_orders(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("customer", "admin"))],
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(
+            require_roles(
+                "customer",
+                "admin",
+            )
+        ),
+    ],
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        20,
+        ge=1,
+        le=100,
+    ),
 ) -> list[OrderOut]:
+
     stmt = (
         select(Order)
-        .where(Order.customer_id == user.id)
-        .options(
-            selectinload(Order.items),
-            selectinload(Order.customer),
-            selectinload(Order.shop),
+        .where(
+            Order.customer_id
+            == user.id
         )
-        .order_by(Order.created_at.desc())
-        .offset((page - 1) * page_size)
+        .options(
+            selectinload(
+                Order.items
+            ),
+            selectinload(
+                Order.customer
+            ),
+            selectinload(
+                Order.shop
+            ),
+        )
+        .order_by(
+            Order.created_at.desc()
+        )
+        .offset(
+            (page - 1)
+            * page_size
+        )
         .limit(page_size)
     )
-    rows = (await db.execute(stmt)).scalars().all()
-    return list(rows)
+
+    orders = (
+        await db.execute(stmt)
+    ).scalars().all()
+
+    return list(orders)
 
 
-@router.get("/shops/{shop_id}", response_model=list[OrderOut])
+# ─────────────────────────────────────────────────────────────
+# Shop Orders
+# ─────────────────────────────────────────────────────────────
+
+@router.get(
+    "/shops/{shop_id}",
+    response_model=list[OrderOut],
+)
 async def shop_orders(
     shop_id: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_roles("shop_owner", "admin"))],
-    status_filter: str | None = Query(default=None, alias="status"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(
+            require_roles(
+                "shop_owner",
+                "admin",
+            )
+        ),
+    ],
+    status_filter: str | None = Query(
+        None,
+        alias="status",
+    ),
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        20,
+        ge=1,
+        le=100,
+    ),
 ) -> list[OrderOut]:
-    shop = await db.get(Shop, shop_id)
-    if not shop:
-        raise HTTPException(404, "Shop not found")
 
-    if user.role != "admin" and shop.owner_id != user.id:
+    shop = await get_shop_or_404(
+        db,
+        shop_id,
+    )
+
+    if (
+        user.role != "admin"
+        and shop.owner_id != user.id
+    ):
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied. Logged-in profile ({user.id}) does not match the merchant record for this store.",
+            detail="Forbidden",
         )
 
     stmt = (
         select(Order)
-        .where(Order.shop_id == shop_id)
+        .where(
+            Order.shop_id == shop_id
+        )
         .options(
-            selectinload(Order.items),
-            selectinload(Order.customer),
-            selectinload(Order.shop),
+            selectinload(
+                Order.items
+            ),
+            selectinload(
+                Order.customer
+            ),
+            selectinload(
+                Order.shop
+            ),
         )
     )
+
     if status_filter:
-        stmt = stmt.where(Order.status == status_filter)
+        stmt = stmt.where(
+            Order.status
+            == status_filter
+        )
 
-    stmt = stmt.order_by(Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    rows = (await db.execute(stmt)).scalars().all()
-    return list(rows)
+    stmt = (
+        stmt.order_by(
+            Order.created_at.desc()
+        )
+        .offset(
+            (page - 1)
+            * page_size
+        )
+        .limit(page_size)
+    )
+
+    orders = (
+        await db.execute(stmt)
+    ).scalars().all()
+
+    return list(orders)
 
 
-@router.patch("/{order_id}/status", response_model=OrderOut)
+# ─────────────────────────────────────────────────────────────
+# Update Order Status
+# ─────────────────────────────────────────────────────────────
+
+@router.patch(
+    "/{order_id}/status",
+    response_model=OrderOut,
+)
 async def update_order_status(
     order_id: str,
     payload: OrderStatusUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
 ):
-    stmt = (
-        select(Order)
-        .where(Order.id == order_id)
-        .options(
-            selectinload(Order.items),
-            selectinload(Order.customer),
-            selectinload(Order.shop),
-        )
+
+    order = await get_order_or_404(
+        db,
+        order_id,
     )
-    order = (await db.execute(stmt)).scalar_one_or_none()
 
-    if not order:
-        raise HTTPException(status_code=404, detail="Order missing")
+    incoming_status = (
+        payload.status
+    )
 
-    incoming_status = getattr(payload, "status", None)
-
-    # ─── 🛡️ THE BULLETPROOF ATOMIC CANCELLATION ENGINE ───
     if incoming_status == "cancelled":
-        if order.status in ["cancelled", "completed"]:
-            raise HTTPException(status_code=400, detail="Terminal order states cannot be altered.")
-            
-        if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
-            raise HTTPException(status_code=403, detail="Unauthorized merchant boundary profile.")
 
-        if order.coupon_id:
-            coupon = await db.get(Coupon, order.coupon_id)
-            if coupon:
-                if order.coupon_discount_applied > 0:
-                    coupon.discount_value = round(
-                        float(coupon.discount_value) + float(order.coupon_discount_applied),
-                        2,
-                    )
-                coupon.is_redeemed = False
-                if hasattr(coupon, "is_locked"):
-                    coupon.is_locked = False
-                
+        if order.status in [
+            "cancelled",
+            "completed",
+        ]:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Order already finalized"
+                ),
+            )
+
+        if (
+            user.role == "shop_owner"
+            and order.shop
+            and order.shop.owner_id
+            != user.id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden",
+            )
+
+        await restore_coupon(
+            db,
+            order,
+        )
 
         order.status = "cancelled"
-        order.is_cancellation_pending = False
+
+        order.is_cancellation_pending = (
+            False
+        )
+
         await db.commit()
 
-        refreshed = await _load_order_with_relations(db, order.id)
-        if not refreshed:
-            raise HTTPException(status_code=500, detail="Failed to reload updated order workflow state.")
-        return refreshed
+        return await get_order_or_404(
+            db,
+            order.id,
+        )
 
-    # ─── UNIFIED LOCK RELEASE ON COMPLETED ORDER FINALIZE ───
-    if incoming_status == "completed" and order.coupon_id:
-        coupon = await db.get(Coupon, order.coupon_id)
-        if coupon and hasattr(coupon, "is_locked"):
-            coupon.is_locked = False
+    if incoming_status == "completed":
 
-    # Process Customer Intent Rules
-    if incoming_status == "cancel_requested":
-        if order.status in ["cancelled", "completed"]:
-            raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
-        if order.cancellation_requests_sent >= 3:
-            raise HTTPException(status_code=400, detail="Maximum cancellation requests reached.")
-        if order.is_cancellation_pending:
-            raise HTTPException(status_code=400, detail="Cancellation request already pending approval.")
+        if (
+            order.payment_method
+            == "cod"
+            and order.payment_status
+            != "paid"
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Payment pending",
+            )
+
+        await unlock_coupon(
+            order
+        )
+
+        order.status = "completed"
+
+        await db.commit()
+
+        return await get_order_or_404(
+            db,
+            order.id,
+        )
+
+    if (
+        incoming_status
+        == "cancel_requested"
+    ):
+
+        if order.status in [
+            "cancelled",
+            "completed",
+        ]:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Order cannot "
+                    "be cancelled"
+                ),
+            )
+
+        if (
+            order
+            .cancellation_requests_sent
+            >= 3
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Too many "
+                    "cancellation requests"
+                ),
+            )
+
+        if (
+            order
+            .is_cancellation_pending
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Cancellation already pending"
+                ),
+            )
 
         order.cancellation_requests_sent += 1
-        order.is_cancellation_pending = True
-        order.cancellation_reason = getattr(payload, "reason", None)
-        order.status = "cancel_requested"
+
+        order.is_cancellation_pending = (
+            True
+        )
+
+        order.cancellation_reason = (
+            getattr(
+                payload,
+                "reason",
+                None,
+            )
+        )
+
+        order.status = (
+            "cancel_requested"
+        )
 
         await db.commit()
 
-        refreshed = await _load_order_with_relations(db, order.id)
-        if not refreshed:
-            raise HTTPException(status_code=500, detail="Failed to reload updated order.")
+        return await get_order_or_404(
+            db,
+            order.id,
+        )
 
-        return refreshed
+    if user.role in [
+        "shop_owner",
+        "admin",
+    ]:
 
-    # Process Administrative / Merchant Intent Rules
-    if user.role in ["shop_owner", "admin"]:
-        if user.role == "shop_owner" and order.shop and order.shop.owner_id != user.id:
-            raise HTTPException(status_code=403, detail="Forbidden")
+        if (
+            user.role
+            == "shop_owner"
+            and order.shop
+            and order.shop.owner_id
+            != user.id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden",
+            )
 
-        if incoming_status == "resume_order":
+        if (
+            incoming_status
+            == "resume_order"
+        ):
             order.status = "accepted"
-            order.is_cancellation_pending = False
 
-            await db.commit()
+            order.is_cancellation_pending = (
+                False
+            )
 
-            refreshed = await _load_order_with_relations(db, order.id)
-            if not refreshed:
-                raise HTTPException(status_code=500, detail="Failed to reload updated order.")
+        elif (
+            incoming_status
+            == "mark_as_paid"
+        ):
+            order.payment_status = (
+                "paid"
+            )
 
-            return refreshed
+        elif (
+            incoming_status
+            == "mark_as_unpaid"
+        ):
 
-        elif incoming_status == "completed":
-            if order.payment_method == "cod" and order.payment_status != "paid":
-                raise HTTPException(status_code=400, detail="Collect cash first before completing.")
+            if (
+                order.status
+                == "completed"
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Completed orders "
+                        "cannot be unpaid"
+                    ),
+                )
 
-            order.status = "completed"
-            await db.commit()
+            order.payment_status = (
+                "pending"
+            )
 
-            refreshed = await _load_order_with_relations(db, order.id)
-            if not refreshed:
-                raise HTTPException(status_code=500, detail="Failed to reload updated order.")
+        else:
+            order.status = (
+                incoming_status
+            )
 
-            return refreshed
+        await db.commit()
 
-        elif incoming_status in ["mark_as_paid", "mark_as_unpaid"]:
-            if incoming_status == "mark_as_unpaid" and order.status == "completed":
-                raise HTTPException(status_code=400, detail="Completed orders cannot be marked as unpaid.")
+        return await get_order_or_404(
+            db,
+            order.id,
+        )
 
-            order.payment_status = "paid" if incoming_status == "mark_as_paid" else "pending"
-            await db.commit()
-
-            refreshed = await _load_order_with_relations(db, order.id)
-            if not refreshed:
-                raise HTTPException(status_code=500, detail="Failed to reload updated order.")
-
-            return refreshed
-
-    # Catch-all status fallback channel handler
     order.status = incoming_status
+
     await db.commit()
 
-    refreshed = await _load_order_with_relations(db, order.id)
-    if not refreshed:
-        raise HTTPException(status_code=500, detail="Failed to reload updated order.")
-
-    return refreshed
+    return await get_order_or_404(
+        db,
+        order.id,
+    )

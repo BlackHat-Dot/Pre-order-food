@@ -1,50 +1,204 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from redis.asyncio import Redis
 
-from app.core.config import settings
+from app.db.session import get_redis
+
+logger = logging.getLogger(__name__)
 
 
-_redis: Redis | None = None
+# ─────────────────────────────────────────────────────────────
+# Base Redis Access
+# ─────────────────────────────────────────────────────────────
+
+async def redis_client() -> Redis | None:
+    return await get_redis()
 
 
-async def get_redis():
+# ─────────────────────────────────────────────────────────────
+# JSON Cache
+# ─────────────────────────────────────────────────────────────
 
-    return None
+async def cache_get_json(
+    key: str,
+) -> Any | None:
+    redis = await redis_client()
 
-
-async def cache_get_json(key: str) -> Any | None:
-    r = await get_redis()
-    if not r:
+    if not redis:
         return None
-    raw = await r.get(key)
-    if not raw:
+
+    raw = await redis.get(key)
+
+    if raw is None:
         return None
-    return json.loads(raw)
+
+    try:
+        return json.loads(raw)
+
+    except json.JSONDecodeError:
+        logger.warning(
+            (
+                "Invalid JSON cache "
+                "payload key=%s"
+            ),
+            key,
+        )
+
+        return None
 
 
-async def cache_set_json(key: str, value: Any, ttl_seconds: int = 300) -> None:
-    r = await get_redis()
-    if not r:
+async def cache_set_json(
+    key: str,
+    value: Any,
+    ttl_seconds: int = 300,
+) -> None:
+    redis = await redis_client()
+
+    if not redis:
         return
-    await r.set(key, json.dumps(value, default=str), ex=ttl_seconds)
+
+    await redis.set(
+        key,
+        json.dumps(
+            value,
+            default=str,
+        ),
+        ex=max(1, ttl_seconds),
+    )
 
 
-async def cache_delete(*keys: str) -> None:
-    r = await get_redis()
-    if not r or not keys:
+# ─────────────────────────────────────────────────────────────
+# Plain Cache
+# ─────────────────────────────────────────────────────────────
+
+async def cache_get(
+    key: str,
+) -> str | None:
+    redis = await redis_client()
+
+    if not redis:
+        return None
+
+    return await redis.get(key)
+
+
+async def cache_set(
+    key: str,
+    value: str,
+    ttl_seconds: int = 300,
+) -> None:
+    redis = await redis_client()
+
+    if not redis:
         return
-    plain_keys: list[str] = []
+
+    await redis.set(
+        key,
+        value,
+        ex=max(1, ttl_seconds),
+    )
+
+
+async def cache_exists(
+    key: str,
+) -> bool:
+    redis = await redis_client()
+
+    if not redis:
+        return False
+
+    return bool(
+        await redis.exists(key)
+    )
+
+
+async def cache_delete(
+    *keys: str,
+) -> None:
+    redis = await redis_client()
+
+    if not redis or not keys:
+        return
+
+    resolved_keys: list[str] = []
+
     for key in keys:
         if "*" in key:
-            matched = await r.keys(key)
-            if matched:
-                plain_keys.extend(matched)
-        else:
-            plain_keys.append(key)
-    if plain_keys:
-        await r.delete(*plain_keys)
+            async for matched_key in redis.scan_iter(
+                match=key,
+            ):
+                resolved_keys.append(
+                    matched_key
+                )
 
+        else:
+            resolved_keys.append(key)
+
+    if resolved_keys:
+        await redis.delete(
+            *resolved_keys
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# Counters / Rate Limiting
+# ─────────────────────────────────────────────────────────────
+
+async def cache_increment(
+    key: str,
+    ttl_seconds: int | None = None,
+) -> int:
+    redis = await redis_client()
+
+    if not redis:
+        return 0
+
+    value = await redis.incr(key)
+
+    if ttl_seconds:
+        await redis.expire(
+            key,
+            ttl_seconds,
+        )
+
+    return int(value)
+
+
+# ─────────────────────────────────────────────────────────────
+# Distributed Locks
+# ─────────────────────────────────────────────────────────────
+
+async def acquire_lock(
+    key: str,
+    ttl_seconds: int = 30,
+) -> bool:
+    redis = await redis_client()
+
+    if not redis:
+        return False
+
+    return bool(
+        await redis.set(
+            f"lock:{key}",
+            "1",
+            ex=max(1, ttl_seconds),
+            nx=True,
+        )
+    )
+
+
+async def release_lock(
+    key: str,
+) -> None:
+    redis = await redis_client()
+
+    if not redis:
+        return
+
+    await redis.delete(
+        f"lock:{key}"
+    )
