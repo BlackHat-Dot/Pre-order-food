@@ -30,7 +30,7 @@ from app.models.order import Order
 from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.order import (
-    AdminOrderStatusUpdate,
+    OrderStatusUpdate,
 )
 from app.services.cache import (
     cache_delete,
@@ -332,7 +332,7 @@ async def admin_list_orders(
 )
 async def update_order_status_admin(
     order_id: str,
-    payload: AdminOrderStatusUpdate,
+    payload: OrderStatusUpdate,
     db: Annotated[
         AsyncSession,
         Depends(get_db),
