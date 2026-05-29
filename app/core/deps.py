@@ -134,17 +134,6 @@ async def _user_from_access_token(
         f"auth:user:{user_id}"
     )
 
-    cached_user = (
-        await cache_get_json(
-            cache_key
-        )
-    )
-
-    if cached_user:
-
-        return User(
-            **cached_user
-        )
 
     t0 = time.perf_counter()
 
@@ -183,19 +172,21 @@ async def _user_from_access_token(
         )
 
     await cache_set_json(
-        cache_key,
-        {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "phone": user.phone,
-            "role": user.role,
-            "is_active": (
-                user.is_active
-            ),
-        },
-        ttl_seconds=300,
-    )
+    cache_key,
+    {
+        "id": user.id,
+        "role": user.role,
+        "name": user.name,
+        "phone": user.phone,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "is_active": user.is_active,
+        "phone_verified": user.phone_verified,
+        "email_verified": user.email_verified,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+    },
+)
 
     return user
 
