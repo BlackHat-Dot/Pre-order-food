@@ -73,6 +73,22 @@ function AdminGlobalOrdersPage() {
 
   const visibleOrders = Array.isArray(orders) ? orders : [];
 
+  const calculateDiscountPercentage = (order: any): number => {
+  const couponDiscount = Number(order?.coupon_discount_applied || 0);
+  const loyaltyDiscount = Number(order?.loyalty_discount_amount || 0);
+
+  const totalDiscount = couponDiscount + loyaltyDiscount;
+
+  const originalAmount =
+    Number(order?.total_price || 0) + totalDiscount;
+
+  if (originalAmount <= 0) {
+    return totalDiscount > 0 ? 100 : 0;
+  }
+
+  return Math.round((totalDiscount / originalAmount) * 100);
+};
+
   useEffect(() => {
     if (selectedOrder && visibleOrders.length > 0) {
       const currentFreshInstance = visibleOrders.find((o: any) => o?.id === selectedOrder.id);
@@ -221,7 +237,7 @@ function AdminGlobalOrdersPage() {
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Off Rate</p>
                   <p className="font-bold text-emerald-600 text-sm leading-tight">
-                    {selectedOrder.discount_percentage ?? 0}%
+                    {calculateDiscountPercentage(selectedOrder)}%
                   </p>
                 </div>
               </div>
