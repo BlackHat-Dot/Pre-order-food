@@ -361,12 +361,10 @@ async def update_order_status_admin(
     return order
 
 
-@router.patch(
-    "/orders/{order_id}/override"
-)
+@router.post("/orders/{order_id}/override")
 async def admin_global_status_override(
     order_id: str,
-    status: str,
+    payload: OrderStatusUpdate,
     db: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -387,11 +385,23 @@ async def admin_global_status_override(
             detail="Order not found",
         )
 
-    order.status = status
+    # Completed orders are immutable
+    if (
+        order.status == "completed"
+        and payload.status == "cancelled"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Completed orders cannot be cancelled",
+        )
+
+    order.status = payload.status
 
     await db.commit()
 
     await clear_admin_analytics_cache()
+
+    await db.refresh(order)
 
     return {
         "updated": True,
