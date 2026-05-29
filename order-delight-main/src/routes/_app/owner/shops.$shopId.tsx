@@ -32,6 +32,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  CountryPhoneInput,
+  Msg91Widget,
+  DEFAULT_COUNTRY,
+  buildE164,
+  isPhoneValid,
+  COUNTRIES,
+  type Country,
+} from "@/components/phone";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/owner/shops/$shopId")({ component: OwnerShop });
@@ -571,19 +580,18 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
       await qc.cancelQueries({ queryKey });
 
-      const previous =
-    qc.getQueryData(queryKey);
+      const previous = qc.getQueryData(queryKey);
 
       qc.setQueryData(
-    queryKey,
-    (old: any) =>
-      Array.isArray(old)
-        ? old.map((order: any) =>
-            order.id === id
-              ? { ...order, status: st }
-              : order
-          )
-        : old
+        queryKey,
+        (old: any) =>
+          Array.isArray(old)
+            ? old.map((order: any) =>
+                order.id === id
+                  ? { ...order, status: st }
+                  : order
+              )
+            : old
       );
 
       return { previous };
@@ -596,9 +604,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         );
       }
 
-      toast.error(
-      "Failed to update order status"
-      );
+      toast.error("Failed to update order status");
     },
     mutationFn: async ({ id, st }: { id: string; st: string }) => {
       setUpdatingOrderId(id);
@@ -691,7 +697,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const buyerName = o.customer?.name || "Customer Account";
             const buyerPhone = o.customer?.phone || "—";
             const buyerEmail = o.customer?.email || "—";
-            const itemCount = Array.isArray(o.items) ? o.items.length : 0;
 
             const canChangePipeline =
               !isAnyRowProcessing &&
@@ -737,15 +742,12 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                 ].join(" ")}
               >
                 <CardContent className="p-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-normal">
-                  
-                  {/* Summary badges layout section panel blocks */}
                   <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
                     <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
                       #{String(o.id).slice(0, 8).toUpperCase()}
                     </span>
                     <StatusBadge status={currentStatus} />
                     
-                    {/* Aligned enterprise indicators from admin model specs */}
                     <Badge variant="outline" className="text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-background border-border/50 text-muted-foreground gap-1.5 flex items-center shadow-none">
                       {isTableMode ? (
                         <>
@@ -767,15 +769,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </Badge>
                   </div>
 
-                  {/* Horizontal High-Density Summary Data Ribbon */}
                   <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
                     <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {buyerName}</div>
                     <div className="truncate font-mono"><span className="text-foreground font-medium">Phone:</span> {buyerPhone}</div>
                     <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
                   </div>
 
-                  {/* Action elements pipeline trigger block layout splits */}
-                  <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
+                  <div className="flex items-center justify-between w-full md:w-auto gap-3 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
                     <span className="font-semibold text-sm text-foreground tracking-tight min-w-[75px] text-right">
                       {formatCurrency(o.total_price)}
                     </span>
@@ -828,7 +828,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                               </Button>
                           )}
 
-                          {/* Action Selector Pipeline Dropdown Link */}
                           {!isExpanded && canChangePipeline &&
                             !isCurrentOrderUpdating && (
                               <OrderStatusSelector compact />
@@ -852,14 +851,10 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       </Button>
                     </div>
                   </div>
-
                 </CardContent>
 
-                {/* Collapsible item details view container section logs */}
                 {isExpanded && (
                   <div className="bg-muted/10 p-4 space-y-4 border-t border-border/30 animate-in slide-in-from-top-1 duration-150 text-left">
-                    
-                    {/* Aligned enterprise structural customer configuration grids mapping profiles */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><User className="h-3 w-3" /> Customer Profile</p>
@@ -902,7 +897,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                       </div>
                     </div>
 
-                    {/* Status modifier dropdown nested accurately below lines summaries item snapshots inside View expanded panel tray */}
                     {!isCancelledState &&
                     !isCompletedState &&
                     !isCurrentOrderUpdating && (
@@ -926,28 +920,106 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
 function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   const qc = useQueryClient();
+  const originalPhone = initial.phone ?? "";
+  const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [localNumber, setLocalNumber] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
+  const [isHydrating, setIsHydrating] = useState(true);
+  
   const [form, setForm] = useState({
     name: initial.name ?? "",
     description: initial.description ?? "",
     address: initial.address ?? "",
-    phone: initial.phone ?? "",
     cuisine: initial.cuisine ?? "",
     image_url: initial.image_url ?? "",
     loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
   });
+
+  useEffect(() => {
+    if (!initial.phone) {
+      setIsHydrating(false);
+      return;
+    }
+
+    setVerifiedPhone(initial.phone);
+    setPhoneVerified(true);
+
+    const sortedCountries = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+    const matchedCountry = sortedCountries.find((c) => initial.phone.startsWith(c.dialCode));
+    
+    if (matchedCountry) {
+      setCountry(matchedCountry);
+      setLocalNumber(initial.phone.slice(matchedCountry.dialCode.length));
+    } else {
+      const dial = DEFAULT_COUNTRY.dialCode;
+      if (initial.phone.startsWith(dial)) {
+        setLocalNumber(initial.phone.slice(dial.length));
+      }
+    }
+    
+    setIsHydrating(false);
+  }, [initial.phone]);
+
+  const cleanFullPhone = buildE164(country.dialCode, localNumber);
+  const phoneChanged = cleanFullPhone !== originalPhone;
+  const phoneReady = isPhoneValid(country, localNumber);
   
   const save = useMutation({
-    mutationFn: () =>
-      shopsApi.update(shopId, {
-        ...form,
-        loyalty_discount_per_point: Number.parseFloat(form.loyalty_discount_per_point || "0"),
-      } as any),
+    mutationFn: () => {
+        if (!cleanFullPhone) {
+          throw new Error("Phone number required");
+        }
+
+        if (phoneChanged && !phoneVerified) {
+          throw new Error("Verify the new phone number first");
+        }
+      
+        return shopsApi.update(shopId, {
+          ...form,
+          phone: cleanFullPhone,
+          phone_verification_token: phoneChanged ? phoneVerificationToken : undefined,
+          loyalty_discount_per_point: Number.parseFloat(
+            form.loyalty_discount_per_point || "0"
+          ),
+        } as any);
+    },
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["shop", shopId] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
+
+  function resetPhoneVerification() {
+    setPhoneVerified(false);
+    setVerifiedPhone(null);
+    setPhoneVerificationToken(null);
+  }
+
+  function handleCountryChange(c: Country) {
+    setCountry(c);
+    const candidate = buildE164(c.dialCode, localNumber);
+    if (verifiedPhone && candidate !== verifiedPhone) {
+      resetPhoneVerification();
+    }
+  }
+  
+  function handleLocalNumberChange(n: string) {
+    setLocalNumber(n);
+    const candidate = buildE164(country.dialCode, n);
+    if (verifiedPhone && candidate !== verifiedPhone) {
+      resetPhoneVerification();
+    }
+  }
+  
+  function handlePhoneVerified(token: string, phone: string) {
+    setPhoneVerificationToken(token);
+    setVerifiedPhone(phone);
+    setPhoneVerified(true);
+    toast.success("Phone verified successfully");
+  }
   
   return (
     <Card>
@@ -955,7 +1027,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
         <CardTitle>Shop settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-left">
-        {(["name", "cuisine", "address", "phone", "image_url"] as const).map((k) => (
+        {(["name", "cuisine", "address", "image_url"] as const).map((k) => (
           <div key={k} className="space-y-2">
             <Label className="capitalize">{k.replace("_", " ")}</Label>
             <Input
@@ -964,6 +1036,38 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
             />
           </div>
         ))}
+
+        <div className="space-y-2">
+          <Label>Phone Number</Label>
+
+          <CountryPhoneInput
+            country={country}
+            localNumber={localNumber}
+            onCountryChange={handleCountryChange}
+            onLocalNumberChange={handleLocalNumberChange}
+          />
+
+          <Msg91Widget
+            phone={cleanFullPhone}
+            purpose="profile_phone"
+            onVerified={handlePhoneVerified}
+            disabled={!phoneReady}
+            isVerified={phoneVerified}
+          />
+
+          {isHydrating ? (
+            <p className="text-xs text-muted-foreground animate-pulse">Syncing contact profiles...</p>
+          ) : phoneVerified ? (
+            <p className="text-xs text-emerald-500">
+              Verified: {verifiedPhone}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-500">
+              Phone number requires verification
+            </p>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label>Loyalty discount per point</Label>
           <Input
@@ -981,7 +1085,10 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           />
         </div>
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+        <Button 
+          onClick={() => save.mutate()} 
+          disabled={save.isPending || isHydrating || (phoneChanged && !phoneVerified)}
+        >
           Save
         </Button>
       </CardContent>
