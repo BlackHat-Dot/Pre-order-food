@@ -75,13 +75,10 @@ def day_bucket_expr(
         else ""
     )
 
-    if dialect == "sqlite":
+    if dialect in {"postgresql", "sqlite"}:
         return func.date(column)
 
-    return cast(
-        func.date(column),
-        Integer,
-    )
+    return func.date(column)
 
 
 # ─────────────────────────────────────────────────────────────
