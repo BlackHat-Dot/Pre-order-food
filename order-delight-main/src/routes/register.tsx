@@ -149,20 +149,6 @@ function RegisterPage() {
                 />
               </div>
 
-              {/* Email (optional) */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  placeholder="you@example.com"
-                />
-                <p className="text-xs text-muted-foreground">You can verify email later in your profile.</p>
-              </div>
-
               {/* Phone + MSG91 verification */}
               <div className="space-y-2">
                 <Label>Phone number</Label>
