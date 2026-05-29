@@ -955,6 +955,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
     address: initial.address ?? "",
     cuisine: initial.cuisine ?? "",
     image_url: initial.image_url ?? "",
+    pincode: initial.pincode ?? "",
     loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
   });
 
@@ -977,6 +978,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
       address: initial.address ?? "",
       cuisine: initial.cuisine ?? "",
       image_url: initial.image_url ?? "",
+      pincode: initial.pincode ?? "",
       loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
     });
   }, [initial]);
@@ -1085,7 +1087,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
         <CardTitle>Shop settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-left">
-        {(["name", "cuisine", "address", "image_url"] as const).map((k) => (
+        {(["name", "cuisine", "address", "pincode", "image_url"] as const).map((k) => (
           <div key={k} className="space-y-2">
             <Label className="capitalize">{k.replace("_", " ")}</Label>
             <Input
