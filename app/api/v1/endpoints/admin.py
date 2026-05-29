@@ -531,8 +531,8 @@ async def analytics_overview(
             ).where(
                 Order.created_at
                 >= month_start,
-                Order.payment_status
-                == "paid",
+                Order.status == "completed",
+                Order.payment_status == "paid"
             )
         )
     ).scalar_one()
@@ -549,8 +549,8 @@ async def analytics_overview(
             ).where(
                 Order.created_at
                 >= today_start,
-                Order.payment_status
-                == "paid",
+                Order.status == "completed",
+                Order.payment_status == "paid"
             )
         )
     ).scalar_one()
@@ -567,8 +567,8 @@ async def analytics_overview(
             ).where(
                 Order.created_at
                 >= week_start,
-                Order.payment_status
-                == "paid",
+                Order.status == "completed",
+                Order.payment_status == "paid"
             )
         )
     ).scalar_one()
@@ -583,8 +583,8 @@ async def analytics_overview(
                     0.0,
                 )
             ).where(
-                Order.payment_status
-                == "paid"
+                Order.status == "completed",
+                Order.payment_status == "paid"
             )
         )
     ).scalar_one()
@@ -724,7 +724,8 @@ async def analytics_trends(
             )
             .where(
                 Order.created_at
-                >= since
+                >= since,
+                Order.status == "completed"
             )
             .group_by(order_day)
             .order_by(order_day)
@@ -732,21 +733,20 @@ async def analytics_trends(
     ).all()
 
     daily_users = (
-        await db.execute(
-            select(
-                user_day,
-                func.count(
-                    User.id
-                ).label(
-                    "signups"
-                ),
-            )
-            .where(
-                User.created_at
-                >= since
-            )
-            .group_by(user_day)
-            .order_by(user_day)
+    await db.execute(
+        select(
+            user_day,
+            func.count(
+                User.id
+            ).label(
+                "signups"
+            ),
+        )
+        .where(
+            User.created_at >= since
+        )
+        .group_by(user_day)
+        .order_by(user_day)
         )
     ).all()
 
@@ -759,8 +759,7 @@ async def analytics_trends(
                 ),
             )
             .where(
-                Order.created_at
-                >= since
+                Order.created_at >= since
             )
             .group_by(
                 Order.status
@@ -888,8 +887,8 @@ async def top_shops(
             Order.shop_id == Shop.id,
         )
         .where(
-            Order.payment_status
-            == "paid"
+            Order.status == "completed",
+            Order.payment_status == "paid"
         )
         .group_by(Shop.id)
         .order_by(
