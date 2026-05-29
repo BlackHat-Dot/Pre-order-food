@@ -240,7 +240,7 @@ function CheckoutPage() {
 
   const couponDiscount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
   const payableTotal = Math.max(total - couponDiscount, 0);
-  const estimatedEarn = Math.floor(payableTotal * 0.05);
+  const estimatedEarn = Math.floor(payableTotal / 10);
 
   const combinedPaymentLabel = appliedCoupon 
     ? payableTotal === 0 
