@@ -28,6 +28,7 @@ from app.core.deps import (
 from app.db.session import get_db
 from app.models.order import Order
 from app.models.shop import Shop
+from app.api.v1.endpoints.orders import restore_coupon
 from app.models.user import User
 from app.schemas.order import (
     OrderStatusUpdate,
@@ -393,6 +394,15 @@ async def admin_global_status_override(
         raise HTTPException(
             status_code=400,
             detail="Completed orders cannot be cancelled",
+        )
+
+    if (
+        order.status != "cancelled"
+        and payload.status == "cancelled"
+    ):
+        await restore_coupon(
+            db,
+            order,
         )
 
     order.status = payload.status
