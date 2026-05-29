@@ -18,25 +18,25 @@ import {
   type Country,
 } from "@/components/phone";
 
-
 export const Route = createFileRoute("/_app/owner/shops/new")({ component: NewShop });
 
 function NewShop() {
   const navigate = useNavigate();
-  const [country, setCountry] =
-  useState<Country>(DEFAULT_COUNTRY);
+  const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [localNumber, setLocalNumber] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
 
-  const [localNumber, setLocalNumber] =
-    useState("");
-  
-  const [phoneVerified, setPhoneVerified] =
-    useState(false);
-  
-  const [verifiedPhone, setVerifiedPhone] =
-    useState<string | null>(null);
-  
-  const [phoneVerificationToken, setPhoneVerificationToken] =
-  useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    address: "",
+    phone: "",
+    cuisine: "",
+    image_url: "",
+    pincode: "",
+  });
 
   function resetPhoneVerification() {
     setPhoneVerified(false);
@@ -54,10 +54,7 @@ function NewShop() {
     resetPhoneVerification();
   }
 
-  function handlePhoneVerified(
-    token: string,
-    phone: string,
-  ) {
+  function handlePhoneVerified(token: string, phone: string) {
     setPhoneVerificationToken(token);
     setVerifiedPhone(phone);
     setPhoneVerified(true);
@@ -67,47 +64,35 @@ function NewShop() {
       phone,
     }));
 
-    toast.success(
-      "Phone verified successfully"
-    );
+    toast.success("Phone verified successfully");
   }
 
-  const fullPhone = buildE164(
-    country.dialCode,
-    localNumber
-  );
+  const fullPhone = buildE164(country.dialCode, localNumber);
+  const phoneReady = isPhoneValid(country, localNumber);
 
-  const phoneReady = isPhoneValid(
-    country,
-    localNumber
-  );
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    address: "",
-    phone: "",
-    cuisine: "",
-    image_url: "",
-  });
   const create = useMutation({
     mutationFn: () => {
       if (!phoneVerified || !verifiedPhone) {
-        throw new Error(
-          "Verify phone number first"
-        );
+        throw new Error("Verify phone number first");
+      }
+
+      if (!form.pincode || form.pincode.trim().length < 4) {
+        throw new Error("Pincode must be at least 4 characters");
       }
 
       return shopsApi.create({
         ...form,
         phone: verifiedPhone,
-      });
+        phone_verification_token: phoneVerificationToken,
+      } as any);
     },
     onSuccess: (s) => {
       toast.success("Shop created");
       navigate({ to: "/owner/shops/$shopId", params: { shopId: s.id } });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Failed"),
   });
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link to="/owner" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
@@ -116,7 +101,7 @@ function NewShop() {
       <h1 className="text-2xl font-bold tracking-tight">Create shop</h1>
       <Card>
         <CardContent className="space-y-4 p-6">
-          {(["name", "cuisine", "address", "image_url"] as const).map((k) => (
+          {(["name", "cuisine", "address", "pincode", "image_url"] as const).map((k) => (
             <div key={k} className="space-y-2">
               <Label className="capitalize">{k.replace("_", " ")}</Label>
               <Input
@@ -126,32 +111,23 @@ function NewShop() {
             </div>
           ))}
           <div className="space-y-2">
-              <Label>Phone number</Label>
+            <Label>Phone number</Label>
 
-              <CountryPhoneInput
-                country={country}
-                localNumber={localNumber}
-                onCountryChange={handleCountryChange}
-                onLocalNumberChange={handleLocalNumberChange}
-                disabled={phoneVerified}
-              />
+            <CountryPhoneInput
+              country={country}
+              localNumber={localNumber}
+              onCountryChange={handleCountryChange}
+              onLocalNumberChange={handleLocalNumberChange}
+              disabled={phoneVerified}
+            />
 
-              {phoneVerified ? (
-                <Msg91Widget
-                  phone={fullPhone}
-                  purpose="signup_phone"
-                  onVerified={handlePhoneVerified}
-                  isVerified={true}
-                />
-              ) : (
-                <Msg91Widget
-                  phone={fullPhone}
-                  purpose="signup_phone"
-                  onVerified={handlePhoneVerified}
-                  disabled={!phoneReady}
-                  isVerified={false}
-                />
-              )}
+            <Msg91Widget
+              phone={fullPhone}
+              purpose="signup_phone"
+              onVerified={handlePhoneVerified}
+              disabled={!phoneReady}
+              isVerified={phoneVerified}
+            />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>
@@ -160,10 +136,10 @@ function NewShop() {
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
           </div>
-          <Button onClick={() => create.mutate()} disabled={
-                  create.isPending ||
-                  !phoneVerified
-                  }>
+          <Button 
+            onClick={() => create.mutate()} 
+            disabled={create.isPending || !phoneVerified}
+          >
             {create.isPending ? "Creating…" : "Create shop"}
           </Button>
         </CardContent>
