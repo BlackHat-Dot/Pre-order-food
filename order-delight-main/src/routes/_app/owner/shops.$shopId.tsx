@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, Clock3, ShieldAlert, Package, ClipboardList, UtensilsCrossed, Bike } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -463,6 +463,11 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
   const [name, setName] = useState("");
   const [price, setPrice] = useState<string>("");
 
+  useEffect(() => {
+    setName("");
+    setPrice("");
+  }, [item?.id]);
+
   const create = useMutation({
     mutationFn: () => {
       try {
@@ -575,8 +580,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
 
   const updateStatus = useMutation({
-    onMutate: async ({ id, st }) => {
-      setUpdatingOrderId(id);
+    onMutate: async (vars: { id: string; st: string }) => {
+      setUpdatingOrderId(vars.id);
 
       await qc.cancelQueries({ queryKey });
 
@@ -584,14 +589,24 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
       qc.setQueryData(
         queryKey,
-        (old: any) =>
-          Array.isArray(old)
-            ? old.map((order: any) =>
-                order.id === id
-                  ? { ...order, status: st }
-                  : order
+        (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) {
+            return old.map((order: any) =>
+              order.id === vars.id ? { ...order, status: vars.st } : order
+            );
+          }
+          const response = old as any;
+          if (Array.isArray(response?.items)) {
+            return {
+              ...response,
+              items: response.items.map((order: any) =>
+                order.id === vars.id ? { ...order, status: vars.st } : order
               )
-            : old
+            };
+          }
+          return old;
+        }
       );
 
       return { previous };
@@ -624,15 +639,21 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     setExpandedOrders((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
-  const visibleOrders = Array.isArray(data)
-    ? data.filter((o: any) => {
-        const itemStatus = String(o.status || "").toLowerCase();
-        if (forceRequestsOnly) return itemStatus === "cancel_requested";
-        if (itemStatus === "cancel_requested") return false;
-        if (status === "all") return true;
-        return itemStatus === status;
-      })
-    : [];
+  const getOrdersList = (): any[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    const response = data as any;
+    if (Array.isArray(response?.items)) return response.items;
+    return [];
+  };
+
+  const visibleOrders = getOrdersList().filter((o: any) => {
+    const itemStatus = String(o.status || "").toLowerCase();
+    if (forceRequestsOnly) return itemStatus === "cancel_requested";
+    if (itemStatus === "cancel_requested") return false;
+    if (status === "all") return true;
+    return itemStatus === status;
+  });
 
   return (
     <div className="space-y-4 text-left">
@@ -937,8 +958,36 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
     loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
   });
 
+  const stateRef = useRef({ localNumber, cleanFullPhone: "" });
+  stateRef.current.localNumber = localNumber;
+  try {
+    stateRef.current.cleanFullPhone = buildE164(country.dialCode, localNumber.trim());
+  } catch {
+    stateRef.current.cleanFullPhone = "";
+  }
+
+  const cleanFullPhone = stateRef.current.cleanFullPhone;
+  const phoneChanged = cleanFullPhone !== originalPhone;
+  const phoneReady = isPhoneValid(country, localNumber.trim());
+
+  useEffect(() => {
+    setForm({
+      name: initial.name ?? "",
+      description: initial.description ?? "",
+      address: initial.address ?? "",
+      cuisine: initial.cuisine ?? "",
+      image_url: initial.image_url ?? "",
+      loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
+    });
+  }, [initial]);
+
   useEffect(() => {
     if (!initial.phone) {
+      setIsHydrating(false);
+      return;
+    }
+
+    if (stateRef.current.localNumber.trim() && stateRef.current.cleanFullPhone !== initial.phone) {
       setIsHydrating(false);
       return;
     }
@@ -961,10 +1010,6 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
     
     setIsHydrating(false);
   }, [initial.phone]);
-
-  const cleanFullPhone = buildE164(country.dialCode, localNumber);
-  const phoneChanged = cleanFullPhone !== originalPhone;
-  const phoneReady = isPhoneValid(country, localNumber);
   
   const save = useMutation({
     mutationFn: () => {
@@ -975,18 +1020,23 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
         if (phoneChanged && !phoneVerified) {
           throw new Error("Verify the new phone number first");
         }
+
+        const parsedLoyalty = Number.parseFloat(form.loyalty_discount_per_point);
+        if (Number.isNaN(parsedLoyalty) || parsedLoyalty < 0) {
+          throw new Error("Invalid loyalty discount value");
+        }
       
         return shopsApi.update(shopId, {
           ...form,
           phone: cleanFullPhone,
           phone_verification_token: phoneChanged ? phoneVerificationToken : undefined,
-          loyalty_discount_per_point: Number.parseFloat(
-            form.loyalty_discount_per_point || "0"
-          ),
+          loyalty_discount_per_point: parsedLoyalty,
         } as any);
     },
     onSuccess: () => {
       toast.success("Saved");
+      setVerifiedPhone(cleanFullPhone);
+      setPhoneVerificationToken(null);
       qc.invalidateQueries({ queryKey: ["shop", shopId] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -1000,7 +1050,11 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
 
   function handleCountryChange(c: Country) {
     setCountry(c);
-    const candidate = buildE164(c.dialCode, localNumber);
+    let candidate = "";
+    try {
+      candidate = buildE164(c.dialCode, localNumber.trim());
+    } catch {}
+    
     if (verifiedPhone && candidate !== verifiedPhone) {
       resetPhoneVerification();
     }
@@ -1008,7 +1062,11 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   
   function handleLocalNumberChange(n: string) {
     setLocalNumber(n);
-    const candidate = buildE164(country.dialCode, n);
+    let candidate = "";
+    try {
+      candidate = buildE164(country.dialCode, n.trim());
+    } catch {}
+
     if (verifiedPhone && candidate !== verifiedPhone) {
       resetPhoneVerification();
     }
