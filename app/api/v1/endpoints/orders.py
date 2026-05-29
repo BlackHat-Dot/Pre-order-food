@@ -935,21 +935,79 @@ async def update_order_status(
     if incoming_status == "completed":
 
         if (
-            order.payment_method
-            == "cod"
-            and order.payment_status
-            != "paid"
+        order.payment_method == "cod"
+        and order.payment_status != "paid"
         ):
             raise HTTPException(
-                status_code=400,
-                detail="Payment pending",
+            status_code=400,
+            detail="Payment pending",
             )
 
-        await unlock_coupon(
-            order
-        )
+    # Prevent double-awarding points
+        if order.status == "completed":
+            return await get_order_or_404(
+            db,
+            order.id,
+            )
+
+        await unlock_coupon(order)
 
         order.status = "completed"
+
+    # ─────────────────────────────────────────
+    # Loyalty Points Award
+    # ─────────────────────────────────────────
+
+        points_earned = max(
+        1,
+        int(order.total_price // 10),
+        )
+
+        loyalty_stmt = (
+            select(LoyaltyAccount)
+            .where(
+                LoyaltyAccount.customer_id
+                == order.customer_id,
+                LoyaltyAccount.shop_id
+                == order.shop_id,
+            )
+        )
+
+        loyalty_account = (
+            await db.execute(loyalty_stmt)
+        ).scalar_one_or_none()
+
+        if loyalty_account is None:
+
+            loyalty_account = LoyaltyAccount(
+                id=new_id(),
+                customer_id=order.customer_id,
+                shop_id=order.shop_id,
+                points_balance=0,
+                tier="bronze",
+            )
+
+            db.add(loyalty_account)
+
+            await db.flush()
+
+        loyalty_account.points_balance += (
+            points_earned
+        )
+
+        order.loyalty_points_earned = (
+        points_earned
+        )
+
+        db.add(
+            LoyaltyTransaction(
+            id=new_id(),
+            account_id=loyalty_account.id,
+            order_id=order.id,
+            points=points_earned,
+            action="earned",
+        )
+    )
 
         await db.commit()
 
