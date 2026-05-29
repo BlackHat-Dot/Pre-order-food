@@ -566,6 +566,40 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
   });
 
   const updateStatus = useMutation({
+    onMutate: async ({ id, st }) => {
+      setUpdatingOrderId(id);
+
+      await qc.cancelQueries({ queryKey });
+
+      const previous =
+    qc.getQueryData(queryKey);
+
+      qc.setQueryData(
+    queryKey,
+    (old: any) =>
+      Array.isArray(old)
+        ? old.map((order: any) =>
+            order.id === id
+              ? { ...order, status: st }
+              : order
+          )
+        : old
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(
+          queryKey,
+          context.previous
+        );
+      }
+
+      toast.error(
+      "Failed to update order status"
+      );
+    },
     mutationFn: async ({ id, st }: { id: string; st: string }) => {
       setUpdatingOrderId(id);
       return apiRequest(`/api/v1/orders/${id}/status`, {
@@ -576,9 +610,6 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     onSuccess: () => {
       toast.success("Order status updated");
       qc.invalidateQueries({ queryKey });
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to update order status");
     },
     onSettled: () => setUpdatingOrderId(null),
   });
@@ -644,6 +675,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const currentStatus = String(o.status || "pending").toLowerCase();
             const nextAllowedOptions = VALID_TRANSITIONS[currentStatus] || [];
             const isAnyRowProcessing = updatingOrderId !== null;
+            const isCurrentOrderUpdating = updatingOrderId === o.id;
 
             const fulfillmentType = String(o.order_type || "delivery").toLowerCase();
             const isTableMode = fulfillmentType === "table_booking" || !o.delivery_address_id;
@@ -797,8 +829,9 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                           )}
 
                           {/* Action Selector Pipeline Dropdown Link */}
-                          {!isExpanded && canChangePipeline && (
-                            <OrderStatusSelector compact />
+                          {!isExpanded && canChangePipeline &&
+                            !isCurrentOrderUpdating && (
+                              <OrderStatusSelector compact />
                           )}
 
                           {(isCancelledState || isCompletedState) && !isExpanded && (
@@ -870,7 +903,9 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
 
                     {/* Status modifier dropdown nested accurately below lines summaries item snapshots inside View expanded panel tray */}
-                    {!isCancelledState && !isCompletedState && (
+                    {!isCancelledState &&
+                    !isCompletedState &&
+                    !isCurrentOrderUpdating && (
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-border/20 mt-1">
                         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sm:w-28 flex items-center gap-1">
                           <Zap className="h-3 w-3 text-primary shrink-0" /> Modify Pipeline:
