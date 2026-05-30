@@ -81,6 +81,7 @@ async def create_notification(
         )
         db.add(notification)
         await db.flush()
+        await db.commit()
     except ImportError:
         # Fallback safeguard if model or migration path differs across environments
         pass
@@ -615,8 +616,6 @@ async def create_order(
             item.order_id = order.id
             db.add(item)
 
-        await db.commit()
-
         # Dispatches standard account confirmation profile alert node centrally
         await create_notification(
             db=db,
@@ -625,6 +624,8 @@ async def create_order(
             message=f"Your order #{order.id[:8]} has been placed successfully.",
             type="order_status"
         )
+
+        await db.commit()
 
     except Exception:
         if coupon_lock_key:
