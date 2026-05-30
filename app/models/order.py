@@ -60,6 +60,13 @@ class Order(Base):
         primary_key=True,
         default=new_id,
     )
+    
+    order_number: Mapped[int] = mapped_column(
+                  Integer,
+            unique=True,
+            nullable=False,
+            index=True,
+    )
 
     customer_id: Mapped[str] = mapped_column(
         String(36),

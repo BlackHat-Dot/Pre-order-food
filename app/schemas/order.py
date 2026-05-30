@@ -255,6 +255,8 @@ class OrderOut(
 
     id: str
 
+    order_number: int | None = None
+
     customer_id: str
 
     shop_id: str
