@@ -327,21 +327,27 @@ function ItemDialog({
         const parsedPrice = Number.parseFloat(form.price);
         const parsedPrepTime = Number.parseInt(form.prep_time_minutes, 10);
         
-        if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-          throw new Error("Price must be greater than 0");
-        }
         if (!form.name.trim()) {
           throw new Error("Item name is required");
+        }
+        if (!form.price.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+          throw new Error("Price must be greater than 0");
         }
         if (Number.isNaN(parsedPrepTime) || parsedPrepTime < 1 || parsedPrepTime > 180) {
           throw new Error("Prep time must be between 1 and 180 minutes");
         }
         
         const payload = {
-          ...form,
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          category: form.category.trim() || null,
+          dietary_type: form.dietary_type,
           price: parsedPrice,
           prep_time_minutes: parsedPrepTime,
+          image_url: form.image_url.trim() || null,
+          is_available: form.is_available,
         };
+
         return isEdit
           ? menuApi.updateItem(editing.id, payload)
           : menuApi.createItem(shopId, payload);
