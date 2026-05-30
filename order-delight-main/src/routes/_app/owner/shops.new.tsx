@@ -67,17 +67,34 @@ function NewShop() {
     toast.success("Phone verified successfully");
   }
 
-  const fullPhone = buildE164(country.dialCode, localNumber);
-  const phoneReady = isPhoneValid(country, localNumber);
+  let fullPhone = "";
+  try {
+    fullPhone = buildE164(country.dialCode, localNumber.trim());
+  } catch {
+    fullPhone = "";
+  }
+
+  const phoneReady = isPhoneValid(country, localNumber.trim());
 
   const create = useMutation({
     mutationFn: () => {
+      if (!form.name.trim()) {
+        throw new Error("Shop name is required");
+      }
+      if (!form.cuisine.trim()) {
+        throw new Error("Cuisine type is required");
+      }
+      if (!form.address.trim()) {
+        throw new Error("Address is required");
+      }
+      if (!form.pincode || form.pincode.trim().length < 4) {
+        throw new Error("Pincode must be at least 4 characters");
+      }
       if (!phoneVerified || !verifiedPhone) {
         throw new Error("Verify phone number first");
       }
-
-      if (!form.pincode || form.pincode.trim().length < 4) {
-        throw new Error("Pincode must be at least 4 characters");
+      if (!phoneVerificationToken) {
+        throw new Error("Phone verification token missing");
       }
 
       return shopsApi.create({
@@ -90,7 +107,7 @@ function NewShop() {
       toast.success("Shop created");
       navigate({ to: "/owner/shops/$shopId", params: { shopId: s.id } });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong"),
   });
 
   return (
@@ -105,7 +122,7 @@ function NewShop() {
             <div key={k} className="space-y-2">
               <Label className="capitalize">{k.replace("_", " ")}</Label>
               <Input
-                value={(form as any)[k]}
+                value={form[k]}
                 onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
               />
             </div>
@@ -128,6 +145,12 @@ function NewShop() {
               disabled={!phoneReady}
               isVerified={phoneVerified}
             />
+
+            {phoneVerified && (
+              <p className="text-xs text-emerald-500">
+                Verified: {verifiedPhone}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Description</Label>

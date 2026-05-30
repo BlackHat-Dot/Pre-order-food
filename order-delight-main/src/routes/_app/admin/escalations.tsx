@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldAlert, ArrowLeft, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { ShieldAlert, ArrowLeft, HelpCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +24,7 @@ function AdminEscalationsDashboard() {
     queryFn: async () => {
       return await apiRequest<any[]>("/api/v1/admin/orders/escalated", { method: "GET" });
     },
-    refetchInterval: 5000, // Quick 5-second polling loop for real-time responsiveness
+    refetchInterval: 5000,
   });
 
   const adminOverrideMutation = useMutation({
@@ -41,7 +41,11 @@ function AdminEscalationsDashboard() {
       qc.invalidateQueries({ queryKey: ["admin", "orders"] });
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to resolve order request.");
+      if (err?.message && typeof err.message === "string") {
+        toast.error(err.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     },
     onSettled: () => setResolvingId(null),
   });

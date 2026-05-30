@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useRef } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, Clock3, ShieldAlert, Package, ClipboardList, UtensilsCrossed, Bike } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, ShieldAlert, Bike, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
   ordersApi,
   shopsApi,
   apiRequest,
+  ApiError,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -220,7 +221,7 @@ function MenuTab({ shopId }: { shopId: string }) {
       toast.success("Item deleted");
       qc.invalidateQueries({ queryKey: ["shop", shopId, "items", "owner"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to delete"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong"),
   });
 
   return (
@@ -354,7 +355,7 @@ function ItemDialog({
       onClose();
     },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
     },
   });
 
@@ -495,7 +496,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
       toast.success("Variant added");
     },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
     },
   });
   const remove = useMutation({
@@ -504,7 +505,7 @@ function VariantsDialog({ item, onClose }: { item: any | null; onClose: () => vo
       qc.invalidateQueries({ queryKey: ["item", item!.id, "variants"] });
       toast.success("Variant deleted");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to delete variant"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong"),
   });
 
   if (!item) return null;
@@ -611,7 +612,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
 
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err: any, _vars, context) => {
       if (context?.previous) {
         qc.setQueryData(
           queryKey,
@@ -619,7 +620,13 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
         );
       }
 
-      toast.error("Failed to update order status");
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else if (err?.message && typeof err.message === "string") {
+        toast.error(err.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     },
     mutationFn: async ({ id, st }: { id: string; st: string }) => {
       setUpdatingOrderId(id);
@@ -1015,7 +1022,8 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   
   const save = useMutation({
     mutationFn: () => {
-        if (!cleanFullPhone) {
+        const targetPhone = phoneChanged ? cleanFullPhone : originalPhone;
+        if (!targetPhone) {
           throw new Error("Phone number required");
         }
 
@@ -1030,18 +1038,20 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
       
         return shopsApi.update(shopId, {
           ...form,
-          phone: cleanFullPhone,
+          phone: targetPhone,
           phone_verification_token: phoneChanged ? phoneVerificationToken : undefined,
           loyalty_discount_per_point: parsedLoyalty,
         } as any);
     },
     onSuccess: () => {
       toast.success("Saved");
-      setVerifiedPhone(cleanFullPhone);
+      const targetPhone = phoneChanged ? cleanFullPhone : originalPhone;
+      setVerifiedPhone(targetPhone);
+      setPhoneVerified(true);
       setPhoneVerificationToken(null);
       qc.invalidateQueries({ queryKey: ["shop", shopId] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong"),
   });
 
   function resetPhoneVerification() {
@@ -1147,7 +1157,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
         </div>
         <Button 
           onClick={() => save.mutate()} 
-          disabled={save.isPending || isHydrating || (phoneChanged && !phoneVerified)}
+          disabled={save.isPending || isHydrating || !cleanFullPhone || (phoneChanged && !phoneVerified)}
         >
           Save
         </Button>

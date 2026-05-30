@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
       toast.success(s.is_verified ? "Shop unverified" : "Shop verified"); 
       onMutated(); 
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
   
   const setActive = useMutation({
@@ -34,7 +34,7 @@ function ShopCard({ s, onMutated }: { s: AdminShopOut; onMutated: () => void }) 
       toast.success("Updated status successfully"); 
       onMutated(); 
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   return (

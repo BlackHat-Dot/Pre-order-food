@@ -35,7 +35,7 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
       setForm({ name: "", phone: "", email: "", password: "", role: "customer" });
       onCreated();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to create user"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   return (
@@ -95,7 +95,7 @@ function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
   const setActive = useMutation({
     mutationFn: (v: boolean) => adminApi.setUserActive(u.id, { is_active: v }),
     onSuccess: () => { toast.success("Status updated"); onMutated(); },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   const changeRole = useMutation({
@@ -105,7 +105,7 @@ function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
       setRoleOpen(false); 
       onMutated(); 
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   return (
@@ -119,7 +119,6 @@ function UserRow({ u, onMutated }: { u: UserOut; onMutated: () => void }) {
             <p className="font-semibold text-sm text-foreground truncate max-w-[180px] sm:max-w-none">{u.name}</p>
             {u.role === "admin" && <ShieldCheck className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
             
-            {/* Quick-Click Copy Badge */}
             <span 
               onClick={(e) => {
                 e.stopPropagation(); 
@@ -198,7 +197,6 @@ function AdminUsers() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       
-      {/* Clean Header Area */}
       <div className="flex flex-wrap items-center justify-between gap-4 text-left border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -211,7 +209,6 @@ function AdminUsers() {
         <CreateUserDialog onCreated={invalidate} />
       </div>
 
-      {/* Metric Cards */}
       {counts && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
@@ -233,7 +230,6 @@ function AdminUsers() {
         </div>
       )}
 
-      {/* Filters Toolbar */}
       <div className="flex flex-wrap gap-3">
         <form
           className="relative flex-1 min-w-48"
@@ -263,7 +259,6 @@ function AdminUsers() {
         )}
       </div>
 
-      {/* Main List */}
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
@@ -283,7 +278,6 @@ function AdminUsers() {
         </div>
       )}
 
-      {/* Pagination Controls */}
       <div className="flex items-center justify-center gap-2">
         <Button variant="outline" size="sm" className="h-8 rounded-lg" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
           <ChevronLeft className="h-4 w-4" />

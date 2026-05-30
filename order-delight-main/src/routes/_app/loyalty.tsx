@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Sparkles, Info, Ticket, Copy, Check, Share2, Receipt } from "lucide-react";
@@ -12,6 +12,28 @@ import { formatDate, formatCurrency } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/_app/loyalty")({ component: LoyaltyPage });
+
+type OrderItem = {
+  id?: string;
+  quantity: number;
+  unit_price: number;
+  item_name_snapshot?: string;
+  name?: string;
+};
+
+type Order = {
+  id: string;
+  status: string;
+  total_price: number;
+  payment_status: string;
+  cancellation_reason?: string | null;
+  cancellation_requests_sent?: number;
+  items?: OrderItem[];
+  shop?: {
+    phone?: string;
+    email?: string;
+  };
+};
 
 function LoyaltyPage() {
   const qc = useQueryClient();
@@ -60,7 +82,11 @@ function LoyaltyPage() {
       qc.invalidateQueries({ queryKey: ["loyalty"] });
     },
     onError: (e) => {
-      toast.error(e instanceof ApiError ? e.message : "Failed to mint coupon voucher");
+      if (e instanceof ApiError) {
+        toast.error(e.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     },
   });
 
@@ -126,7 +152,6 @@ function LoyaltyPage() {
           <CardHeader className="pb-3 flex flex-row items-center gap-2 space-y-0">
             <CardTitle className="text-base font-bold">Generate Shareable Voucher</CardTitle>
             
-            {/* 10X Feature: Interactive Tooltip Information Matrix */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -174,7 +199,6 @@ function LoyaltyPage() {
               </Button>
             </form>
 
-            {/* Dynamic Success Card Display Node */}
             {latestCoupon && (
               <div className="mt-2 border border-dashed border-emerald-500/30 bg-emerald-500/5 p-4 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-3">
                 <div className="flex items-center justify-between">

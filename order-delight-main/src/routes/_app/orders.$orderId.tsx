@@ -38,15 +38,11 @@ type OrderItem = {
 type Order = {
   id: string;
   status: string;
- total_price: number;
+  total_price: number;
   payment_status: string;
-
   cancellation_reason?: string | null;
-
   cancellation_requests_sent?: number;
-
   items?: OrderItem[];
-
   shop?: {
     phone?: string;
     email?: string;
@@ -77,9 +73,15 @@ function getErrorMessage(err: unknown) {
 
     if (Array.isArray(anyErr.detail) && anyErr.detail.length > 0) {
       const first = anyErr.detail[0];
-      const loc = Array.isArray(first?.loc) ? first.loc.join(".") : "payload";
-      const msg = first?.msg || "Invalid request";
-      return `${loc}: ${msg}`;
+      const locs = Array.isArray(first?.loc) ? first.loc.map((l: unknown) => String(l).toLowerCase()) : [];
+      
+      if (locs.includes("reason")) {
+        if (first?.type === "string_too_short" || first?.type?.includes("short")) {
+          return "Cancellation reason is too short.";
+        }
+        return "Please provide a valid cancellation reason.";
+      }
+      return "Please check your input and try again.";
     }
   }
 
@@ -110,7 +112,6 @@ function CustomerOrderActionModule({ order }: { order: Order }) {
   const { canInstantlyCancel, canRequestCancel, requestPending } =
     getOrderUiState(order);
 
-  // FIXED
   const cancellationAttempts = Number(
     (order as any)?.cancellation_requests_sent ?? 0
   );
@@ -273,45 +274,46 @@ function CustomerOrderActionModule({ order }: { order: Order }) {
       </div>
 
       {limitReached && (
-  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-    <div className="flex items-start gap-3">
-      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+        <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
 
-      <div className="flex-1">
-        <p className="text-xs font-bold uppercase text-amber-500">
-          Cancellation Request Limit Reached
-        </p>
+            <div className="flex-1">
+              <p className="text-xs font-bold uppercase text-amber-500">
+                Cancellation Request Limit Reached
+              </p>
 
-        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          You already used all 3 cancellation requests for this order.
-          Please contact the shop owner directly for further assistance.
-        </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                You already used all 3 cancellation requests for this order.
+                Please contact the shop owner directly for further assistance.
+              </p>
 
-        <div className="mt-3 rounded-lg border border-border/60 bg-background/60 p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              Shop Phone
-            </span>
+              <div className="mt-3 rounded-lg border border-border/60 bg-background/60 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Shop Phone
+                  </span>
 
-            <span className="font-semibold text-foreground">
-              {order.shop?.phone || "Not available"}
-            </span>
-          </div>
+                  <span className="font-semibold text-foreground">
+                    {order.shop?.phone || "Not available"}
+                  </span>
+                </div>
 
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              Shop Email
-            </span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Shop Email
+                  </span>
 
-            <span className="font-semibold text-foreground">
-              {order.shop?.email || "Not available"}
-            </span>
+                  <span className="font-semibold text-foreground">
+                    {order.shop?.email || "Not available"}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
+      
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>

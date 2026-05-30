@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { 
   Clock, 
@@ -66,7 +66,13 @@ function AdminGlobalOrdersPage() {
       setSelectedOrder(null);
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Override operation failed.");
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else if (err?.message && typeof err.message === "string") {
+        toast.error(err.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     },
     onSettled: () => setUpdatingId(null),
   });
@@ -74,20 +80,17 @@ function AdminGlobalOrdersPage() {
   const visibleOrders = Array.isArray(orders) ? orders : [];
 
   const calculateDiscountPercentage = (order: any): number => {
-  const couponDiscount = Number(order?.coupon_discount_applied || 0);
-  const loyaltyDiscount = Number(order?.loyalty_discount_amount || 0);
+    const couponDiscount = Number(order?.coupon_discount_applied || 0);
+    const loyaltyDiscount = Number(order?.loyalty_discount_amount || 0);
+    const totalDiscount = couponDiscount + loyaltyDiscount;
+    const originalAmount = Number(order?.total_price || 0) + totalDiscount;
 
-  const totalDiscount = couponDiscount + loyaltyDiscount;
+    if (originalAmount <= 0) {
+      return totalDiscount > 0 ? 100 : 0;
+    }
 
-  const originalAmount =
-    Number(order?.total_price || 0) + totalDiscount;
-
-  if (originalAmount <= 0) {
-    return totalDiscount > 0 ? 100 : 0;
-  }
-
-  return Math.round((totalDiscount / originalAmount) * 100);
-};
+    return Math.round((totalDiscount / originalAmount) * 100);
+  };
 
   useEffect(() => {
     if (selectedOrder && visibleOrders.length > 0) {

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -172,9 +172,9 @@ function ProfilePage() {
         setOtpError(msg);
         toast.error(msg);
       } else {
-        const msg = err instanceof Error ? err.message : "Could not send code";
-        setOtpError(msg);
-        toast.error(msg);
+        console.error(err);
+        setOtpError("Something went wrong");
+        toast.error("Something went wrong");
       }
     } finally {
       setSendingOtp(false);
@@ -199,10 +199,13 @@ function ProfilePage() {
       setOtpError(null);
       toast.success("Email verified — save your profile to apply the change.");
     } catch (err) {
-      const msg = err instanceof ApiError
-        ? ((err.detail as Record<string, unknown>)?.message as string) || err.message
-        : err instanceof Error ? err.message : "Incorrect code";
-      setOtpError(msg);
+      if (err instanceof ApiError) {
+        const msg = ((err.detail as Record<string, unknown>)?.message as string) || err.message;
+        setOtpError(msg);
+      } else {
+        console.error(err);
+        setOtpError("Something went wrong");
+      }
     } finally {
       setVerifyingOtp(false);
     }
@@ -240,7 +243,7 @@ function ProfilePage() {
       startCooldown(0);
       await refresh();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to save profile"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   const canSaveProfile =
@@ -257,8 +260,14 @@ function ProfilePage() {
   const [verifiedNewPhone, setVerifiedNewPhone] = useState<string | null>(null);
   const [phonePwd, setPhonePwd] = useState("");
 
-  const newFullPhone = buildE164(newCountry.dialCode, newLocalNumber);
-  const newPhoneReady = isPhoneValid(newCountry, newLocalNumber);
+  let newFullPhone = "";
+  try {
+    newFullPhone = buildE164(newCountry.dialCode, newLocalNumber.trim());
+  } catch {
+    newFullPhone = "";
+  }
+
+  const newPhoneReady = isPhoneValid(newCountry, newLocalNumber.trim());
   const newPhoneVerified = !!phoneToken && !!verifiedNewPhone;
 
   function resetPhoneForm() {
@@ -285,7 +294,7 @@ function ProfilePage() {
       resetPhoneForm();
       await refresh();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update phone"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
   // ── Password change ────────────────────────────────────────────────────────
@@ -302,10 +311,9 @@ function ProfilePage() {
       setPwd({ current_password: "", new_password: "" });
       setShowPwdForm(false);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to update password"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
   });
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-0">
       <div>
@@ -639,7 +647,6 @@ function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* 🚀 FIXED AND MOUNTED: Address profiles display cleanly here inside layout */}
       <ProfileAddresses />
     </div>
   );

@@ -3,6 +3,21 @@
 // so it never causes an SSR/hydration mismatch the way `typeof window` does.
 // SSR: reach the backend directly via localhost (same container).
 // Browser: use relative paths → Vite dev-proxy (or prod reverse-proxy) forwards to the backend.
+// Provide TypeScript types for Vite's `import.meta.env` so editors don't flag usages
+declare global {
+  interface ImportMetaEnv {
+    readonly SSR: boolean;
+    readonly VITE_API_BASE_URL?: string;
+    readonly VITE_PUBLIC_API_BASE_URL?: string;
+    readonly VITE_MSG91_WIDGET_ID?: string;
+    readonly VITE_MSG91_TOKEN_AUTH?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
 export const API_BASE_URL: string = import.meta.env.SSR
   ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8000")
   : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "");
@@ -127,9 +142,26 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       try {
         const err = await res.json();
         detail = err;
-        if (err?.detail) {
-          if (typeof err.detail === "string") message = err.detail;
-          else if (typeof err.detail === "object" && err.detail !== null) {
+        
+        if (res.status >= 500) {
+          message = "Something went wrong";
+        } else if (err?.detail) {
+          if (Array.isArray(err.detail)) {
+            const first = err.detail[0];
+            const locs = Array.isArray(first?.loc) ? first.loc.map((l: unknown) => String(l).toLowerCase()) : [];
+            
+            if (locs.includes("image_url")) {
+              message = "Please enter a valid image URL";
+            } else if (locs.includes("pincode")) {
+              message = "Please enter a valid pincode";
+            } else if (locs.includes("phone")) {
+              message = "Please enter a valid phone number";
+            } else {
+              message = "Please check your input";
+            }
+          } else if (typeof err.detail === "string") {
+            message = err.detail;
+          } else if (typeof err.detail === "object" && err.detail !== null) {
             const d = err.detail as Record<string, unknown>;
             message = typeof d.message === "string" ? d.message : JSON.stringify(err.detail);
           } else {
@@ -138,8 +170,27 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         } else if (err?.message) {
           message = String(err.message);
         }
-      } catch { /* non-JSON error body */ }
+      } catch {
+        if (res.status >= 500) {
+          message = "Something went wrong";
+        }
+      }
+
+      const lowerMsg = message.toLowerCase();
+      const technicalPatterns = ["traceback", "sqlalchemy", "asyncpg", "internal server error"];
+      if (technicalPatterns.some((p) => lowerMsg.includes(p))) {
+        message = "Something went wrong";
+      }
+
       if (triesLeft > 0) return attempt(triesLeft - 1);
+
+      console.error("[API ERROR]", {
+        path,
+        status: res.status,
+        detail,
+        message,
+      });
+
       throw new ApiError(res.status, message, detail);
     }
 
@@ -302,8 +353,8 @@ export interface OrderOut {
   shop_id: string;
   customer_id: string;
   status: OrderStatus;
-  total_price: number;       // <-- Changed from total_amount
-  instructions: string | null; // <-- Changed from notes to match backend
+  total_price: number;
+  instructions: string | null;
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
@@ -528,10 +579,7 @@ export const shopsApi = {
     const updated = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { method: "PATCH", body: payload });
     return mapShopFromBackend(updated);
   },
-
-  // ADD THESE TWO FUNCTIONS HERE:
   dashboard: async (id: string) => {
-    // Make sure this path exactly matches your FastAPI route
     return apiRequest<any>(`/api/v1/shops/${id}/dashboard`);
   },
   stats: async (id: string) => {
@@ -591,20 +639,18 @@ export const ordersApi = {
   submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
     apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
   
-  // 🚀 FIXED: Stripped away the async promise wrapper to fire direct network requests natively
   getTicket: (orderId: string) => 
     apiRequest<OrderOut>(`/api/v1/orders/ticket/${orderId}`, { method: "GET" }),
 };
-  // Changed to match python backend
 
 // ── Payments API ───────────────────────────────────────────────────────────────
 
 export const paymentsApi = {
   create: (body: { order_id: string; provider?: string }) =>
-    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }), // Added /create
-  get: (id: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${id}`), // Changed to return array and updated path
+    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }),
+  get: (id: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${id}`),
   verify: (body: { order_id: string; provider_order_id: string; provider_payment_id: string; signature: string }) =>
-    apiRequest<PaymentOut>("/api/v1/payments/verify", { method: "POST", body }), // Renamed confirm to verify, added missing fields
+    apiRequest<PaymentOut>("/api/v1/payments/verify", { method: "POST", body }),
 };
 
 // ── Reviews API ────────────────────────────────────────────────────────────────
@@ -622,8 +668,6 @@ export const loyaltyApi = {
   transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }),
   redeem: (body: { shop_id: string; points: number }) =>
     apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me/redeem", { method: "POST", body }),
-    
-  // 🚀 ADD THIS NEW METHOD TO TALK TO YOUR ADMIN ADJUSTMENT BACKEND ENDPOINT:
   adminAdjust: (customerId: string, body: { shop_id: string; points: number }) =>
     apiRequest<any>(`/api/v1/admin/loyalty/adjust/${customerId}`, { method: "POST", body }),
 };
@@ -765,7 +809,6 @@ export const adminApi = {
     apiRequest<AdminOrderOut[]>("/api/v1/admin/orders", { query: params }),
   orders: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/admin/orders", { query: params }),
-  // 🚀 FIXED: Fixed path mapping rules and transformed variables into query parameters
   updateOrderStatus: (orderId: string, status: string) =>
     apiRequest<{ updated: boolean; order_id: string; new_status: string }>(
       `/api/v1/admin/orders/${orderId}/status`,
@@ -785,7 +828,6 @@ export const adminApi = {
         } 
       }
     ),
-    
 };
 
 // ── Health ─────────────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ordersApi, type OrderStatus } from "@/lib/api";
+import { ordersApi, type OrderStatus, ApiError } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/app/StatusBadge";
 
@@ -131,7 +131,12 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
     onError: (err: any) => {
       qc.invalidateQueries({ queryKey: ["order-ticket", order.id] });
       qc.invalidateQueries({ queryKey: ["my-orders"] });
-      toast.error(err?.message || "Action restriction matched configuration limits.");
+      
+      if (err?.message && typeof err.message === "string") {
+        toast.error(err.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     }
   });
 
@@ -222,7 +227,6 @@ export function CustomerOrderActionModule({ order, onActionComplete }: { order: 
           <DialogHeader>
             <DialogTitle className="text-sm font-black tracking-tight">Specify Cancellation Reason</DialogTitle>
             <DialogDescription className="text-xs pt-1">
-              {/* 🚀 DYNAMIC COUNTDOWN DISPLAY: Shows remaining counts perfectly inside the modal */}
               Remaining requests: {3 - currentRequestsSent} execution chances left. Let the store manager know why you need to drop this order.
             </DialogDescription>
           </DialogHeader>
@@ -345,7 +349,6 @@ function OrdersPage() {
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
                         <span>Order Activity Context</span>
                         <span className="font-semibold text-foreground normal-case font-mono">
-                          {/* 🚀 FRONT DASHBOARD VIEW CLEANED: Removed the confusing 0/3 metrics rows entirely from here */}
                           {rowStatusStr === "cancel_requested" ? "Cancellation Pending Review" : "Active Fulfillment Workflow"}
                         </span>
                       </div>

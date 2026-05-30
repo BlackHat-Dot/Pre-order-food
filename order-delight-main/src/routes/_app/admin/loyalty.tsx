@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError, adminApi, usersApi, shopsApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,14 +16,11 @@ function AdminLoyalty() {
   const [customerId, setCustomerId] = useState("");
   const [shopId, setShopId] = useState("");
   const [points, setPoints] = useState<number>(0);
-  
-  // Control state to trigger verification queries simultaneously
   const [shouldFetch, setShouldFetch] = useState(false);
 
   // 1. Fetch live loyalty ledger balance parameters
   const loyaltyQuery = useQuery({
     queryKey: ["admin", "loyalty-check", customerId, shopId],
-    // Underneath the hood, this hits the backend logic gracefully
     queryFn: () => adminApi.loyalty(customerId.trim(), { shopId: shopId.trim(), points: 0 }),
     enabled: shouldFetch && !!customerId.trim() && !!shopId.trim(),
     retry: false,
@@ -45,7 +42,7 @@ function AdminLoyalty() {
     retry: false,
   });
 
-  // 4. 🚀 FIXED: Mutation now cleanly wraps structural payload to meet backend query standards
+  // 4. Mutation wraps structural payload cleanly to meet backend standard metrics
   const adjust = useMutation({
     mutationFn: (variables: { userId: string; shopId: string; pointDelta: number }) =>
       adminApi.loyalty(variables.userId, {
@@ -55,11 +52,14 @@ function AdminLoyalty() {
     onSuccess: () => {
       toast.success("Loyalty points adjusted successfully!");
       setPoints(0);
-      // Instantly refresh query cache maps so values update on screen dynamically
       qc.invalidateQueries({ queryKey: ["admin", "loyalty-check", customerId, shopId] });
     },
     onError: (e) => {
-      toast.error(e instanceof ApiError ? e.message : "Failed to apply adjustment");
+      if (e instanceof ApiError) {
+        toast.error(e.message);
+      } else {
+        toast.error("Something went wrong");
+      }
     },
   });
 
@@ -193,14 +193,13 @@ function AdminLoyalty() {
 
                 <div className="flex gap-2 pt-1">
                   <Button
-                    // 🚀 FIXED: State variables successfully bound to variables execution context block!
                     onClick={() => adjust.mutate({
                       userId: customerId.trim(),
                       shopId: shopId.trim(),
                       pointDelta: points
                     })}
                     disabled={points === 0 || adjust.isPending}
-                    className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-sm"
+                    className="w-full h-9 rounded-xl font-bold text-xs gap-1.5 shadow-sm"
                   >
                     {adjust.isPending ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
