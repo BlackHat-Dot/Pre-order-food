@@ -368,8 +368,12 @@ function ItemDialog({
           <DialogTitle>{isEdit ? "Edit item" : "New item"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-left">
+          <p className="text-xs text-muted-foreground">
+            Fields marked with <span className="text-destructive">*</span> are required.
+          </p>
+
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>Name <span className="text-destructive">*</span></Label>
             <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           </div>
           <div className="space-y-2">
@@ -381,7 +385,7 @@ function ItemDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Price</Label>
+              <Label>Price <span className="text-destructive">*</span></Label>
               <Input
                 type="number"
                 step="0.01"
@@ -400,7 +404,7 @@ function ItemDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Dietary Type</Label>
+              <Label>Dietary Type <span className="text-destructive">*</span></Label>
               <Select value={form.dietary_type} onValueChange={(v) => setForm((f) => ({ ...f, dietary_type: v }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -413,7 +417,7 @@ function ItemDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Prep Time (min)</Label>
+              <Label>Prep Time (min) <span className="text-destructive">*</span></Label>
               <Input
                 type="number"
                 min="1"

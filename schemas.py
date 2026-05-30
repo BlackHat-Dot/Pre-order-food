@@ -70,7 +70,7 @@ class MenuItemCreate(BaseModel):
     name: str
     description: Optional[str] = None
     price: float
-    category: str
+    category: str | None = None
     image_url: Optional[HttpUrl] = None
     prep_time: int
     dietary_type: Literal["veg", "non_veg", "vegan"]
