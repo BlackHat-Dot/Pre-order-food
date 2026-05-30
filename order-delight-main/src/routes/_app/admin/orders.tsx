@@ -153,7 +153,7 @@ function AdminGlobalOrdersPage() {
                     
                     <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
                       <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
-                        #{o.id.slice(0, 8).toUpperCase()}
+                        #{o.order_number ?? String(o.id).slice(0, 8).toUpperCase()}
                       </span>
                       <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 rounded border shadow-none capitalize ${badgeStyle}`}>
                         {currentStatus.replace("_", " ")}
@@ -200,7 +200,7 @@ function AdminGlobalOrdersPage() {
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <span className="font-mono font-bold text-sm text-foreground">
-                  #{selectedOrder.id.slice(0, 8).toUpperCase()}
+                  #{selectedOrder.order_number ?? String(selectedOrder.id).slice(0, 8).toUpperCase()}
                 </span>
                 <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 rounded shadow-none capitalize ${STATUS_COLORS[selectedOrder.status?.toLowerCase()] || ""}`}>
                   {selectedOrder.status}
@@ -333,7 +333,7 @@ function AdminGlobalOrdersPage() {
                 variant="destructive"
                 disabled={updatingId === selectedOrder.id}
                 onClick={() => {
-                  if (confirm(`Force override: Cancel transaction #${selectedOrder.id.slice(0, 8).toUpperCase()} unconditionally?`)) {
+                  if (confirm(`Force override: Cancel transaction #${selectedOrder.order_number ?? String(selectedOrder.id).slice(0, 8).toUpperCase()} unconditionally?`)) {
                     forceCancelMutation.mutate(selectedOrder.id);
                   }
                 }}

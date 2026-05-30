@@ -90,7 +90,7 @@ function AdminEscalationsDashboard() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="font-mono text-xs font-bold text-muted-foreground">
-                        #{o.id.slice(0, 8).toUpperCase()}
+                        #{o.order_number ?? String(o.id).slice(0, 8).toUpperCase()}
                       </p>
                       <StatusBadge status={o.status} />
                     </div>

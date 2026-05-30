@@ -6,7 +6,7 @@
 // Provide TypeScript types for Vite's `import.meta.env` so editors don't flag usages
 declare global {
   interface ImportMetaEnv {
-    readonly SSR: boolean;
+    SSR: boolean;
     readonly VITE_API_BASE_URL?: string;
     readonly VITE_PUBLIC_API_BASE_URL?: string;
     readonly VITE_MSG91_WIDGET_ID?: string;
@@ -350,6 +350,7 @@ export interface PaymentOut {
 
 export interface OrderOut {
   id: string;
+  order_number?: number | null;
   shop_id: string;
   customer_id: string;
   status: OrderStatus;
@@ -710,6 +711,7 @@ export interface AdminShopCounts {
 
 export interface AdminOrderOut {
   id: string;
+  order_number?: number | null;
   customer_id: string;
   customer_name: string;
   shop_id: string;
@@ -745,6 +747,7 @@ export interface AdminTopShop {
 
 export interface AdminRecentOrder {
   id: string;
+  order_number?: number | null;
   customer_id?: string;
   customer_name?: string;
   shop_id?: string;

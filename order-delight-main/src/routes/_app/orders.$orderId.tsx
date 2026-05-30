@@ -37,7 +37,7 @@ type OrderItem = {
 
 type Order = {
   id: string;
-  order_number?: number | string;
+  order_number?: number | null;
   status: string;
   total_price: number;
   payment_status: string;

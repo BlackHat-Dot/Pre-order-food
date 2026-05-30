@@ -329,7 +329,7 @@ function OrdersPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60 font-bold">
-                            #{o.id ? o.id.slice(0, 8).toUpperCase() : ""}
+                            #{o.order_number ?? (o.id ? String(o.id).slice(0, 8).toUpperCase() : "")}
                           </span>
                           <StatusBadge status={o.status} />
                         </div>
