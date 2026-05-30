@@ -37,6 +37,7 @@ type OrderItem = {
 
 type Order = {
   id: string;
+  order_number?: number | string;
   status: string;
   total_price: number;
   payment_status: string;
@@ -418,10 +419,12 @@ function OrderDetailsPage() {
         <CardContent className="space-y-4 p-6">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                Order Reference ID
+              <h2 className="text-sm font-black tracking-tight text-foreground">
+                Order #{order.order_number ?? String(order.id).slice(0, 8).toUpperCase()}
+              </h2>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                Reference ID: {order.id}
               </p>
-              <h2 className="font-mono text-xs font-bold">{order.id}</h2>
             </div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase text-primary">
               <Clock className="h-3.5 w-3.5" />

@@ -782,7 +782,7 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                 <CardContent className="p-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-normal">
                   <div className="flex items-center gap-3 w-full md:w-auto text-left shrink-0">
                     <span className="font-mono font-semibold text-foreground bg-muted border px-2 py-0.5 rounded text-[11px]">
-                      #{String(o.id).slice(0, 8).toUpperCase()}
+                      #{o.order_number ?? String(o.id).slice(0, 8).toUpperCase()}
                     </span>
                     <StatusBadge status={currentStatus} />
                     
@@ -1014,8 +1014,8 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
     setVerifiedPhone(initial.phone);
     setPhoneVerified(true);
 
-    const sortedCountries = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
-    const matchedCountry = sortedCountries.find((c) => initial.phone.startsWith(c.dialCode));
+    const sortedCOUNTRIES = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+    const matchedCountry = sortedCOUNTRIES.find((c) => initial.phone.startsWith(c.dialCode));
     
     if (matchedCountry) {
       setCountry(matchedCountry);
