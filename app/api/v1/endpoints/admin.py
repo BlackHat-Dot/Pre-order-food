@@ -219,7 +219,7 @@ async def admin_list_shops(
 @router.patch("/shops/{shop_id}/verify")
 async def verify_shop(
     shop_id: str,
-    is_verified: bool,
+    verified: bool,
     db: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -241,7 +241,7 @@ async def verify_shop(
         )
 
     shop.is_verified = (
-        is_verified
+        verified
     )
 
     await db.commit()
