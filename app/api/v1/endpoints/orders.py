@@ -62,6 +62,7 @@ async def create_notification(
     user_id: str,
     title: str,
     message: str,
+    type: str = "order_status"
 ) -> None:
     """
     Creates and records an in-app notification entry for the specified user.
@@ -74,6 +75,7 @@ async def create_notification(
             user_id=user_id,
             title=title,
             message=message,
+            type="order_status",
             is_read=False,
             created_at=datetime.now(timezone.utc),
         )
@@ -621,6 +623,7 @@ async def create_order(
             user_id=user.id,
             title="Order Placed",
             message=f"Your order #{order.id[:8]} has been placed successfully.",
+            type="order_status"
         )
 
     except Exception:
@@ -1037,6 +1040,7 @@ async def update_order_status(
             user_id=order.customer_id,
             title="Order Completed",
             message=f"Order completed. You earned {points_earned} loyalty points.",
+            type="order_status"
         )
 
         return await get_order_or_404(
@@ -1107,6 +1111,7 @@ async def update_order_status(
                 user_id=order.shop.owner_id,
                 title="Cancellation Request",
                 message=f"Customer requested cancellation for order #{order.id[:8]}",
+                type="order_status"
             )
 
         return await get_order_or_404(
@@ -1191,6 +1196,7 @@ async def update_order_status(
                 user_id=order.customer_id,
                 title=notification_title,
                 message=notification_message,
+                type="order_status"
             )
 
         return await get_order_or_404(
