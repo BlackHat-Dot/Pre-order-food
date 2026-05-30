@@ -230,7 +230,7 @@ export interface ShopOut {
   phone: string;
   description: string | null;
   address: string;
-  cuisine: string;
+  cuisine: string | null;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
@@ -252,7 +252,7 @@ interface BackendShopOut {
   city: string;
   state: string;
   pincode: string;
-  category: string;
+  category: string | null;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
@@ -513,7 +513,7 @@ export const usersApi = {
 // ── Shops API ──────────────────────────────────────────────────────────────────
 
 export const shopsApi = {
-  create: async (body: Partial<ShopOut>) => {
+  create: async (body: Partial<ShopOut> & { pincode?: string }) => {
     const addr = parseAddress(body.address);
     const payload = {
       name: body.name ?? "",
@@ -522,8 +522,8 @@ export const shopsApi = {
       address_line: addr.address_line,
       city: addr.city,
       state: addr.state,
-      pincode: addr.pincode,
-      category: body.cuisine ?? "General",
+      pincode: body.pincode?.trim() || addr.pincode || "",
+      category: body.cuisine?.trim() || null,
       opening_hours: null as string | null,
       image_url: body.image_url ?? null,
       loyalty_discount_per_point: body.loyalty_discount_per_point ?? 0.1,
@@ -546,12 +546,12 @@ export const shopsApi = {
     const shop = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { auth: false });
     return mapShopFromBackend(shop);
   },
-  update: async (id: string, body: Partial<ShopOut>) => {
+  update: async (id: string, body: Partial<ShopOut> & { pincode?: string }) => {
     const payload: Record<string, unknown> = {};
     if (body.name !== undefined) payload.name = body.name;
     if (body.description !== undefined) payload.description = body.description;
     if (body.phone !== undefined) payload.phone = body.phone;
-    if (body.cuisine !== undefined) payload.category = body.cuisine;
+    if (body.cuisine !== undefined) payload.category = body.cuisine?.trim() || null;
     if (body.image_url !== undefined) payload.image_url = body.image_url;
     if (body.loyalty_discount_per_point !== undefined) payload.loyalty_discount_per_point = body.loyalty_discount_per_point;
     if (body.address !== undefined) {
@@ -559,7 +559,9 @@ export const shopsApi = {
       payload.address_line = addr.address_line;
       payload.city = addr.city;
       payload.state = addr.state;
-      payload.pincode = addr.pincode;
+      payload.pincode = body.pincode?.trim() || addr.pincode || "";
+    } else if (body.pincode !== undefined) {
+      payload.pincode = body.pincode.trim();
     }
     if (body.is_open !== undefined) payload.is_open = body.is_open;
     if (body.is_accepting_orders !== undefined) payload.is_accepting_orders = body.is_accepting_orders;
@@ -796,12 +798,20 @@ export const adminApi = {
   verifyShop: (shopId: string, body: { is_verified: boolean }) =>
     apiRequest<{ updated: boolean; shop_id: string; is_verified: boolean }>(
       `/api/v1/admin/shops/${shopId}/verify`,
-      { method: "PATCH", query: { verified: body.is_verified } },
+      { 
+        method: "PATCH", 
+        query: { verified: body.is_verified },
+        body: { is_verified: body.is_verified }
+      },
     ),
   setShopActive: (shopId: string, body: { is_active: boolean }) =>
     apiRequest<{ updated: boolean; shop_id: string; is_active: boolean }>(
       `/api/v1/admin/shops/${shopId}/active`,
-      { method: "PATCH", query: { is_active: body.is_active } },
+      { 
+        method: "PATCH", 
+        query: { is_active: body.is_active },
+        body: { is_active: body.is_active }
+      },
     ),
   updateShop: (shopId: string, body: { is_verified?: boolean; is_active?: boolean }) =>
     apiRequest<ShopOut>(`/api/v1/admin/shops/${shopId}`, { method: "PATCH", body }),

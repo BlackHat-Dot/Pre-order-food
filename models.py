@@ -71,7 +71,7 @@ class MenuItem(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     price = Column(Float, nullable=False)
-    category = Column(String, nullable=False)
+    category = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     prep_time = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
