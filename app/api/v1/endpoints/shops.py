@@ -163,7 +163,9 @@ async def create_shop(
         pincode=payload.pincode,
         category=payload.category,
         opening_hours=payload.opening_hours,
-        image_url=payload.image_url,
+        image_url=str(payload.image_url)
+        if payload.image_url
+        else None,
         loyalty_discount_per_point=(
             payload.loyalty_discount_per_point
             or 0.1
