@@ -33,6 +33,7 @@ from app.services.payments import (
     verify_payment_signature,
 )
 from app.utils.ids import new_id
+from app.api.v1.endpoints.orders import create_notification
 
 router = APIRouter(
     prefix="/payments",
@@ -353,6 +354,24 @@ async def verify_payment(
 
     await db.commit()
     await db.refresh(payment)
+
+    # Dispatches transactional notice strings safely to client ledger cards
+    await create_notification(
+        db=db,
+        user_id=order.customer_id,
+        title="Payment Successful",
+        message=f"Payment of Rs. {order.total_price:.2f} for order #{order.id[:8]} was successful.",
+    )
+    await db.commit()
+
+    if loyalty_points > 0:
+        await create_notification(
+            db=db,
+            user_id=order.customer_id,
+            title="Loyalty Points Earned",
+            message=f"You earned {loyalty_points} loyalty points from your recent order.",
+        )
+        await db.commit()
 
     return PaymentOut.model_validate(
         payment

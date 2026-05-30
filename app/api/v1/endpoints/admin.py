@@ -28,7 +28,7 @@ from app.core.deps import (
 from app.db.session import get_db
 from app.models.order import Order
 from app.models.shop import Shop
-from app.api.v1.endpoints.orders import restore_coupon
+from app.api.v1.endpoints.orders import restore_coupon, create_notification
 from app.models.user import User
 from app.schemas.order import (
     OrderStatusUpdate,
@@ -133,9 +133,7 @@ async def set_user_active(
         )
 
     user.is_active = is_active
-
     await db.commit()
-
     await clear_admin_analytics_cache()
 
     return {
@@ -178,9 +176,7 @@ async def change_user_role(
         )
 
     user.role = role
-
     await db.commit()
-
     await clear_admin_analytics_cache()
 
     return {
@@ -240,12 +236,23 @@ async def verify_shop(
             detail="Shop not found",
         )
 
-    shop.is_verified = (
-        verified
-    )
+    shop.is_verified = verified
+
+    if shop.owner_id:
+        title = "Shop Verified" if verified else "Verification Removed"
+        message = (
+            f"Your shop '{shop.name}' has been successfully verified by an administrator."
+            if verified
+            else f"Verification for your shop '{shop.name}' has been removed by an administrator."
+        )
+        await create_notification(
+            db=db,
+            user_id=shop.owner_id,
+            title=title,
+            message=message,
+        )
 
     await db.commit()
-
     await clear_admin_analytics_cache()
 
     return {
@@ -283,8 +290,21 @@ async def set_shop_active(
 
     shop.is_active = is_active
 
-    await db.commit()
+    if shop.owner_id:
+        title = "Shop Activated" if is_active else "Shop Deactivated"
+        message = (
+            f"Your shop '{shop.name}' has been activated by an administrator."
+            if is_active
+            else f"Your shop '{shop.name}' has been deactivated by an administrator."
+        )
+        await create_notification(
+            db=db,
+            user_id=shop.owner_id,
+            title=title,
+            message=message,
+        )
 
+    await db.commit()
     await clear_admin_analytics_cache()
 
     return {
@@ -351,12 +371,37 @@ async def update_order_status_admin(
             detail="Order not found",
         )
 
+    old_status = order.status
     order.status = payload.status
 
+    if order.status != old_status and order.customer_id:
+        title_map = {
+            "accepted": "Order Accepted",
+            "preparing": "Order Preparing",
+            "ready": "Order Ready",
+            "completed": "Order Completed",
+            "cancelled": "Order Cancelled",
+        }
+        message_map = {
+            "accepted": "Your order has been accepted.",
+            "preparing": "Your order is being prepared.",
+            "ready": "Your order is ready for pickup.",
+            "completed": "Your order has been completed.",
+            "cancelled": "Your order has been cancelled by an administrator.",
+        }
+        
+        title = title_map.get(order.status, "Order Update")
+        message = message_map.get(order.status, f"Your order status has been updated to {order.status}.")
+        
+        await create_notification(
+            db=db,
+            user_id=order.customer_id,
+            title=title,
+            message=message,
+        )
+
     await db.commit()
-
     await clear_admin_analytics_cache()
-
     await db.refresh(order)
 
     return order
@@ -386,7 +431,6 @@ async def admin_global_status_override(
             detail="Order not found",
         )
 
-    # Completed orders are immutable
     if (
         order.status == "completed"
         and payload.status == "cancelled"
@@ -405,12 +449,37 @@ async def admin_global_status_override(
             order,
         )
 
+    old_status = order.status
     order.status = payload.status
 
+    if order.status != old_status and order.customer_id:
+        title_map = {
+            "accepted": "Order Accepted",
+            "preparing": "Order Preparing",
+            "ready": "Order Ready",
+            "completed": "Order Completed",
+            "cancelled": "Order Cancelled",
+        }
+        message_map = {
+            "accepted": "Your order context has been updated to accepted via administrative override.",
+            "preparing": "Your order is being prepared following an administrative override.",
+            "ready": "Your order is ready for pickup following an administrative override.",
+            "completed": "Your order has been marked completed via administrative override.",
+            "cancelled": "Your order has been unconditionally cancelled via administrative override.",
+        }
+
+        title = title_map.get(order.status, "Administrative Override")
+        message = message_map.get(order.status, f"An administrative override updated your order status to {order.status}.")
+
+        await create_notification(
+            db=db,
+            user_id=order.customer_id,
+            title=title,
+            message=message,
+        )
+
     await db.commit()
-
     await clear_admin_analytics_cache()
-
     await db.refresh(order)
 
     return {

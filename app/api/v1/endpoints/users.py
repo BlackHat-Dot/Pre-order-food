@@ -41,6 +41,7 @@ from app.utils.ids import new_id
 from app.utils.phone import (
     normalize_e164,
 )
+from app.api.v1.endpoints.orders import create_notification
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +497,13 @@ async def update_profile(
             user.email = validated_email
             user.email_verified = True
 
+            await create_notification(
+                db=db,
+                user_id=user.id,
+                title="Email Updated",
+                message="Your email address has been updated successfully.",
+            )
+
         elif (
             email_token
             and not user.email_verified
@@ -573,6 +581,13 @@ async def update_profile(
                 new_phone=validated_phone,
             )
 
+            await create_notification(
+                db=db,
+                user_id=user.id,
+                title="Phone Number Updated",
+                message="Your phone number has been updated successfully.",
+            )
+
     await db.commit()
     await db.refresh(user)
 
@@ -625,6 +640,13 @@ async def update_password(
         payload.new_password
     )
 
+    await create_notification(
+        db=db,
+        user_id=user.id,
+        title="Password Changed",
+        message="Your account password was changed successfully.",
+    )
+
     await db.commit()
 
     return {
@@ -663,4 +685,3 @@ async def get_user(
     return UserOut.model_validate(
         user
     )
-

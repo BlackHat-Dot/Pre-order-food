@@ -16,6 +16,7 @@ from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.coupon import CouponMint, CouponOut
 from app.utils.ids import new_id
+from app.api.v1.endpoints.orders import create_notification
 
 router = APIRouter(
     prefix="/coupons",
@@ -163,9 +164,21 @@ async def mint_shop_coupon(
     )
 
     db.add(coupon)
-
     await db.commit()
     await db.refresh(coupon)
+
+    # Dispatches standard coupon activation notice context cleanly to client ledger
+    await create_notification(
+        db=db,
+        user_id=user.id,
+        title="Coupon Created",
+        message=(
+            f"You redeemed {payload.points} loyalty points "
+            f"for coupon {coupon.code}. "
+            f"Discount value: Rs. {discount_value:.2f}"
+        ),
+    )
+    await db.commit()
 
     return CouponOut.model_validate(coupon)
 

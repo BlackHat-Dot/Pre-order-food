@@ -20,6 +20,7 @@ from app.schemas.loyalty import (
     LoyaltyTransactionOut,
 )
 from app.utils.ids import new_id
+from app.api.v1.endpoints.orders import create_notification
 
 router = APIRouter(
     prefix="/loyalty",
@@ -224,6 +225,18 @@ async def redeem_points(
     await db.commit()
     await db.refresh(account)
 
+    # Dispatches standard notice payload to the client ledger upon point usage
+    await create_notification(
+        db=db,
+        user_id=user.id,
+        title="Points Redeemed",
+        message=(
+            f"You redeemed {payload.points} loyalty points. "
+            f"Remaining balance: {account.points_balance}."
+        ),
+    )
+    await db.commit()
+
     return LoyaltyAccountOut.model_validate(
         account
     )
@@ -283,6 +296,19 @@ async def adjust_points(
 
     await db.commit()
     await db.refresh(account)
+
+    # Dispatches balance shift context alert payload to the target buyer instance
+    action = "added to" if points > 0 else "deducted from"
+    await create_notification(
+        db=db,
+        user_id=customer_id,
+        title="Loyalty Points Updated",
+        message=(
+            f"{abs(points)} points were {action} your account. "
+            f"Current balance: {account.points_balance}."
+        ),
+    )
+    await db.commit()
 
     return LoyaltyAccountOut.model_validate(
         account

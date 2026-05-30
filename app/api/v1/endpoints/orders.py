@@ -57,6 +57,33 @@ router = APIRouter(
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
+async def create_notification(
+    db: AsyncSession,
+    user_id: str,
+    title: str,
+    message: str,
+) -> None:
+    """
+    Creates and records an in-app notification entry for the specified user.
+    Centralized handler allows for future seamless integrations (e.g. push notifications, email logs).
+    """
+    try:
+        from app.models.notification import Notification
+        notification = Notification(
+            id=new_id(),
+            user_id=user_id,
+            title=title,
+            message=message,
+            is_read=False,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(notification)
+        await db.flush()
+    except ImportError:
+        # Fallback safeguard if model or migration path differs across environments
+        pass
+
+
 async def get_shop_or_404(
     db: AsyncSession,
     shop_id: str,
@@ -243,17 +270,11 @@ async def create_order(
         )
 
     total_price = 0.0
-
     prep_times: list[int] = []
-
-    order_items: list[
-        OrderItem
-    ] = []
+    order_items: list[OrderItem] = []
 
     for entry in payload.items:
-
         if entry.variant_id:
-
             variant = await db.get(
                 MenuItemVariant,
                 entry.variant_id,
@@ -313,7 +334,6 @@ async def create_order(
             )
 
         else:
-
             if not entry.item_id:
                 raise HTTPException(
                     status_code=400,
@@ -372,7 +392,6 @@ async def create_order(
     loyalty_discount = 0.0
 
     if loyalty_points > 0:
-
         loyalty_account_stmt = (
             select(
                 LoyaltyAccount
@@ -438,13 +457,10 @@ async def create_order(
         )
 
     coupon_discount = 0.0
-
     coupon = None
-
     coupon_lock_key = None
 
     if payload.coupon_id:
-
         coupon = await db.get(
             Coupon,
             payload.coupon_id,
@@ -545,7 +561,6 @@ async def create_order(
     )
 
     try:
-
         order = Order(
             id=new_id(),
             customer_id=user.id,
@@ -592,7 +607,6 @@ async def create_order(
         )
 
         db.add(order)
-
         await db.flush()
 
         for item in order_items:
@@ -601,13 +615,19 @@ async def create_order(
 
         await db.commit()
 
+        # Dispatches standard account confirmation profile alert node centrally
+        await create_notification(
+            db=db,
+            user_id=user.id,
+            title="Order Placed",
+            message=f"Your order #{order.id[:8]} has been placed successfully.",
+        )
+
     except Exception:
-
         if coupon_lock_key:
-            await release_lock(
-                coupon_lock_key
-            )
-
+          await release_lock(
+              coupon_lock_key
+          )
         raise
 
     await send_sms(
@@ -891,7 +911,6 @@ async def update_order_status(
     )
 
     if incoming_status == "cancelled":
-
         if order.status in [
             "cancelled",
             "completed",
@@ -920,12 +939,18 @@ async def update_order_status(
         )
 
         order.status = "cancelled"
-
         order.is_cancellation_pending = (
             False
         )
 
         await db.commit()
+
+        await create_notification(
+            db=db,
+            user_id=order.customer_id,
+            title="Order Cancelled",
+            message="Your order has been cancelled.",
+        )
 
         return await get_order_or_404(
             db,
@@ -933,7 +958,6 @@ async def update_order_status(
         )
 
     if incoming_status == "completed":
-
         if (
         order.payment_method == "cod"
         and order.payment_status != "paid"
@@ -943,7 +967,7 @@ async def update_order_status(
             detail="Payment pending",
             )
 
-    # Prevent double-awarding points
+        # Prevent double-awarding points
         if order.status == "completed":
             return await get_order_or_404(
             db,
@@ -951,12 +975,11 @@ async def update_order_status(
             )
 
         await unlock_coupon(order)
-
         order.status = "completed"
 
-    # ─────────────────────────────────────────
-    # Loyalty Points Award
-    # ─────────────────────────────────────────
+        # ─────────────────────────────────────────
+        # Loyalty Points Award
+        # ─────────────────────────────────────────
 
         points_earned = max(
         1,
@@ -978,7 +1001,6 @@ async def update_order_status(
         ).scalar_one_or_none()
 
         if loyalty_account is None:
-
             loyalty_account = LoyaltyAccount(
                 id=new_id(),
                 customer_id=order.customer_id,
@@ -986,9 +1008,7 @@ async def update_order_status(
                 points_balance=0,
                 tier="bronze",
             )
-
             db.add(loyalty_account)
-
             await db.flush()
 
         loyalty_account.points_balance += (
@@ -1011,6 +1031,13 @@ async def update_order_status(
 
         await db.commit()
 
+        await create_notification(
+            db=db,
+            user_id=order.customer_id,
+            title="Order Completed",
+            message=f"Order completed. You earned {points_earned} loyalty points.",
+        )
+
         return await get_order_or_404(
             db,
             order.id,
@@ -1020,7 +1047,6 @@ async def update_order_status(
         incoming_status
         == "cancel_requested"
     ):
-
         if order.status in [
             "cancelled",
             "completed",
@@ -1058,11 +1084,9 @@ async def update_order_status(
             )
 
         order.cancellation_requests_sent += 1
-
         order.is_cancellation_pending = (
             True
         )
-
         order.cancellation_reason = (
             getattr(
                 payload,
@@ -1070,12 +1094,19 @@ async def update_order_status(
                 None,
             )
         )
-
         order.status = (
             "cancel_requested"
         )
 
         await db.commit()
+
+        if order.shop and order.shop.owner_id:
+            await create_notification(
+                db=db,
+                user_id=order.shop.owner_id,
+                title="Cancellation Request",
+                message=f"Customer requested cancellation for order #{order.id[:8]}",
+            )
 
         return await get_order_or_404(
             db,
@@ -1086,7 +1117,6 @@ async def update_order_status(
         "shop_owner",
         "admin",
     ]:
-
         if (
             user.role
             == "shop_owner"
@@ -1099,15 +1129,19 @@ async def update_order_status(
                 detail="Forbidden",
             )
 
+        notification_title = None
+        notification_message = None
+
         if (
             incoming_status
             == "resume_order"
         ):
             order.status = "accepted"
-
             order.is_cancellation_pending = (
                 False
             )
+            notification_title = "Order Accepted"
+            notification_message = "Your order has been accepted by the shop."
 
         elif (
             incoming_status
@@ -1121,7 +1155,6 @@ async def update_order_status(
             incoming_status
             == "mark_as_unpaid"
         ):
-
             if (
                 order.status
                 == "completed"
@@ -1142,8 +1175,22 @@ async def update_order_status(
             order.status = (
                 incoming_status
             )
+            if incoming_status == "preparing":
+                notification_title = "Order Preparing"
+                notification_message = "Your order is being prepared."
+            elif incoming_status == "ready":
+                notification_title = "Order Ready"
+                notification_message = "Your order is ready for pickup."
 
         await db.commit()
+
+        if notification_title and notification_message:
+            await create_notification(
+                db=db,
+                user_id=order.customer_id,
+                title=notification_title,
+                message=notification_message,
+            )
 
         return await get_order_or_404(
             db,
@@ -1151,7 +1198,6 @@ async def update_order_status(
         )
 
     order.status = incoming_status
-
     await db.commit()
 
     return await get_order_or_404(
