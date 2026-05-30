@@ -950,6 +950,7 @@ async def update_order_status(
             user_id=order.customer_id,
             title="Order Cancelled",
             message="Your order has been cancelled.",
+            type="order status"
         )
 
         return await get_order_or_404(
