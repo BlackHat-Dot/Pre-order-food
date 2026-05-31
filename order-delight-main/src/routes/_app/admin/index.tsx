@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -341,11 +341,15 @@ function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {(recentOrders ?? []).map((o) => (
+              {(recentOrders ?? []).map((o: any) => (
                 <div key={o.id} className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium">{o.customer_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{o.shop_name}</p>
+                    <p className="truncate text-sm font-medium">
+                      Order #{o.order_number ?? o.id.slice(0, 8).toUpperCase()}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {o.created_at ? formatDate(o.created_at) : "Recent transaction"}
+                    </p>
                   </div>
                   <Badge
                     variant="outline"
@@ -354,7 +358,9 @@ function AdminOverview() {
                   >
                     {o.status}
                   </Badge>
-                  <p className="shrink-0 text-sm font-semibold">{formatCurrency(o.total)}</p>
+                  <p className="shrink-0 text-sm font-semibold">
+                    {formatCurrency(o.total_price ?? o.total ?? 0)}
+                  </p>
                 </div>
               ))}
               {!recentOrders || recentOrders.length === 0 ? (
