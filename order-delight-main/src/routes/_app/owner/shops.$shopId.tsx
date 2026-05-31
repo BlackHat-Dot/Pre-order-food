@@ -165,7 +165,7 @@ function OwnerShop() {
       </Card>
 
       <Tabs defaultValue="orders">
-        <TabsList>
+        <TabsList className="overflow-visible">
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
@@ -976,6 +976,20 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                         <p className="font-medium text-foreground">{methodDisplay} ({isSettled ? "Settled paid" : "Unpaid state"})</p>
                       </div>
                     </div>
+
+                    {/* Cancellation Reason alert block appears explicitly above summaries on context flags */}
+                    {isCancelRequested && o.cancellation_reason && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                          Cancellation Reason
+                        </p>
+                        <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
+                          <p className="text-sm text-foreground">
+                            {o.cancellation_reason}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Order Items Summary</p>
