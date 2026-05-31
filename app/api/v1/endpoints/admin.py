@@ -1021,3 +1021,59 @@ async def top_shops(
     )
 
     return result
+
+@router.get("/analytics/recent-orders")
+async def recent_orders(
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    stmt = (
+        select(Order)
+        .order_by(Order.created_at.desc())
+        .limit(limit)
+    )
+
+    orders = (
+        await db.execute(stmt)
+    ).scalars().all()
+
+    return [
+        {
+            "id": order.id,
+            "order_number": getattr(order, "order_number", None),
+            "status": order.status,
+            "total_price": order.total_price,
+            "created_at": order.created_at,
+        }
+        for order in orders
+    ]
+
+
+@router.get("/analytics/revenue-by-category")
+async def revenue_by_category(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    stmt = (
+        select(
+            MenuItem.category,
+            func.sum(Order.total_price).label("revenue"),
+        )
+        .join(OrderItem, OrderItem.item_id == MenuItem.id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(Order.status == "completed")
+        .group_by(MenuItem.category)
+    )
+
+    results = (
+        await db.execute(stmt)
+    ).all()
+
+    return [
+        {
+            "category": category or "Uncategorized",
+            "revenue": float(revenue or 0),
+        }
+        for category, revenue in results
+    ]
