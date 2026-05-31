@@ -325,6 +325,8 @@ async def set_shop_active(
 # Orders
 # ─────────────────────────────────────────────────────────────
 
+from sqlalchemy.orm import selectinload
+
 @router.get("/orders")
 async def admin_list_orders(
     db: Annotated[
@@ -338,6 +340,11 @@ async def admin_list_orders(
 ):
     stmt = (
         select(Order)
+        .options(
+            selectinload(Order.customer),
+            selectinload(Order.shop),
+            selectinload(Order.items),
+        )
         .order_by(
             Order.created_at.desc()
         )
