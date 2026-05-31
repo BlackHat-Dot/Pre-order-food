@@ -112,14 +112,12 @@ function OwnerShop() {
   });
 
   const requestCount = (() => {
-    const orders = ((requestData as any)?.items ?? []) as any[];
+    const orders = (requestData ?? []) as any[];
     return orders.filter(
-      (o: any) => String(o.status || "").toLowerCase() === "cancel_requested"
+      (o: any) =>
+        String(o.status || "").toLowerCase() === "cancel_requested"
     ).length;
   })();
-
-  console.log("REQUEST DATA", requestData);
-  console.log("REQUEST COUNT", requestCount);
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!shop) return null;
