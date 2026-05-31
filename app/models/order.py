@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import (
-    datetime,
-    timezone,
-)
+from datetime import datetime, timezone
+from typing import Annotated
 
 from sqlalchemy import (
     Boolean,
     DateTime,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -31,25 +30,17 @@ class Order(Base):
 
     __table_args__ = (
         Index(
-            (
-                "ix_orders_customer_"
-                "created"
-            ),
+            "ix_orders_customer_created",
             "customer_id",
             "created_at",
         ),
         Index(
-            (
-                "ix_orders_shop_status"
-            ),
+            "ix_orders_shop_status",
             "shop_id",
             "status",
         ),
         Index(
-            (
-                "ix_orders_payment_"
-                "created"
-            ),
+            "ix_orders_payment_created",
             "payment_status",
             "created_at",
         ),
@@ -62,10 +53,11 @@ class Order(Base):
     )
     
     order_number: Mapped[int] = mapped_column(
-                  Integer,
-            unique=True,
-            nullable=False,
-            index=True,
+        Integer,
+        unique=True,
+        nullable=False,
+        index=True,
+        server_default=FetchedValue(),
     )
 
     customer_id: Mapped[str] = mapped_column(
@@ -91,9 +83,7 @@ class Order(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default=text(
-            "'pending'"
-        ),
+        server_default=text("'pending'"),
         index=True,
     )
 
@@ -102,157 +92,109 @@ class Order(Base):
         nullable=False,
     )
 
-    prep_time_minutes: Mapped[
-        int
-    ] = mapped_column(
+    prep_time_minutes: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
     )
 
-    scheduled_at: Mapped[
-        datetime | None
-    ] = mapped_column(
+    scheduled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
-    instructions: Mapped[
-        str | None
-    ] = mapped_column(
+    instructions: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
 
-    payment_method: Mapped[
-        str
-    ] = mapped_column(
+    payment_method: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        server_default=text(
-            "'cod'"
-        ),
+        server_default=text("'cod'"),
     )  # cod|online|coupon
 
-    payment_status: Mapped[
-        str
-    ] = mapped_column(
+    payment_status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default=text(
-            "'pending'"
-        ),
+        server_default=text("'pending'"),
         index=True,
     )  # pending|paid
 
     order_type: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        server_default=text(
-            "'delivery'"
-        ),
+        server_default=text("'delivery'"),
     )  # delivery|table_booking
 
-    delivery_address_id: Mapped[
-        str | None
-    ] = mapped_column(
+    delivery_address_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
 
-    coupon_id: Mapped[
-        str | None
-    ] = mapped_column(
+    coupon_id: Mapped[str | None] = mapped_column(
         String(36),
         nullable=True,
         index=True,
     )
 
-    coupon_discount_applied: Mapped[
-        float
-    ] = mapped_column(
+    coupon_discount_applied: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         server_default=text("0"),
     )
 
-    loyalty_points_used: Mapped[
-        int
-    ] = mapped_column(
+    loyalty_points_used: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         server_default=text("0"),
     )
 
-    loyalty_discount_amount: Mapped[
-        float
-    ] = mapped_column(
+    loyalty_discount_amount: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         server_default=text("0"),
     )
 
-    loyalty_points_earned: Mapped[
-        int
-    ] = mapped_column(
+    loyalty_points_earned: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         server_default=text("0"),
     )
 
-    redeem_loyalty_points: Mapped[
-        int
-    ] = mapped_column(
+    redeem_loyalty_points: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         server_default=text("0"),
     )
 
-    cancellation_reason: Mapped[
-        str | None
-    ] = mapped_column(
+    cancellation_reason: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
 
-    cancellation_requests_sent: Mapped[
-        int
-    ] = mapped_column(
+    cancellation_requests_sent: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         server_default=text("0"),
     )
 
-    is_cancellation_pending: Mapped[
-        bool
-    ] = mapped_column(
+    is_cancellation_pending: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        server_default=text(
-            "false"
-        ),
+        server_default=text("false"),
     )
 
-    created_at: Mapped[
-        datetime
-    ] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),
+        default=lambda: datetime.now(timezone.utc),
     )
 
-    updated_at: Mapped[
-        datetime
-    ] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),
-        onupdate=lambda: datetime.now(
-            timezone.utc
-        ),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     shop = relationship(
@@ -267,17 +209,13 @@ class Order(Base):
     items = relationship(
         "OrderItem",
         back_populates="order",
-        cascade=(
-            "all, delete-orphan"
-        ),
+        cascade="all, delete-orphan",
     )
 
     payments = relationship(
         "Payment",
         back_populates="order",
-        cascade=(
-            "all, delete-orphan"
-        ),
+        cascade="all, delete-orphan",
     )
 
 
@@ -307,9 +245,7 @@ class OrderItem(Base):
         index=True,
     )
 
-    item_id: Mapped[
-        str | None
-    ] = mapped_column(
+    item_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey(
             "menu_items.id",
@@ -319,9 +255,7 @@ class OrderItem(Base):
         index=True,
     )
 
-    variant_id: Mapped[
-        str | None
-    ] = mapped_column(
+    variant_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey(
             "menu_item_variants.id",
@@ -336,35 +270,25 @@ class OrderItem(Base):
         nullable=False,
     )
 
-    unit_price: Mapped[
-        float
-    ] = mapped_column(
+    unit_price: Mapped[float] = mapped_column(
         Float,
         nullable=False,
     )
 
-    item_name_snapshot: Mapped[
-        str
-    ] = mapped_column(
+    item_name_snapshot: Mapped[str] = mapped_column(
         String(140),
         nullable=False,
     )
 
-    variant_name_snapshot: Mapped[
-        str | None
-    ] = mapped_column(
+    variant_name_snapshot: Mapped[str | None] = mapped_column(
         String(60),
         nullable=True,
     )
 
-    created_at: Mapped[
-        datetime
-    ] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),
+        default=lambda: datetime.now(timezone.utc),
     )
 
     order = relationship(
@@ -382,10 +306,7 @@ class Payment(Base):
             "order_id",
         ),
         Index(
-            (
-                "ix_payments_provider_"
-                "payment_id"
-            ),
+            "ix_payments_provider_payment_id",
             "provider_payment_id",
         ),
     )
@@ -409,22 +330,16 @@ class Payment(Base):
     provider: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        server_default=text(
-            "'razorpay'"
-        ),
+        server_default=text("'razorpay'"),
     )
 
-    provider_order_id: Mapped[
-        str | None
-    ] = mapped_column(
+    provider_order_id: Mapped[str | None] = mapped_column(
         String(120),
         nullable=True,
         index=True,
     )
 
-    provider_payment_id: Mapped[
-        str | None
-    ] = mapped_column(
+    provider_payment_id: Mapped[str | None] = mapped_column(
         String(120),
         nullable=True,
         index=True,
@@ -438,48 +353,32 @@ class Payment(Base):
     currency: Mapped[str] = mapped_column(
         String(8),
         nullable=False,
-        server_default=text(
-            "'INR'"
-        ),
+        server_default=text("'INR'"),
     )
 
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default=text(
-            "'created'"
-        ),
+        server_default=text("'created'"),
         index=True,
     )
 
-    raw_payload: Mapped[
-        str | None
-    ] = mapped_column(
+    raw_payload: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
 
-    created_at: Mapped[
-        datetime
-    ] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),
+        default=lambda: datetime.now(timezone.utc),
     )
 
-    updated_at: Mapped[
-        datetime
-    ] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),
-        onupdate=lambda: datetime.now(
-            timezone.utc
-        ),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     order = relationship(
