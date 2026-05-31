@@ -7,10 +7,8 @@ import {
   Clock, 
   Store, 
   User, 
-  CreditCard, 
   Utensils, 
   Bike, 
-  Phone, 
   MapPin, 
   Percent, 
   Trash2,
@@ -33,8 +31,19 @@ const STATUS_COLORS: Record<string, string> = {
   accepted: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   preparing: "bg-purple-500/10 text-purple-600 border-purple-500/20",
   ready: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  cancel_requested: "bg-rose-500/10 text-rose-600 border-rose-500/20 font-medium animate-pulse",
   completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   cancelled: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+};
+
+const STATUS_PRIORITY: Record<string, number> = {
+  ready: 1,
+  preparing: 2,
+  accepted: 3,
+  pending: 4,
+  cancel_requested: 5,
+  completed: 6,
+  cancelled: 7,
 };
 
 function AdminGlobalOrdersPage() {
@@ -77,7 +86,21 @@ function AdminGlobalOrdersPage() {
     onSettled: () => setUpdatingId(null),
   });
 
-  const visibleOrders = Array.isArray(orders) ? orders : [];
+  // Materializes and sorts lists according to runtime focus weights
+  const visibleOrders = Array.isArray(orders) ? [...orders] : [];
+  
+  if (statusFilter === "all") {
+    visibleOrders.sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[String(a?.status).toLowerCase()] ?? 99;
+      const priorityB = STATUS_PRIORITY[String(b?.status).toLowerCase()] ?? 99;
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }
 
   const calculateDiscountPercentage = (order: any): number => {
     const couponDiscount = Number(order?.coupon_discount_applied || 0);
@@ -175,7 +198,7 @@ function AdminGlobalOrdersPage() {
                       <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
                     </div>
 
-                    <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-border/20 shrink-0">
                       <span className={`font-semibold text-sm text-foreground tracking-tight min-w-[70px] text-right ${currentStatus === 'cancelled' ? 'line-through text-muted-foreground opacity-60' : ''}`}>
                         {formatCurrency(o.total_price)}
                       </span>
@@ -233,7 +256,6 @@ function AdminGlobalOrdersPage() {
               </div>
             </div>
 
-            {/* ─── DYNAMIC SUB-TOTAL EXPLICIT VOUCHER BREAKDOWN GRID ─── */}
             <div className={`grid grid-cols-2 gap-2 ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'opacity-70 grayscale' : ''}`}>
               <div className="border border-border/40 bg-background/50 rounded-lg p-2.5 flex items-center gap-2.5">
                 <Percent className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -301,7 +323,6 @@ function AdminGlobalOrdersPage() {
               </div>
             </div>
 
-            {/* TOTAL COST SUMMARY BLOCK FOR ADMINISTRATIVE TRACKING */}
             <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5 text-[11px]">
               {Number(selectedOrder.coupon_discount_applied || 0) > 0 && (
                 <div className={`flex justify-between font-medium ${selectedOrder.status?.toLowerCase() === 'cancelled' ? 'text-rose-600/80 line-through' : 'text-muted-foreground'}`}>
@@ -333,7 +354,8 @@ function AdminGlobalOrdersPage() {
                 variant="destructive"
                 disabled={updatingId === selectedOrder.id}
                 onClick={() => {
-                  if (confirm(`Force override: Cancel transaction #${selectedOrder.order_number ?? String(selectedOrder.id).slice(0, 8).toUpperCase()} unconditionally?`)) {
+                  const orderDisplayId = selectedOrder.order_number ?? String(selectedOrder.id).slice(0, 8).toUpperCase();
+                  if (confirm(`Force override: Cancel transaction #${orderDisplayId} unconditionally?`)) {
                     forceCancelMutation.mutate(selectedOrder.id);
                   }
                 }}

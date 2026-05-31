@@ -83,6 +83,16 @@ function OwnerShop() {
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.get(shopId),
   });
+  const { data: requestData } = useQuery({
+    queryKey: ["shop", shopId, "request-counter"],
+    queryFn: () =>
+      ordersApi.shopOrders(shopId, {
+        page: 1,
+        page_size: 100,
+        status: undefined,
+      }),
+    refetchInterval: 5000,
+  });
 
   const setStatus = useMutation({
     mutationFn: (is_open: boolean) => shopsApi.setStatus(shopId, { is_open }),
@@ -91,6 +101,16 @@ function OwnerShop() {
       qc.invalidateQueries({ queryKey: ["shop", shopId] });
     },
   });
+
+  const requestCount = (() => {
+  const orders =
+    ((requestData as any)?.items ?? []) as any[];
+
+    return orders.filter(
+      (o: any) =>
+        String(o.status || "").toLowerCase() === "cancel_requested"
+    ).length;
+  })();
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!shop) return null;
@@ -143,7 +163,31 @@ function OwnerShop() {
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger
+              value="requests"
+              className="relative flex items-center gap-2"
+              >
+              Requests
+
+              {requestCount > 0 && (
+                <span
+                  className="
+                    flex items-center justify-center
+                    min-w-[18px]
+                    h-[18px]
+                    px-1
+                    rounded-full
+                    bg-red-600
+                    text-white
+                    text-[10px]
+                    font-bold
+                    animate-pulse
+                  "
+                >
+                  {requestCount > 99 ? "99+" : requestCount}
+                </span>
+              )}
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-6">
