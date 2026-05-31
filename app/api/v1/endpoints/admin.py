@@ -20,6 +20,11 @@ from sqlalchemy import (
     func,
     select,
 )
+
+from app.models.menu import MenuItem
+
+from app.models.order import OrderItem
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
