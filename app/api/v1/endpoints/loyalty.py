@@ -313,3 +313,26 @@ async def adjust_points(
     return LoyaltyAccountOut.model_validate(
         account
     )
+
+@router.get("/admin/balance")
+async def get_loyalty_balance(
+    customer_id: str,
+    shop_id: str,
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    _: Annotated[
+        User,
+        Depends(require_roles("admin")),
+    ],
+):
+    account = await ensure_loyalty_account(
+        db,
+        customer_id,
+        shop_id,
+    )
+
+    return {
+        "points_balance": account.points_balance,
+    }

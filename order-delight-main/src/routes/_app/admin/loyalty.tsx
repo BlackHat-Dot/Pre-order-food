@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ApiError, adminApi, usersApi, shopsApi } from "@/lib/api";
+import { ApiError, adminApi, usersApi, shopsApi, apiRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +18,14 @@ function AdminLoyalty() {
   const [points, setPoints] = useState<number>(0);
   const [shouldFetch, setShouldFetch] = useState(false);
 
-  // 1. Fetch live loyalty ledger balance parameters
+  // 1. Fetch live loyalty ledger balance via a dedicated administrative GET endpoint
   const loyaltyQuery = useQuery({
     queryKey: ["admin", "loyalty-check", customerId, shopId],
-    queryFn: () => adminApi.loyalty(customerId.trim(), { shopId: shopId.trim(), points: 0 }),
+    queryFn: () =>
+      apiRequest<{ points_balance: number }>("/api/v1/admin/loyalty/balance", {
+        method: "GET",
+        query: { customer_id: customerId.trim(), shop_id: shopId.trim() },
+      }),
     enabled: shouldFetch && !!customerId.trim() && !!shopId.trim(),
     retry: false,
   });
@@ -159,7 +163,9 @@ function AdminLoyalty() {
                 </div>
                 <div className="pl-5 space-y-0.5">
                   <p className="text-sm font-black text-foreground">{shopQuery.data?.name || "Unknown Merchant Branch"}</p>
-                  <p className="text-xs text-muted-foreground">Cuisine Style: {shopQuery.data?.cuisine ?? "General Store"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Cuisine Style: {shopQuery.data?.cuisine || (shopQuery.data as any)?.category || "General Store"}
+                  </p>
                 </div>
               </div>
 
