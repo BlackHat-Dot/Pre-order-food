@@ -65,6 +65,15 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold"
 };
 
+const STATUS_PRIORITY: Record<string, number> = {
+  ready: 1,
+  accepted: 2,
+  preparing: 3,
+  pending: 4,
+  completed: 5,
+  cancelled: 6,
+};
+
 function StatusBadge({ status }: { status: string }) {
   const current = (status || "pending").toLowerCase();
   const styling = STATUS_COLORS[current] || "bg-muted text-muted-foreground border-transparent";
@@ -103,12 +112,9 @@ function OwnerShop() {
   });
 
   const requestCount = (() => {
-  const orders =
-    ((requestData as any)?.items ?? []) as any[];
-
+    const orders = ((requestData as any)?.items ?? []) as any[];
     return orders.filter(
-      (o: any) =>
-        String(o.status || "").toLowerCase() === "cancel_requested"
+      (o: any) => String(o.status || "").toLowerCase() === "cancel_requested"
     ).length;
   })();
 
@@ -159,34 +165,17 @@ function OwnerShop() {
       </Card>
 
       <Tabs defaultValue="orders">
-        <TabsList>
+        <TabsList className="overflow-visible">
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger
-              value="requests"
-              className="relative flex items-center gap-2"
-              >
-              Requests
-
-              {requestCount > 0 && (
-                <span
-                  className="
-                    flex items-center justify-center
-                    min-w-[18px]
-                    h-[18px]
-                    px-1
-                    rounded-full
-                    bg-red-600
-                    text-white
-                    text-[10px]
-                    font-bold
-                    animate-pulse
-                  "
-                >
-                  {requestCount > 99 ? "99+" : requestCount}
-                </span>
-              )}
+          <TabsTrigger value="requests" className="relative overflow-visible">
+            Requests
+            {requestCount > 0 && (
+              <span className="absolute -top-1 -right-1.5 z-10 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold shadow-md ring-2 ring-background animate-pulse">
+                {requestCount > 99 ? "99+" : requestCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -708,12 +697,33 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
     return [];
   };
 
-  const visibleOrders = getOrdersList().filter((o: any) => {
+  const visibleOrders = [...getOrdersList()]
+  .filter((o: any) => {
     const itemStatus = String(o.status || "").toLowerCase();
+
     if (forceRequestsOnly) return itemStatus === "cancel_requested";
     if (itemStatus === "cancel_requested") return false;
     if (status === "all") return true;
+
     return itemStatus === status;
+  })
+  .sort((a: any, b: any) => {
+    if (!forceRequestsOnly && status === "all") {
+      const priorityA =
+        STATUS_PRIORITY[String(a.status || "").toLowerCase()] ?? 999;
+
+      const priorityB =
+        STATUS_PRIORITY[String(b.status || "").toLowerCase()] ?? 999;
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+    }
+
+    return (
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+    );
   });
 
   return (
