@@ -193,8 +193,8 @@ function AdminGlobalOrdersPage() {
                     </div>
 
                     <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 text-left sm:text-right text-muted-foreground text-[11px] flex-1 min-w-0">
-                      <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {o.customer_name || "Guest"}</div>
-                      <div className="truncate"><span className="text-foreground font-medium">Shop:</span> {o.shop_name || "Store"}</div>
+                      <div className="truncate"><span className="text-foreground font-medium">Customer:</span> {o.customer?.name || "Guest"}</div>
+                      <div className="truncate"><span className="text-foreground font-medium">Shop:</span> {o.shop?.name || "Store"}</div>
                       <div className="sm:ml-auto font-mono text-muted-foreground/80">{formatDate(o.created_at)}</div>
                     </div>
 
@@ -244,7 +244,7 @@ function AdminGlobalOrdersPage() {
                 <span className="font-semibold text-foreground">{selectedOrder.customer_name}</span>
                 
                 <span className="text-muted-foreground">Phone:</span>
-                <span className="font-mono text-foreground font-medium">{selectedOrder.customer_phone || "—"}</span>
+                <span className="font-mono text-foreground font-medium">{selectedOrder.customer?.phone || "—"}</span>
                 
                 <span className="text-muted-foreground">Shop:</span>
                 <span className="font-semibold text-foreground">{selectedOrder.shop_name}</span>
@@ -308,7 +308,7 @@ function AdminGlobalOrdersPage() {
                 {selectedOrder.items?.map((item: any, idx: number) => (
                   <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0 border-border/20">
                     <span className="text-foreground font-medium truncate max-w-[220px]">
-                      {item.menu_item_name} {item.variant_name ? `(${item.variant_name})` : ""}
+                      {item.item_name_snapshot} {item.variant_name_snapshot ? `(${item.variant_name_snapshot})` : ""}
                     </span>
                     <div className="flex items-center gap-2 text-right shrink-0">
                       <span className="text-muted-foreground font-mono text-[11px]">
