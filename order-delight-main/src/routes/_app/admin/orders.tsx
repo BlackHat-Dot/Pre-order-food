@@ -241,13 +241,13 @@ function AdminGlobalOrdersPage() {
             <div className="space-y-2 bg-muted/30 border border-border/40 p-3 rounded-lg">
               <div className="grid grid-cols-[70px_1fr] gap-x-2 gap-y-1.5 leading-normal">
                 <span className="text-muted-foreground">Customer:</span>
-                <span className="font-semibold text-foreground">{selectedOrder.customer_name}</span>
+                <span className="font-semibold text-foreground">{selectedOrder.customer?.name}</span>
                 
                 <span className="text-muted-foreground">Phone:</span>
                 <span className="font-mono text-foreground font-medium">{selectedOrder.customer?.phone || "—"}</span>
                 
                 <span className="text-muted-foreground">Shop:</span>
-                <span className="font-semibold text-foreground">{selectedOrder.shop_name}</span>
+                <span className="font-semibold text-foreground">{selectedOrder.shop?.name}</span>
                 
                 <span className="text-muted-foreground">Payment:</span>
                 <span className="font-medium text-foreground uppercase text-[11px]">
