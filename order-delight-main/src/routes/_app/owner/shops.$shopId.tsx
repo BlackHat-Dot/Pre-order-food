@@ -118,6 +118,9 @@ function OwnerShop() {
     ).length;
   })();
 
+  console.log("REQUEST DATA", requestData);
+  console.log("REQUEST COUNT", requestCount);
+
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!shop) return null;
 

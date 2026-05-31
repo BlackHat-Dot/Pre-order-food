@@ -776,8 +776,6 @@ export const adminApi = {
     apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
   listUsers: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
     apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
-  countUsers: () =>
-    apiRequest<AdminUserCounts>("/api/v1/admin/users/count"),
   setUserActive: (userId: string, body: { is_active: boolean }) =>
     apiRequest<{ updated: boolean; user_id: string; is_active: boolean }>(
       `/api/v1/admin/users/${userId}/active`,
@@ -796,8 +794,6 @@ export const adminApi = {
     apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
   listShops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
     apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
-  countShops: () =>
-    apiRequest<AdminShopCounts>("/api/v1/admin/shops/count"),
   verifyShop: (shopId: string, body: { is_verified: boolean }) =>
     apiRequest<{ updated: boolean; shop_id: string; is_verified: boolean }>(
       `/api/v1/admin/shops/${shopId}/verify`,
