@@ -22,7 +22,7 @@ function AdminLoyalty() {
   const loyaltyQuery = useQuery({
     queryKey: ["admin", "loyalty-check", customerId, shopId],
     queryFn: () =>
-      apiRequest<{ points_balance: number }>("/api/v1/admin/loyalty/balance", {
+      apiRequest<{ points_balance: number }>("/api/v1/loyalty/admin/balance", {
         method: "GET",
         query: { customer_id: customerId.trim(), shop_id: shopId.trim() },
       }),
