@@ -165,14 +165,18 @@ function OwnerShop() {
       </Card>
 
       <Tabs defaultValue="orders">
-        <TabsList className="overflow-visible">
+        <TabsList>
           <TabsTrigger value="stats">Dashboard</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="requests" className="relative overflow-visible">
+          <TabsTrigger
+            value="requests"
+            className="flex items-center gap-2"
+          >
             Requests
+
             {requestCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 z-10 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold shadow-md ring-2 ring-background animate-pulse">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white animate-pulse">
                 {requestCount > 99 ? "99+" : requestCount}
               </span>
             )}
