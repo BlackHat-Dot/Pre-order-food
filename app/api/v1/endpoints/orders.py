@@ -621,11 +621,13 @@ async def create_order(
             db=db,
             user_id=user.id,
             title="Order Placed",
-            message=f"Your order #{order.id[:8]} has been placed successfully.",
+            message=f"Your order has been placed successfully.",
             type="order_status"
         )
 
         await db.commit()
+        # 🚀 FORCES POSTGRES SEQUENCE RE-SYNC BACK INTO IDENTITY MAP CACHE
+        await db.refresh(order)
 
     except Exception:
         if coupon_lock_key:
@@ -808,6 +810,7 @@ async def shop_orders(
             require_roles(
                 "shop_owner",
                 "admin",
+                "customer",
             )
         ),
     ],
@@ -952,6 +955,7 @@ async def update_order_status(
         )
 
         await db.commit()
+        await db.refresh(order)
 
         return await get_order_or_404(
             db,
@@ -1039,6 +1043,7 @@ async def update_order_status(
         )
 
         await db.commit()
+        await db.refresh(order)
 
         return await get_order_or_404(
             db,
@@ -1099,11 +1104,12 @@ async def update_order_status(
                 db=db,
                 user_id=order.shop.owner_id,
                 title="Cancellation Request",
-                message=f"Customer requested cancellation for order #{order.id[:8]}",
+                message=f"Customer requested cancellation for order reference identifier.",
                 type="order_status"
             )
 
         await db.commit()
+        await db.refresh(order)
 
         return await get_order_or_404(
             db,
@@ -1181,6 +1187,7 @@ async def update_order_status(
             )
 
         await db.commit()
+        await db.refresh(order)
 
         return await get_order_or_404(
             db,
@@ -1189,6 +1196,7 @@ async def update_order_status(
 
     order.status = incoming_status
     await db.commit()
+    await db.refresh(order)
 
     return await get_order_or_404(
         db,
