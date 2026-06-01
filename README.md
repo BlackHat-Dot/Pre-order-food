@@ -1,136 +1,297 @@
-# Pre-order Food Backend (FastAPI)
+# PreOrder — Skip the Queue
 
-Production-grade backend for a pre-order food marketplace:
-- **FastAPI** REST API
-- **PostgreSQL** + SQLAlchemy ORM + **Alembic migrations**
-- **Redis** caching
-- **JWT auth** (access+refresh) with **RBAC** (customer, shop_owner, admin)
-- Optional integrations: **S3** uploads, **Twilio** SMS, **Razorpay** payments, **Sentry**
-- Dockerized and deployable
+A production-ready food pre-order platform that allows customers to place orders before arriving, shop owners to manage fulfillment workflows, and administrators to oversee the entire ecosystem.
 
-> Current setup uses PostgreSQL for production-grade database operations.
+---
+
+## Features
+
+### Customer Portal
+
+* Browse shops and menus
+* Add items to cart
+* Apply coupons
+* Place dine-in and delivery orders
+* Track order status in real time
+* Request order cancellation
+* Loyalty rewards system
+* Order history
+
+### Shop Owner Portal
+
+* Create and manage shops
+* Manage menu items and variants
+* Toggle shop open/closed status
+* Accept incoming orders
+* Move orders through fulfillment pipeline:
+
+Pending → Accepted → Preparing → Ready → Completed
+
+* Handle cancellation requests
+* View revenue analytics
+* Track active and historical orders
+
+### Admin Panel
+
+* Manage users
+* Manage shops
+* Monitor all orders
+* Loyalty management
+* Revenue insights
+* Platform analytics dashboard
+* Order investigation and auditing
+
+---
+
+## Tech Stack
+
+### Frontend
+
+* React
+* TypeScript
+* TanStack Router
+* TanStack Query
+* Tailwind CSS
+* Vite
+
+### Backend
+
+* FastAPI
+* SQLAlchemy
+* PostgreSQL
+* Alembic
+* Redis
+* JWT Authentication
+
+### Deployment
+
+* Railway
+* PostgreSQL Add-on
+* Docker Support
+
+---
 
 ## Architecture
-- `app/main.py`: FastAPI app + routers + middleware
-- `app/core/`: settings, security, dependencies, logging
-- `app/db/`: async SQLAlchemy session + base
-- `app/models/`: normalized DB schema
-- `app/schemas/`: Pydantic request/response schemas
-- `app/crud/`: DB access layer
-- `app/services/`: integrations (S3/Twilio/Razorpay), caching, domain services
-- `app/api/`: versioned routers (`/api/v1`)
-- `alembic/`: migrations
-- `tests/`: pytest suite
 
-## Local development (Windows + VS Code)
-
-Use the **project virtualenv** (`venv`). In VS Code: pick interpreter `.\venv\Scripts\python.exe` — this is already set in `.vscode/settings.json`.
-
-### Prerequisites
-- PostgreSQL database running locally or remotely
-- Update `.env` with your PostgreSQL connection string
-
-1. Install dependencies:
-
-```powershell
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
+```text
+Frontend (React)
+        │
+        ▼
+FastAPI REST API
+        │
+        ▼
+PostgreSQL Database
+        │
+        ▼
+Redis Cache
 ```
 
-2. Run database migrations:
+---
 
-```powershell
-.\venv\Scripts\python.exe -m alembic upgrade head
+## Order Lifecycle
+
+```text
+Pending
+   │
+   ▼
+Accepted
+   │
+   ▼
+Preparing
+   │
+   ▼
+Ready
+   │
+   ▼
+Completed
 ```
 
-3. Run the API (either **Run and Debug → "Uvicorn: app.main"** from `.vscode/launch.json`, or CLI):
+Cancellation Flow:
 
-```powershell
-.\venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```text
+Customer Requests Cancellation
+            │
+            ▼
+Shop Owner Reviews Request
+            │
+      ┌─────┴─────┐
+      ▼           ▼
+Approve      Resume Order
+      ▼
+Cancelled
 ```
 
-Swagger: `http://127.0.0.1:8000/docs`. Configure PostgreSQL connection in `.env` (`DATABASE_URL`). Redis is optional: if Redis is down, caching/rate-limit degrade gracefully.
+---
 
-## Quickstart (Docker)
-1. Copy env:
+## Local Development
+
+### Backend
+
+Install dependencies:
 
 ```bash
-cp .env.example .env
+pip install -r requirements.txt
 ```
 
-2. Run:
+Run migrations:
 
 ```bash
-docker-compose up --build
+alembic upgrade head
 ```
 
-3. Open Swagger:
-- `http://localhost:8000/docs`
-
-## Core workflow
-- Register customer → login
-- Register shop owner → login → create shop → add menu items/variants
-- Customer browses shops/menu → creates order → pays (Razorpay mock if keys absent)
-- Shop updates order status (pending → accepted → preparing → ready → completed)
-
-## Tests
+Start backend:
 
 ```bash
-pytest -q
-```
-
-## Deployment (Railway/Render)
-- Use the included `Dockerfile`
-- Configure env variables from `.env.example`
-
-### Railway Deployment (Recommended)
-
-1. **Connect Git repo** to Railway project
-2. **Add PostgreSQL database**:
-   - Railway dashboard → "+ Add" → "Database" → "PostgreSQL"
-   - Railway automatically sets `DATABASE_URL` in your environment
-3. **Verify variables**:
-   - Check Railway "Variables" panel has `DATABASE_URL` set (auto-created by PostgreSQL add-on)
-   - Add other optional vars: `JWT_SECRET_KEY`, `SENTRY_DSN`, etc.
-4. **Deploy**:
-   - Push to Git → Railway auto-deploys using `Dockerfile`
-   - If using Railway Python buildpack instead of Docker, the included `Procfile` now runs `alembic upgrade head` before the app starts.
-   - Monitor logs at Railway dashboard
-5. **Test**:
-   - Visit `https://<your-railway-domain>/health`
-   - Swagger UI: `https://<your-railway-domain>/docs`
-
-### Local Testing with Railway Config
-
-For local testing with PostgreSQL (instead of SQLite):
-
-```powershell
-# Install PostgreSQL async driver
-pip install asyncpg
-
-# Create .env with PostgreSQL
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/preorder_db
-```
-
-Then run:
-```powershell
 uvicorn app.main:app --reload
 ```
 
-### Troubleshooting Railway Deployment
+Backend URL:
 
-**Error: "Could not parse SQLAlchemy URL"**
-- Cause: `DATABASE_URL` not set in Railway Variables
-- Fix: Add PostgreSQL database add-on (auto-sets DATABASE_URL) or manually set it
+```text
+http://localhost:8000
+```
 
-**Error: "connection refused"**
-- Cause: App running before database is ready
-- Fix: Railway health check will retry; ensure PostgreSQL is in Variables
+Swagger:
 
-**Error: "module not found" or import errors**
-- Cause: Missing dependencies in production
-- Fix: Use `requirements-production.txt` (includes `asyncpg`); Dockerfile handles this
+```text
+http://localhost:8000/docs
+```
 
-**Health check failing**
-- Monitor: Railway "Logs" tab shows `/health` requests
-- App recovery: Railway auto-restarts failed deployments (5 retries max)
-- For production, switch `DATABASE_URL` to PostgreSQL and provision Redis
+---
+
+### Frontend
+
+Navigate to frontend:
+
+```bash
+cd order-delight-main
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start development server:
+
+```bash
+npm run dev
+```
+
+Frontend URL:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## Environment Variables
+
+Required:
+
+```env
+DATABASE_URL=
+JWT_SECRET_KEY=
+```
+
+Optional:
+
+```env
+REDIS_URL=
+SENTRY_DSN=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+```
+
+---
+
+## Production Deployment (Railway)
+
+### Database
+
+Add Railway PostgreSQL.
+
+Railway automatically creates:
+
+```env
+DATABASE_URL=
+```
+
+### Start Command
+
+```bash
+bash start.sh
+```
+
+### Health Check
+
+```text
+/health
+```
+
+---
+
+## API Documentation
+
+Swagger UI:
+
+```text
+https://your-domain/docs
+```
+
+OpenAPI:
+
+```text
+https://your-domain/openapi.json
+```
+
+---
+
+## Testing
+
+```bash
+pytest
+```
+
+Frontend:
+
+```bash
+npm run build
+```
+
+---
+
+## Roles
+
+### Customer
+
+* Browse shops
+* Place orders
+* Earn loyalty points
+* Request cancellations
+
+### Shop Owner
+
+* Manage shop operations
+* Process orders
+* Handle cancellation requests
+
+### Administrator
+
+* Full platform oversight
+* User management
+* Shop management
+* Order monitoring
+* Loyalty administration
+
+---
+
+## Project Status
+
+Production-ready full-stack food pre-order platform deployed on Railway with PostgreSQL, JWT authentication, role-based access control, loyalty rewards, cancellation workflow, and multi-role dashboards.
