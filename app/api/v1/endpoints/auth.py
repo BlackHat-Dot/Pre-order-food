@@ -231,6 +231,28 @@ async def register(
 
     return UserOut.model_validate(user)
 
+@router.get("/check-phone")
+async def check_phone(
+    phone: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    try:
+        normalized_phone = normalize_e164(phone)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid phone number",
+        )
+
+    user = await get_user_by_phone(
+        db,
+        normalized_phone,
+    )
+
+    return {
+        "exists": user is not None
+    }
+
 
 # ─────────────────────────────────────────────────────────────
 # Login

@@ -437,6 +437,14 @@ export const authApi = {
     apiRequest<TokenResponse>("/api/v1/auth/refresh", { method: "POST", body: { refresh_token }, auth: false }),
   me: () => apiRequest<UserOut>("/api/v1/auth/me"),
   logout: (accessToken?: string | null) => apiRequest<void>("/api/v1/auth/logout", { method: "POST", accessToken }),
+  checkPhone: (phone: string) =>
+  apiRequest<{ exists: boolean }>(
+    "/api/v1/auth/check-phone",
+    {
+      auth: false,
+      query: { phone },
+    }
+  ),
 };
 
 // ── OTP API (email verification) ───────────────────────────────────────────────

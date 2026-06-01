@@ -20,6 +20,7 @@ import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { authApi } from "@/lib/api";
 
 const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
 const WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID as string | undefined;
@@ -93,7 +94,18 @@ export function Msg91Widget({
     guardRef.current = true;
     setLoading(true);
     setError(null);
+    try {
+      const check = await authApi.checkPhone(phone);
 
+      if (check.exists) {
+        toast.error("Phone already registered");
+        setLoading(false);
+        guardRef.current = false;
+        return;
+      }
+    } catch (err) {
+      console.error("Phone check failed", err);
+    }
     try {
       if (isDev) {
         // Dev mode: skip real MSG91 widget, call backend directly with empty token.
