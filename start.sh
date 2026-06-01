@@ -66,12 +66,19 @@ if [ ! -d "/app/node_modules" ]; then
     npm install --ignore-scripts
 fi
 
-if [ ! -d "/app/order-delight-main/node_modules" ]; then
+echo "Preparing frontend..."
+
+cd /app/order-delight-main
+
+if [ ! -d "node_modules" ]; then
     echo "Installing frontend dependencies..."
-    cd /app/order-delight-main
     npm install
-    cd /app
 fi
+
+echo "Building frontend with Railway environment variables..."
+npm run build
+
+cd /app
 
 chmod +x /app/node_modules/.bin/concurrently || true
 
