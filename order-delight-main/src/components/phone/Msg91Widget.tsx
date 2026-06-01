@@ -24,10 +24,7 @@ import { cn } from "@/lib/utils";
 const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
 const WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID as string | undefined;
 const TOKEN_AUTH = import.meta.env.VITE_MSG91_TOKEN_AUTH as string | undefined;
-console.log({
-  widget: import.meta.env.VITE_MSG91_WIDGET_ID,
-  token: import.meta.env.VITE_MSG91_TOKEN_AUTH,
-});
+
 // Extend window with MSG91 types
 declare global {
   interface Window {
