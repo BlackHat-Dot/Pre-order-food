@@ -1,49 +1,55 @@
 # PreOrder — Skip the Queue
 
-A production-ready food pre-order platform that allows customers to place orders before arriving, shop owners to manage fulfillment workflows, and administrators to oversee the entire ecosystem.
+A full-stack food pre-order platform that enables customers to order ahead, reduces waiting time at food outlets, and provides comprehensive management tools for shop owners and platform administrators.
+
+**Live Application:** https://web-production-248c50.up.railway.app/
 
 ---
 
-## Features
+## Overview
 
-### Customer Portal
+PreOrder is a multi-role marketplace application designed to streamline the food ordering experience. Customers can place orders before arriving at a restaurant, shop owners can efficiently manage order fulfillment, and administrators can oversee platform operations through dedicated management dashboards.
 
-* Browse shops and menus
-* Add items to cart
-* Apply coupons
+The platform includes secure authentication, role-based access control, loyalty rewards, coupon management, order cancellation workflows, analytics, and real-time operational management.
+
+---
+
+## Key Features
+
+### Customer Experience
+
+* Browse shops and menu offerings
+* Add items and variants to cart
+* Apply promotional coupons
 * Place dine-in and delivery orders
-* Track order status in real time
-* Request order cancellation
-* Loyalty rewards system
-* Order history
+* Track order progress through fulfillment stages
+* Request order cancellations
+* Earn and redeem loyalty rewards
+* Access complete order history
 
-### Shop Owner Portal
+### Shop Owner Dashboard
 
 * Create and manage shops
-* Manage menu items and variants
-* Toggle shop open/closed status
-* Accept incoming orders
-* Move orders through fulfillment pipeline:
+* Configure menus, categories, and item variants
+* Control shop availability and operating status
+* Manage incoming orders
+* Process orders through the fulfillment pipeline
+* Review and handle cancellation requests
+* Monitor revenue and operational metrics
+* View active and historical orders
 
-Pending → Accepted → Preparing → Ready → Completed
+### Administration Panel
 
-* Handle cancellation requests
-* View revenue analytics
-* Track active and historical orders
-
-### Admin Panel
-
-* Manage users
-* Manage shops
-* Monitor all orders
-* Loyalty management
-* Revenue insights
-* Platform analytics dashboard
-* Order investigation and auditing
+* User management
+* Shop verification and management
+* Platform-wide order monitoring
+* Loyalty system administration
+* Revenue and business analytics
+* Operational auditing and reporting
 
 ---
 
-## Tech Stack
+## Technology Stack
 
 ### Frontend
 
@@ -57,38 +63,40 @@ Pending → Accepted → Preparing → Ready → Completed
 ### Backend
 
 * FastAPI
-* SQLAlchemy
+* SQLAlchemy ORM
 * PostgreSQL
-* Alembic
+* Alembic Migrations
 * Redis
 * JWT Authentication
+* Role-Based Access Control (RBAC)
 
-### Deployment
+### Infrastructure & Deployment
 
 * Railway
 * PostgreSQL Add-on
-* Docker Support
+* Docker
+* Environment-based Configuration
 
 ---
 
-## Architecture
+## System Architecture
 
 ```text
-Frontend (React)
-        │
-        ▼
+React Frontend
+       │
+       ▼
 FastAPI REST API
-        │
-        ▼
+       │
+       ▼
 PostgreSQL Database
-        │
-        ▼
+       │
+       ▼
 Redis Cache
 ```
 
 ---
 
-## Order Lifecycle
+## Order Processing Workflow
 
 ```text
 Pending
@@ -106,7 +114,7 @@ Ready
 Completed
 ```
 
-Cancellation Flow:
+### Cancellation Workflow
 
 ```text
 Customer Requests Cancellation
@@ -116,10 +124,29 @@ Shop Owner Reviews Request
             │
       ┌─────┴─────┐
       ▼           ▼
-Approve      Resume Order
+Approve      Continue Order
       ▼
 Cancelled
 ```
+
+---
+
+## Database Design
+
+The platform is built around a normalized relational database structure consisting of:
+
+* Users
+* Shops
+* Orders
+* Order Items
+* Payments
+* Loyalty Accounts
+* Loyalty Transactions
+* Coupons
+* Reviews
+* Customer Addresses
+
+The schema supports multi-role access, loyalty rewards, payment tracking, order auditing, and coupon redemption workflows.
 
 ---
 
@@ -133,25 +160,19 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Run migrations:
+Apply migrations:
 
 ```bash
 alembic upgrade head
 ```
 
-Start backend:
+Start the API:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Backend URL:
-
-```text
-http://localhost:8000
-```
-
-Swagger:
+API Documentation:
 
 ```text
 http://localhost:8000/docs
@@ -161,7 +182,7 @@ http://localhost:8000/docs
 
 ### Frontend
 
-Navigate to frontend:
+Navigate to the frontend application:
 
 ```bash
 cd order-delight-main
@@ -187,49 +208,42 @@ http://localhost:5173
 
 ---
 
-## Environment Variables
+## Environment Configuration
 
-Required:
+### Required Variables
 
 ```env
 DATABASE_URL=
 JWT_SECRET_KEY=
 ```
 
-Optional:
+### Optional Integrations
 
 ```env
 REDIS_URL=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+MSG91_AUTH_KEY=
+MSG91_TOKEN_AUTH=
+MSG91_WIDGET_ID=
 SENTRY_DSN=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
 ```
 
 ---
 
-## Production Deployment (Railway)
+## Deployment
 
-### Database
+### Railway
 
-Add Railway PostgreSQL.
+The application is deployed on Railway using PostgreSQL and environment-based configuration.
 
-Railway automatically creates:
-
-```env
-DATABASE_URL=
-```
-
-### Start Command
+Deployment startup command:
 
 ```bash
 bash start.sh
 ```
 
-### Health Check
+Health endpoint:
 
 ```text
 /health
@@ -242,24 +256,26 @@ bash start.sh
 Swagger UI:
 
 ```text
-https://your-domain/docs
+https://web-production-248c50.up.railway.app/docs
 ```
 
-OpenAPI:
+OpenAPI Specification:
 
 ```text
-https://your-domain/openapi.json
+https://web-production-248c50.up.railway.app/openapi.json
 ```
 
 ---
 
 ## Testing
 
+Backend:
+
 ```bash
 pytest
 ```
 
-Frontend:
+Frontend Production Build:
 
 ```bash
 npm run build
@@ -267,31 +283,48 @@ npm run build
 
 ---
 
-## Roles
+## User Roles
 
 ### Customer
 
-* Browse shops
-* Place orders
-* Earn loyalty points
+* Browse shops and menus
+* Place and track orders
+* Earn loyalty rewards
+* Manage order history
 * Request cancellations
 
 ### Shop Owner
 
-* Manage shop operations
-* Process orders
+* Manage shops and menus
+* Process and fulfill orders
 * Handle cancellation requests
+* Monitor operational performance
 
 ### Administrator
 
-* Full platform oversight
-* User management
-* Shop management
-* Order monitoring
-* Loyalty administration
+* Manage users and shops
+* Monitor platform activity
+* Analyze revenue and performance metrics
+* Administer loyalty programs
+* Perform operational audits
+
+---
+
+## Project Highlights
+
+* Multi-role authentication system
+* JWT-based authorization
+* Full order lifecycle management
+* Loyalty rewards and coupon engine
+* Order cancellation workflow
+* PostgreSQL-backed relational architecture
+* FastAPI REST API
+* React + TypeScript frontend
+* Production deployment on Railway
+* Docker-ready infrastructure
 
 ---
 
 ## Project Status
 
-Production-ready full-stack food pre-order platform deployed on Railway with PostgreSQL, JWT authentication, role-based access control, loyalty rewards, cancellation workflow, and multi-role dashboards.
+Production-ready full-stack application actively deployed on Railway, featuring secure authentication, role-based access control, loyalty rewards, coupon management, shop administration, analytics dashboards, and complete order fulfillment workflows.
