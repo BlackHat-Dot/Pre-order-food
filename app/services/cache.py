@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.db.session import get_redis
 
@@ -16,7 +17,15 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 
 async def redis_client() -> Redis | None:
-    return await get_redis()
+    try:
+        return await get_redis()
+
+    except Exception as e:
+        logger.warning(
+            "Redis client unavailable: %s",
+            e,
+        )
+        return None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -31,23 +40,27 @@ async def cache_get_json(
     if not redis:
         return None
 
-    raw = await redis.get(key)
-
-    if raw is None:
-        return None
-
     try:
+        raw = await redis.get(key)
+
+        if raw is None:
+            return None
+
         return json.loads(raw)
 
     except json.JSONDecodeError:
         logger.warning(
-            (
-                "Invalid JSON cache "
-                "payload key=%s"
-            ),
+            "Invalid JSON cache payload key=%s",
             key,
         )
+        return None
 
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_get_json failed key=%s error=%s",
+            key,
+            e,
+        )
         return None
 
 
@@ -61,14 +74,22 @@ async def cache_set_json(
     if not redis:
         return
 
-    await redis.set(
-        key,
-        json.dumps(
-            value,
-            default=str,
-        ),
-        ex=max(1, ttl_seconds),
-    )
+    try:
+        await redis.set(
+            key,
+            json.dumps(
+                value,
+                default=str,
+            ),
+            ex=max(1, ttl_seconds),
+        )
+
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_set_json failed key=%s error=%s",
+            key,
+            e,
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -83,7 +104,16 @@ async def cache_get(
     if not redis:
         return None
 
-    return await redis.get(key)
+    try:
+        return await redis.get(key)
+
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_get failed key=%s error=%s",
+            key,
+            e,
+        )
+        return None
 
 
 async def cache_set(
@@ -96,11 +126,19 @@ async def cache_set(
     if not redis:
         return
 
-    await redis.set(
-        key,
-        value,
-        ex=max(1, ttl_seconds),
-    )
+    try:
+        await redis.set(
+            key,
+            value,
+            ex=max(1, ttl_seconds),
+        )
+
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_set failed key=%s error=%s",
+            key,
+            e,
+        )
 
 
 async def cache_exists(
@@ -111,9 +149,18 @@ async def cache_exists(
     if not redis:
         return False
 
-    return bool(
-        await redis.exists(key)
-    )
+    try:
+        return bool(
+            await redis.exists(key)
+        )
+
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_exists failed key=%s error=%s",
+            key,
+            e,
+        )
+        return False
 
 
 async def cache_delete(
@@ -124,23 +171,30 @@ async def cache_delete(
     if not redis or not keys:
         return
 
-    resolved_keys: list[str] = []
+    try:
+        resolved_keys: list[str] = []
 
-    for key in keys:
-        if "*" in key:
-            async for matched_key in redis.scan_iter(
-                match=key,
-            ):
-                resolved_keys.append(
-                    matched_key
-                )
+        for key in keys:
+            if "*" in key:
+                async for matched_key in redis.scan_iter(
+                    match=key,
+                ):
+                    resolved_keys.append(
+                        matched_key
+                    )
+            else:
+                resolved_keys.append(key)
 
-        else:
-            resolved_keys.append(key)
+        if resolved_keys:
+            await redis.delete(
+                *resolved_keys
+            )
 
-    if resolved_keys:
-        await redis.delete(
-            *resolved_keys
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_delete failed keys=%s error=%s",
+            keys,
+            e,
         )
 
 
@@ -157,15 +211,24 @@ async def cache_increment(
     if not redis:
         return 0
 
-    value = await redis.incr(key)
+    try:
+        value = await redis.incr(key)
 
-    if ttl_seconds:
-        await redis.expire(
+        if ttl_seconds:
+            await redis.expire(
+                key,
+                ttl_seconds,
+            )
+
+        return int(value)
+
+    except RedisError as e:
+        logger.warning(
+            "Redis cache_increment failed key=%s error=%s",
             key,
-            ttl_seconds,
+            e,
         )
-
-    return int(value)
+        return 0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -181,14 +244,23 @@ async def acquire_lock(
     if not redis:
         return False
 
-    return bool(
-        await redis.set(
-            f"lock:{key}",
-            "1",
-            ex=max(1, ttl_seconds),
-            nx=True,
+    try:
+        return bool(
+            await redis.set(
+                f"lock:{key}",
+                "1",
+                ex=max(1, ttl_seconds),
+                nx=True,
+            )
         )
-    )
+
+    except RedisError as e:
+        logger.warning(
+            "Redis acquire_lock failed key=%s error=%s",
+            key,
+            e,
+        )
+        return False
 
 
 async def release_lock(
@@ -199,6 +271,14 @@ async def release_lock(
     if not redis:
         return
 
-    await redis.delete(
-        f"lock:{key}"
-    )
+    try:
+        await redis.delete(
+            f"lock:{key}"
+        )
+
+    except RedisError as e:
+        logger.warning(
+            "Redis release_lock failed key=%s error=%s",
+            key,
+            e,
+        )
