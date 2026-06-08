@@ -264,10 +264,7 @@ async def create_item(
 
     await db.commit()
 
-    item = await get_item_or_404(
-        db,
-        item.id,
-    )
+    await db.refresh(item)
 
     await clear_menu_cache(
         shop_id,
@@ -315,12 +312,7 @@ async def list_items(
     )
 
     if cached:
-        return [
-            MenuItemOut.model_validate(
-                item
-            )
-            for item in cached
-        ]
+        return cached
 
     stmt = (
         select(MenuItem)
@@ -380,12 +372,7 @@ async def list_items(
         ttl_seconds=180,
     )
 
-    return [
-        MenuItemOut.model_validate(
-            item
-        )
-        for item in serialized
-    ]
+    return serialized
 
 
 # ─────────────────────────────────────────────────────────────
@@ -413,9 +400,7 @@ async def get_item(
     )
 
     if cached:
-        return MenuItemOut.model_validate(
-            cached
-        )
+        return cached
 
     item = await get_item_or_404(
         db,
@@ -434,9 +419,7 @@ async def get_item(
         ttl_seconds=300,
     )
 
-    return MenuItemOut.model_validate(
-        serialized
-    )
+    return serialized
 
 
 # ─────────────────────────────────────────────────────────────
@@ -489,10 +472,7 @@ async def update_item(
 
     await db.commit()
 
-    item = await get_item_or_404(
-        db,
-        item.id,
-    )
+    await db.refresh(item)
 
     await clear_menu_cache(
         item.shop_id,
