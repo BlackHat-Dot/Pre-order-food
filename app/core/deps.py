@@ -134,6 +134,10 @@ async def _user_from_access_token(
         f"auth:user:{user_id}"
     )
 
+    cached_user = await cache_get_json(cache_key)
+
+    if cached_user:
+        return User(**cached_user)
 
     t0 = time.perf_counter()
 
