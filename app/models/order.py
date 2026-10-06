@@ -222,13 +222,6 @@ class Order(Base):
 class OrderItem(Base):
     __tablename__ = "order_items"
 
-    __table_args__ = (
-        Index(
-            "ix_order_items_order_id",
-            "order_id",
-        ),
-    )
-
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
@@ -299,17 +292,6 @@ class OrderItem(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
-
-    __table_args__ = (
-        Index(
-            "ix_payments_order_id",
-            "order_id",
-        ),
-        Index(
-            "ix_payments_provider_payment_id",
-            "provider_payment_id",
-        ),
-    )
 
     id: Mapped[str] = mapped_column(
         String(36),

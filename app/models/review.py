@@ -52,12 +52,6 @@ class Review(Base):
             "customer_id",
             "created_at",
         ),
-        Index(
-            (
-                "ix_reviews_rating"
-            ),
-            "rating",
-        ),
     )
 
     id: Mapped[str] = mapped_column(

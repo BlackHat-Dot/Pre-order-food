@@ -31,10 +31,6 @@ class Shop(Base):
 
     __table_args__ = (
         Index(
-            "ix_shops_owner_id",
-            "owner_id",
-        ),
-        Index(
             (
                 "ix_shops_city_"
                 "category"

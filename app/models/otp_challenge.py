@@ -43,13 +43,6 @@ class OtpChallenge(Base):
         Index(
             (
                 "ix_otp_challenges_"
-                "expires_at"
-            ),
-            "expires_at",
-        ),
-        Index(
-            (
-                "ix_otp_challenges_"
                 "purpose"
             ),
             "purpose",

@@ -40,10 +40,6 @@ class MenuItem(Base):
             ),
         ),
         Index(
-            "ix_menu_items_shop_id",
-            "shop_id",
-        ),
-        Index(
             (
                 "ix_menu_items_"
                 "shop_available"
