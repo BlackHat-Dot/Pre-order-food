@@ -559,8 +559,7 @@ async def create_order(
 
     payment_status = (
         "paid"
-        if payment_method
-        in ["online", "coupon"]
+        if payment_method == "coupon"
         else "pending"
     )
 
@@ -911,6 +910,12 @@ async def update_order_status(
         order_id,
     )
 
+    await verify_order_access(
+        db,
+        user,
+        order,
+    )
+
     incoming_status = (
         payload.status
     )
@@ -963,6 +968,15 @@ async def update_order_status(
         )
 
     if incoming_status == "completed":
+        if user.role not in [
+            "shop_owner",
+            "admin",
+        ]:
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden",
+            )
+
         if (
             order.payment_method == "cod"
             and order.payment_status != "paid"
@@ -1192,6 +1206,15 @@ async def update_order_status(
         return await get_order_or_404(
             db,
             order.id,
+        )
+
+    if user.role not in [
+        "shop_owner",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden",
         )
 
     order.status = incoming_status
