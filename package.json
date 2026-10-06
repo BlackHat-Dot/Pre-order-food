@@ -12,9 +12,7 @@
     "postinstall": "npm run install:frontend"
   },
   "dependencies": {
-    "concurrently": "^8.2.2",
-    "express": "^5.2.1",
-    "http-proxy": "^1.18.1"
+    "concurrently": "^8.2.2"
   },
   "engines": {
     "node": ">=20.19.0"
