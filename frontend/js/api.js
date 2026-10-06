@@ -3,7 +3,7 @@
  * Replicates the API contracts in app/api/v1
  */
 
-const API_BASE = "/api/v1";
+const API_BASE = window.location.port === "8000" ? "/api/v1" : "http://localhost:8000/api/v1";
 
 async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem("auth_token");
