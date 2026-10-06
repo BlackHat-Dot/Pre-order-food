@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your cart — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
+  <!-- Exact Ambient Background -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
+    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <div class="min-h-screen">
+    <div class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      <a href="index.html" class="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-1"><path d="m15 18-6-6 6-6"/></svg>
+        Continue shopping
+      </a>
+
+      <h1 class="mb-6 text-2xl font-bold tracking-tight text-foreground text-left">Your cart</h1>
+
+      <!-- Empty Cart View -->
+      <div id="empty-cart-view" class="hidden">
+        <div class="rounded-xl border border-dashed bg-card text-card-foreground shadow">
+          <div class="flex flex-col items-center justify-center py-16 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 h-10 w-10 text-muted-foreground"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            <p class="text-muted-foreground">Your cart is empty.</p>
+            <a href="index.html" class="mt-4">
+              <button class="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium transition-colors">
+                Browse shops
+              </button>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Populated Cart View -->
+      <div id="populated-cart-view" class="space-y-3 hidden">
+        <!-- Store Information Banner -->
+        <div id="cart-shop-banner" class="mb-4 flex items-center gap-3 rounded-xl border border-border/60 bg-muted/40 p-4 animate-in fade-in duration-200 hidden">
+          <div class="shrink-0 rounded-lg border border-primary/20 bg-primary/10 p-2 text-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>
+          </div>
+          <div class="space-y-0.5 text-left">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Items Selected From</p>
+            <h2 id="cart-shop-name" class="text-sm font-bold tracking-tight text-foreground">Shop</h2>
+          </div>
+        </div>
+
+        <!-- Shop Owner Restriction Alert -->
+        <div id="shop-owner-alert" class="my-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-left shadow-sm animate-in zoom-in-95 duration-200 hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 h-5 w-5 shrink-0 text-amber-500"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div class="space-y-1">
+            <h4 class="text-sm font-bold text-foreground">Action Restricted for Shop Owners</h4>
+            <p class="text-xs leading-relaxed text-muted-foreground">
+              You are currently authenticated via a <span class="font-semibold text-foreground">Shop Owner Account</span>. To protect merchant balances, store managers cannot submit checkout orders. Please sign out and create a dedicated <span class="font-semibold text-amber-500">Customer Account</span> to complete your purchase.
+            </p>
+          </div>
+        </div>
+
+        <!-- Cart Lines Container -->
+        <div id="cart-lines-container" class="space-y-3"></div>
+
+        <!-- Total Bill Summary Card -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow mt-6">
+          <div class="space-y-3 p-4">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Subtotal</span>
+              <span id="cart-subtotal" class="font-medium">₹0.00</span>
+            </div>
+            <div class="flex items-center justify-between text-base font-bold">
+              <span>Total</span>
+              <span id="cart-total" class="text-foreground">₹0.00</span>
+            </div>
+            <button id="checkout-button" onclick="handleCheckoutClick()" class="h-11 w-full rounded-xl text-xs font-bold inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors disabled:opacity-50">
+              Proceed to checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function renderCart() {
+      const lines = window.cart.all();
+      const count = window.cart.getCount();
+      const total = window.cart.getSubtotal();
+      const user = window.auth.getUser();
+      const isShopOwner = user?.role === "shop_owner";
+
+      const emptyView = document.getElementById("empty-cart-view");
+      const populatedView = document.getElementById("populated-cart-view");
+      const ownerAlert = document.getElementById("shop-owner-alert");
+      const checkoutBtn = document.getElementById("checkout-button");
+
+      if (count === 0) {
+        emptyView.classList.remove("hidden");
+        populatedView.classList.add("hidden");
+        return;
+      }
+
+      emptyView.classList.add("hidden");
+      populatedView.classList.remove("hidden");
+
+      if (isShopOwner) {
+        ownerAlert.classList.remove("hidden");
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = "Checkout Disabled for Shop Owners";
+      } else {
+        ownerAlert.classList.add("hidden");
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = user ? "Proceed to checkout" : "Sign in to checkout";
+      }
+
+      const shopId = lines[0]?.shop_id;
+      if (shopId) {
+        window.api.shops.get(shopId).then((shop) => {
+          if (shop) {
+            document.getElementById("cart-shop-banner").classList.remove("hidden");
+            document.getElementById("cart-shop-name").textContent = shop.name;
+          }
+        }).catch(() => {});
+      }
+
+      const linesContainer = document.getElementById("cart-lines-container");
+      linesContainer.innerHTML = lines.map((l) => `
+        <div class="rounded-xl border bg-card text-card-foreground shadow">
+          <div class="flex items-center gap-3 p-4">
+            <div class="flex-1 text-left">
+              <p class="text-sm font-medium text-foreground">${l.name}</p>
+              ${l.variant_name ? `<p class="text-xs text-muted-foreground">${l.variant_name}</p>` : ""}
+              <p class="text-xs text-muted-foreground">${formatCurrency(l.unit_price)} each</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="changeLineQty('${l.item_id}', '${l.variant_id || ""}', ${l.quantity - 1})" class="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 text-sm font-semibold">
+                −
+              </button>
+              <span class="w-6 text-center text-sm font-semibold">${l.quantity}</span>
+              <button onclick="changeLineQty('${l.item_id}', '${l.variant_id || ""}', ${l.quantity + 1})" class="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 text-sm font-semibold">
+                +
+              </button>
+            </div>
+            <div class="w-20 text-right text-sm font-semibold text-foreground">
+              ${formatCurrency(l.unit_price * l.quantity)}
+            </div>
+            <button onclick="removeLine('${l.item_id}', '${l.variant_id || ""}')" class="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join("");
+
+      document.getElementById("cart-subtotal").textContent = formatCurrency(total);
+      document.getElementById("cart-total").textContent = formatCurrency(total);
+    }
+
+    function changeLineQty(itemId, variantId, newQty) {
+      const vId = variantId || null;
+      if (newQty <= 0) {
+        window.cart.remove(itemId, vId);
+      } else {
+        const currentCount = window.cart.getCount();
+        const currentLine = window.cart.all().find((l) => l.item_id === itemId && (l.variant_id || null) === vId);
+        const diff = newQty - (currentLine ? currentLine.quantity : 0);
+        if (diff > 0 && currentCount + diff > 10) {
+          window.toast.warning("Cart Limit Reached: You can only place a maximum of 10 items per single order ticket.");
+          return;
+        }
+        window.cart.setQuantity(itemId, vId, newQty);
+      }
+      renderCart();
+    }
+
+    function removeLine(itemId, variantId) {
+      window.cart.remove(itemId, variantId || null);
+      renderCart();
+    }
+
+    function handleCheckoutClick() {
+      const user = window.auth.getUser();
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+      if (user.role === "shop_owner") return;
+      window.location.href = "checkout.html";
+    }
+
+    window.addEventListener("cart-updated", renderCart);
+    document.addEventListener("DOMContentLoaded", renderCart);
+  </script>
+</body>
+</html>

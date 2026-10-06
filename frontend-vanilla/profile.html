@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Settings — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
+  <!-- Exact Ambient Background -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
+    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <div class="min-h-screen">
+    <div class="mx-auto max-w-2xl space-y-6 px-4 py-8 sm:px-6 text-left">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-foreground">Account settings</h1>
+        <p class="text-sm text-muted-foreground">Manage your identity, security, and addresses.</p>
+      </div>
+
+      <!-- 1. Personal Details -->
+      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm">
+        <div class="p-6 space-y-4">
+          <div class="flex items-center gap-2 border-b border-border/40 pb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <h3 class="font-semibold text-base text-foreground">Personal Details</h3>
+          </div>
+
+          <form onsubmit="handleSaveName(event)" class="space-y-3">
+            <div class="space-y-1.5">
+              <label for="profile-name" class="text-xs font-medium text-muted-foreground">Display Name</label>
+              <input id="profile-name" required class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+            </div>
+            <div class="flex justify-end pt-1">
+              <button id="save-name-btn" type="submit" class="inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 text-xs font-semibold rounded-lg px-4 transition-colors">
+                Save name
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 2. Phone & Verification Status -->
+      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm">
+        <div class="p-6 space-y-4">
+          <div class="flex items-center gap-2 border-b border-border/40 pb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <h3 class="font-semibold text-base text-foreground">Phone Number</h3>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <p id="profile-phone-display" class="font-mono text-sm font-bold text-foreground">--</p>
+              <p class="text-xs text-muted-foreground mt-0.5">Primary login identifier</p>
+            </div>
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Verified
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Security (Password Update) -->
+      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm">
+        <div class="p-6 space-y-4">
+          <div class="flex items-center gap-2 border-b border-border/40 pb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <h3 class="font-semibold text-base text-foreground">Change Password</h3>
+          </div>
+
+          <form onsubmit="handleChangePassword(event)" class="space-y-3">
+            <div class="space-y-1.5">
+              <label for="current-password" class="text-xs font-medium text-muted-foreground">Current Password</label>
+              <input id="current-password" type="password" required class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+            </div>
+            <div class="space-y-1.5">
+              <label for="new-password" class="text-xs font-medium text-muted-foreground">New Password</label>
+              <input id="new-password" type="password" required minlength="8" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+              <p class="text-[11px] text-muted-foreground">Must be at least 8 characters long.</p>
+            </div>
+            <div class="flex justify-end pt-1">
+              <button id="change-pwd-btn" type="submit" class="inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 text-xs font-semibold rounded-lg px-4 transition-colors">
+                Update password
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 4. Delivery Addresses -->
+      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm">
+        <div class="p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-border/40 pb-3">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <h3 class="font-semibold text-base text-foreground">Saved Addresses</h3>
+            </div>
+            <button onclick="toggleNewAddress()" class="inline-flex items-center justify-center border border-input bg-background hover:bg-accent text-xs font-semibold h-8 px-3 rounded-lg gap-1 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add New
+            </button>
+          </div>
+
+          <!-- Add Address Form -->
+          <div id="profile-address-form" class="border border-border p-4 rounded-xl bg-muted/20 space-y-3 hidden">
+            <h4 class="text-xs font-bold text-foreground">Create Address Profile</h4>
+            <div class="space-y-2">
+              <div>
+                <label class="text-[11px] text-muted-foreground block font-medium">Title</label>
+                <input id="addr-title" placeholder="Home, Office, etc." value="Home" class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+              </div>
+              <div>
+                <label class="text-[11px] text-muted-foreground block font-medium">Full Address</label>
+                <input id="addr-line" placeholder="Door No, Street Name, Area..." class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+              </div>
+              <div>
+                <label class="text-[11px] text-muted-foreground block font-medium">Landmark (Optional)</label>
+                <input id="addr-landmark" placeholder="Opposite Metro..." class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+              </div>
+            </div>
+            <div class="flex gap-2 justify-end pt-1">
+              <button onclick="toggleNewAddress()" type="button" class="h-8 text-xs px-3 hover:bg-accent rounded-lg">Cancel</button>
+              <button onclick="saveAddress()" type="button" class="h-8 text-xs font-semibold px-4 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90">Save Address</button>
+            </div>
+          </div>
+
+          <div id="profile-addresses-list" class="space-y-2.5"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let currentUser = null;
+    let addresses = [];
+
+    async function initProfile() {
+      const user = window.auth.getUser();
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+      currentUser = user;
+
+      document.getElementById("profile-name").value = user.name || "";
+      document.getElementById("profile-phone-display").textContent = user.phone || "--";
+
+      loadAddresses();
+    }
+
+    async function handleSaveName(e) {
+      e.preventDefault();
+      const name = document.getElementById("profile-name").value.trim();
+      const btn = document.getElementById("save-name-btn");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+
+      try {
+        await window.api.auth.updateProfile({ name });
+        currentUser.name = name;
+        localStorage.setItem("auth_user", JSON.stringify(currentUser));
+        window.toast.success("Name updated successfully!");
+        btn.disabled = false;
+        btn.textContent = "Save name";
+        window.location.reload();
+      } catch (err) {
+        window.toast.error("Failed to update name: " + err.message);
+        btn.disabled = false;
+        btn.textContent = "Save name";
+      }
+    }
+
+    async function handleChangePassword(e) {
+      e.preventDefault();
+      const current_password = document.getElementById("current-password").value;
+      const new_password = document.getElementById("new-password").value;
+      const btn = document.getElementById("change-pwd-btn");
+
+      btn.disabled = true;
+      btn.textContent = "Updating…";
+
+      try {
+        await window.api.auth.changePassword({ current_password, new_password });
+        window.toast.success("Password updated successfully!");
+        document.getElementById("current-password").value = "";
+        document.getElementById("new-password").value = "";
+        btn.disabled = false;
+        btn.textContent = "Update password";
+      } catch (err) {
+        window.toast.error(err.message || "Failed to update password.");
+        btn.disabled = false;
+        btn.textContent = "Update password";
+      }
+    }
+
+    async function loadAddresses() {
+      try {
+        addresses = await window.api.auth.listAddresses();
+        renderAddresses();
+      } catch {
+        addresses = [];
+      }
+    }
+
+    function renderAddresses() {
+      const list = document.getElementById("profile-addresses-list");
+      if (!addresses || addresses.length === 0) {
+        list.innerHTML = `<p class="py-6 text-center text-xs text-muted-foreground">No saved addresses yet.</p>`;
+        return;
+      }
+
+      list.innerHTML = addresses.map((a) => `
+        <div class="rounded-xl border border-border/60 bg-muted/20 p-3.5 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-primary uppercase tracking-wider">${a.title}</span>
+            <div class="flex items-center gap-2">
+              ${a.is_default ? `
+                <span class="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">Default</span>
+              ` : `
+                <button onclick="setDefaultAddress('${a.id}')" class="text-[10px] text-muted-foreground hover:text-primary transition-colors font-medium underline">Make Default</button>
+              `}
+              <button onclick="deleteAddress('${a.id}')" class="text-muted-foreground hover:text-destructive transition-colors p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-foreground font-medium">${a.address_line}</p>
+          ${a.landmark ? `<p class="text-[11px] text-muted-foreground">Landmark: ${a.landmark}</p>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function toggleNewAddress() {
+      document.getElementById("profile-address-form").classList.toggle("hidden");
+    }
+
+    async function saveAddress() {
+      const title = document.getElementById("addr-title").value.trim() || "Home";
+      const address_line = document.getElementById("addr-line").value.trim();
+      const landmark = document.getElementById("addr-landmark").value.trim();
+
+      if (!address_line) {
+        window.toast.error("Address is required.");
+        return;
+      }
+
+      try {
+        await window.api.auth.createAddress({ title, address_line, landmark: landmark || undefined });
+        window.toast.success("Address added.");
+        toggleNewAddress();
+        document.getElementById("addr-line").value = "";
+        document.getElementById("addr-landmark").value = "";
+        loadAddresses();
+      } catch (err) {
+        window.toast.error("Failed to add address: " + err.message);
+      }
+    }
+
+    async function setDefaultAddress(id) {
+      try {
+        await window.api.auth.setDefaultAddress(id);
+        window.toast.success("Default address updated.");
+        loadAddresses();
+      } catch (err) {
+        window.toast.error(err.message || "Failed to update default address.");
+      }
+    }
+
+    async function deleteAddress(id) {
+      try {
+        await window.api.auth.deleteAddress(id);
+        window.toast.success("Address removed.");
+        loadAddresses();
+      } catch (err) {
+        window.toast.error("Failed to delete address: " + err.message);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initProfile);
+  </script>
+</body>
+</html>

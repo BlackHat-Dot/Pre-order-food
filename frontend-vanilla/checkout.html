@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
+  <!-- Ambient Background -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
+    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <div class="min-h-screen">
+    <div class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      <a href="cart.html" class="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-1"><path d="m15 18-6-6 6-6"/></svg>
+        Back to cart
+      </a>
+
+      <h1 class="mb-6 text-2xl font-bold tracking-tight text-foreground text-left">Checkout</h1>
+
+      <div class="grid gap-6 md:grid-cols-[1fr_320px]">
+        <!-- Left Forms Column -->
+        <div class="space-y-4">
+
+          <!-- 1. Fulfillment Choice -->
+          <div class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm overflow-hidden text-left">
+            <div class="p-5 space-y-3">
+              <div class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="m14 2 4 4"/><path d="M18 10v12"/><path d="M6 2v20"/><path d="M9 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/></svg>
+                <label class="text-sm font-bold text-foreground">Fulfillment Choice</label>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <label onclick="setOrderType('delivery')" id="opt-delivery" class="flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 mb-1 text-primary"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>
+                  <span class="text-xs">Food Delivery</span>
+                </label>
+                <label onclick="setOrderType('table_booking')" id="opt-table" class="flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 mb-1 text-muted-foreground"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="m14 2 4 4"/><path d="M18 10v12"/><path d="M6 2v20"/><path d="M9 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/></svg>
+                  <span class="text-xs">Book a Table</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Interactive Delivery Address Module -->
+          <div id="address-module-card" class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm overflow-hidden text-left">
+            <div class="p-5 space-y-4">
+              <div class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <h3 class="font-bold text-sm tracking-tight text-foreground">Delivery Address</h3>
+              </div>
+
+              <div id="addresses-list-container" class="grid gap-2.5"></div>
+
+              <button type="button" onclick="showNewAddressForm()" class="w-full inline-flex items-center justify-center whitespace-nowrap border border-input border-dashed bg-background hover:bg-accent hover:text-accent-foreground h-10 rounded-xl text-xs font-medium gap-1.5 mt-1 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                <span>Add Another Location</span>
+              </button>
+
+              <!-- New Address Form -->
+              <div id="new-address-form-box" class="border border-border p-4 rounded-xl bg-muted/30 space-y-3 hidden animate-in fade-in-50 duration-200">
+                <p class="text-xs font-bold text-foreground">Create New Address Profile</p>
+                <div class="space-y-2.5">
+                  <div>
+                    <label class="text-[11px] text-muted-foreground block font-medium">Label</label>
+                    <input id="new-addr-title" class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" placeholder="Home, Office, etc." value="Home" />
+                  </div>
+                  <div>
+                    <label class="text-[11px] text-muted-foreground block font-medium">Full Address</label>
+                    <input id="new-addr-line" class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" placeholder="Door No, Street Name, Area..." />
+                  </div>
+                  <div>
+                    <label class="text-[11px] text-muted-foreground block font-medium">Landmark (Optional)</label>
+                    <input id="new-addr-landmark" class="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" placeholder="Opposite Metro Station..." />
+                  </div>
+                </div>
+                <div class="flex gap-2 justify-end pt-1">
+                  <button type="button" onclick="hideNewAddressForm()" class="inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground h-8 text-xs rounded-lg px-3">Cancel</button>
+                  <button type="button" onclick="saveNewAddress()" class="inline-flex items-center justify-center bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 text-xs rounded-lg font-semibold px-4">Save Address</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Payment Mode Channels -->
+          <div class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm overflow-hidden text-left">
+            <div class="p-5 space-y-3">
+              <div class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="m7 6 4 4"/></svg>
+                <label id="payment-mode-label" class="text-sm font-bold text-foreground">Select Payment Mode</label>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <label onclick="setPaymentMethod('cod')" id="opt-cod" class="flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 mb-1 text-primary"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/></svg>
+                  <span class="text-xs">Cash on Delivery</span>
+                </label>
+                <label onclick="setPaymentMethod('online')" id="opt-online" class="flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 mb-1 text-muted-foreground"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                  <span class="text-xs">Online Banking</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Scheduling & Kitchen Notes -->
+          <div class="rounded-xl border bg-card text-card-foreground shadow p-6 space-y-4 text-left">
+            <div>
+              <p class="text-sm text-muted-foreground">Ordering from</p>
+              <p id="checkout-shop-heading" class="text-lg font-semibold text-foreground">Shop</p>
+            </div>
+            <div class="space-y-2">
+              <label id="scheduling-label" for="checkout-pickup" class="text-sm font-medium text-foreground">Scheduled Delivery Time (optional)</label>
+              <input id="checkout-pickup" type="datetime-local" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+            </div>
+            <div class="space-y-2">
+              <label for="checkout-notes" class="text-sm font-medium text-foreground">Notes for the kitchen / host (optional)</label>
+              <textarea id="checkout-notes" placeholder="Allergies, extra spicy, leave at door..." class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"></textarea>
+            </div>
+          </div>
+
+          <!-- 5. Gift Voucher Coupon Module -->
+          <div class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm p-4 space-y-3 text-left">
+            <div class="flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r=".5" fill="currentColor"/></svg>
+              <label class="text-sm font-bold text-foreground">Have a Gift Coupon Voucher?</label>
+            </div>
+
+            <div class="flex gap-2">
+              <input id="coupon-code-input" placeholder="e.g. CHET-A8F2NB" class="font-mono tracking-wider h-10 rounded-xl uppercase text-xs flex w-full border border-input bg-background px-3 py-1 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+              <button id="coupon-apply-btn" type="button" onclick="handleCouponAction()" class="h-10 rounded-xl text-xs px-5 font-semibold bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors">Apply</button>
+            </div>
+
+            <div id="coupon-active-banner" class="mt-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/5 p-3 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-400 space-y-1 animate-in slide-in-from-top-1 duration-200 hidden">
+              <div class="flex justify-between items-center font-bold">
+                <span class="flex items-center gap-1">🎉 Coupon Active: <code id="active-coupon-code" class="text-primary bg-background border px-1 rounded uppercase font-mono">CODE</code></span>
+                <span>Max Balance: <span id="active-coupon-max">₹0.00</span></span>
+              </div>
+              <div class="h-px bg-emerald-500/20 my-1"></div>
+              <div class="flex justify-between text-[11px] font-medium opacity-90">
+                <span>Deducted on checkout:</span>
+                <span id="active-coupon-deducted" class="font-bold text-foreground">-₹0.00</span>
+              </div>
+              <div class="flex justify-between text-[11px] font-medium opacity-90">
+                <span>Remaining balance for next order:</span>
+                <span id="active-coupon-remaining" class="font-bold underline text-emerald-600 dark:text-emerald-400">₹0.00</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Summary Column -->
+        <div>
+          <div class="rounded-xl border bg-card text-card-foreground shadow p-6 space-y-3 text-left sticky top-20">
+            <h3 class="font-semibold text-sm text-foreground">Order Summary</h3>
+
+            <div id="checkout-items-list" class="space-y-1.5 text-xs"></div>
+
+            <div class="flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
+              <span class="text-muted-foreground">Items Subtotal</span>
+              <span id="checkout-subtotal" class="font-medium text-foreground">₹0.00</span>
+            </div>
+
+            <div id="checkout-savings-row" class="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/10 hidden animate-in fade-in-50 duration-200">
+              <span>🎟️ Voucher Savings</span>
+              <span id="checkout-savings-amount">-₹0.00</span>
+            </div>
+
+            <div class="flex justify-between items-center text-xs text-muted-foreground py-0.5">
+              <span>Fulfillment Type:</span>
+              <span id="summary-fulfillment-type" class="font-semibold capitalize text-foreground">Food Delivery</span>
+            </div>
+
+            <div class="flex justify-between items-center text-xs text-muted-foreground pb-1">
+              <span>Payment Mode:</span>
+              <span id="summary-payment-mode" class="font-semibold uppercase text-foreground">COD</span>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-dashed pt-2.5 text-base font-bold">
+              <span>Payable Total</span>
+              <span id="checkout-payable-total" class="text-foreground">₹0.00</span>
+            </div>
+
+            <p class="text-[11px] text-muted-foreground leading-normal">
+              You will accumulate approximately <span id="checkout-earned-points" class="font-semibold text-primary">0</span> loyalty points balance items post confirmation.
+            </p>
+
+            <button id="place-order-button" onclick="handlePlaceOrderClick()" class="w-full rounded-xl mt-2 h-11 inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 text-sm font-medium transition-colors disabled:opacity-50">
+              Place COD Order
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Online Sandbox Payment Modal -->
+  <div id="online-payment-modal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden animate-in fade-in-0 duration-200">
+    <div class="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl text-left space-y-4 animate-in zoom-in-95 duration-200">
+      <div>
+        <h3 class="text-lg font-bold tracking-tight text-foreground">Confirm Secure Online Payment</h3>
+        <p class="text-xs text-muted-foreground pt-1">
+          This is a sandbox online checkout gateway authentication frame module. Confirming this sequence completes the transaction and passes parameters to your back-end ecosystem instantly.
+        </p>
+      </div>
+
+      <div class="rounded-xl border border-border bg-muted/40 p-4 text-xs space-y-1 text-left">
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Original Total</span>
+          <span id="modal-orig-total" class="font-medium text-foreground">₹0.00</span>
+        </div>
+        <div class="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+          <span>Voucher Applied</span>
+          <span id="modal-voucher-discount">-₹0.00</span>
+        </div>
+        <div class="h-px bg-border my-1"></div>
+        <div class="flex justify-between font-bold">
+          <span class="text-muted-foreground">Net Amount Due</span>
+          <span id="modal-net-due" class="text-foreground">₹0.00</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onclick="closePaymentModal()" class="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-xl hover:bg-accent text-foreground">Cancel Transaction</button>
+        <button type="button" onclick="executeOnlineOrder()" class="inline-flex items-center justify-center h-9 px-5 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow hover:bg-primary/90 transition-all">Confirm & Pay</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let currentShop = null;
+    let savedAddresses = [];
+    let selectedAddressId = null;
+    let orderType = "delivery";
+    let paymentMethod = "cod";
+    let appliedCoupon = null;
+
+    async function initCheckout() {
+      const user = window.auth.getUser();
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+      if (user.role === "shop_owner") {
+        window.location.href = "cart.html";
+        return;
+      }
+
+      const lines = window.cart.all();
+      if (lines.length === 0) {
+        window.location.href = "cart.html";
+        return;
+      }
+
+      const shopId = lines[0].shop_id;
+      try {
+        currentShop = await window.api.shops.get(shopId);
+        document.getElementById("checkout-shop-heading").textContent = currentShop.name;
+      } catch {}
+
+      await loadAddresses();
+      renderSummary();
+    }
+
+    async function loadAddresses() {
+      try {
+        savedAddresses = await window.api.auth.listAddresses();
+        renderAddresses();
+      } catch {
+        savedAddresses = [];
+      }
+    }
+
+    function renderAddresses() {
+      const container = document.getElementById("addresses-list-container");
+      container.innerHTML = "";
+
+      if (savedAddresses.length > 0 && !selectedAddressId) {
+        const def = savedAddresses.find((a) => a.is_default) || savedAddresses[0];
+        selectedAddressId = def.id;
+      }
+
+      container.innerHTML = savedAddresses.map((addr) => {
+        const isSelected = selectedAddressId === addr.id;
+        return `
+          <div onclick="selectAddress('${addr.id}')" class="p-3.5 rounded-xl border transition-all cursor-pointer relative flex flex-col gap-1 text-left ${isSelected ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card/40 hover:bg-card/80 border-border'}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-primary">${addr.title}</span>
+              <div class="flex items-center gap-2">
+                ${addr.is_default ? `
+                  <span class="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">Default</span>
+                ` : `
+                  <button type="button" onclick="event.stopPropagation(); makeAddressDefault('${addr.id}')" class="text-[10px] text-muted-foreground hover:text-primary transition-colors font-medium underline">Make Default</button>
+                `}
+                ${isSelected ? `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary shrink-0"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                ` : ""}
+              </div>
+            </div>
+            <p class="text-xs text-foreground font-medium leading-relaxed mt-1">${addr.address_line}</p>
+            ${addr.landmark ? `<p class="text-[11px] text-muted-foreground">Landmark: ${addr.landmark}</p>` : ""}
+          </div>
+        `;
+      }).join("");
+
+      updateValidationButton();
+    }
+
+    function selectAddress(id) {
+      selectedAddressId = id;
+      renderAddresses();
+    }
+
+    async function makeAddressDefault(id) {
+      try {
+        await window.api.auth.setDefaultAddress(id);
+        window.toast.success("Default address updated");
+        await loadAddresses();
+      } catch (err) {
+        window.toast.error("Failed to update default address: " + err.message);
+      }
+    }
+
+    function showNewAddressForm() {
+      document.getElementById("new-address-form-box").classList.remove("hidden");
+    }
+    function hideNewAddressForm() {
+      document.getElementById("new-address-form-box").classList.add("hidden");
+    }
+
+    async function saveNewAddress() {
+      const title = document.getElementById("new-addr-title").value.trim() || "Home";
+      const addressLine = document.getElementById("new-addr-line").value.trim();
+      const landmark = document.getElementById("new-addr-landmark").value.trim();
+
+      if (!addressLine) {
+        window.toast.error("Address line is required.");
+        return;
+      }
+
+      try {
+        const created = await window.api.auth.createAddress({
+          title,
+          address_line: addressLine,
+          landmark: landmark || undefined,
+        });
+        window.toast.success("New location profile added");
+        hideNewAddressForm();
+        document.getElementById("new-addr-line").value = "";
+        document.getElementById("new-addr-landmark").value = "";
+        await loadAddresses();
+        if (created && created.id) selectedAddressId = created.id;
+        renderAddresses();
+      } catch (err) {
+        window.toast.error("Failed to save address: " + err.message);
+      }
+    }
+
+    function setOrderType(type) {
+      orderType = type;
+      const addrCard = document.getElementById("address-module-card");
+      const schedLabel = document.getElementById("scheduling-label");
+
+      if (type === "delivery") {
+        document.getElementById("opt-delivery").className = "flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold";
+        document.getElementById("opt-table").className = "flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all";
+        addrCard.classList.remove("hidden");
+        schedLabel.textContent = "Scheduled Delivery Time (optional)";
+      } else {
+        document.getElementById("opt-table").className = "flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold";
+        document.getElementById("opt-delivery").className = "flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all";
+        addrCard.classList.add("hidden");
+        schedLabel.textContent = "Table Reservation Timing Slot";
+      }
+
+      document.getElementById("summary-fulfillment-type").textContent = type.replace("_", " ");
+      updateValidationButton();
+    }
+
+    function setPaymentMethod(method) {
+      paymentMethod = method;
+      if (method === "cod") {
+        document.getElementById("opt-cod").className = "flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold";
+        document.getElementById("opt-online").className = "flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all";
+      } else {
+        document.getElementById("opt-online").className = "flex flex-col items-center justify-between rounded-xl border-2 border-primary bg-primary/5 p-3.5 cursor-pointer text-center transition-all font-semibold";
+        document.getElementById("opt-cod").className = "flex flex-col items-center justify-between rounded-xl border-2 border-border/60 p-3.5 cursor-pointer text-center transition-all";
+      }
+      renderSummary();
+    }
+
+    async function handleCouponAction() {
+      const codeInput = document.getElementById("coupon-code-input");
+      const btn = document.getElementById("coupon-apply-btn");
+
+      if (appliedCoupon) {
+        appliedCoupon = null;
+        codeInput.value = "";
+        codeInput.disabled = false;
+        btn.textContent = "Apply";
+        btn.className = "h-10 rounded-xl text-xs px-5 font-semibold bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors";
+        document.getElementById("coupon-active-banner").classList.add("hidden");
+        renderSummary();
+        return;
+      }
+
+      const code = codeInput.value.trim().toUpperCase();
+      if (!code) return;
+
+      const lines = window.cart.all();
+      const shopId = lines[0]?.shop_id;
+
+      try {
+        btn.textContent = "Checking...";
+        btn.disabled = true;
+        const couponData = await window.api.coupons.validate(code, shopId);
+        appliedCoupon = couponData;
+        window.toast.success(`Coupon code applied: ${formatCurrency(couponData.discount_value)} discount added!`);
+
+        codeInput.disabled = true;
+        btn.textContent = "Remove";
+        btn.disabled = false;
+        btn.className = "h-10 rounded-xl text-xs px-4 font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors";
+
+        document.getElementById("coupon-active-banner").classList.remove("hidden");
+        document.getElementById("active-coupon-code").textContent = couponData.code;
+        document.getElementById("active-coupon-max").textContent = formatCurrency(couponData.discount_value);
+
+        renderSummary();
+      } catch (err) {
+        window.toast.error(err?.message || "Invalid or unresolvable shop voucher code.");
+        btn.textContent = "Apply";
+        btn.disabled = false;
+      }
+    }
+
+    function renderSummary() {
+      const lines = window.cart.all();
+      const total = window.cart.getSubtotal();
+      const itemsContainer = document.getElementById("checkout-items-list");
+
+      itemsContainer.innerHTML = lines.map((l) => `
+        <div class="flex justify-between gap-4">
+          <span class="text-muted-foreground line-clamp-2">
+            ${l.quantity} × ${l.name} ${l.variant_name ? `(${l.variant_name})` : ""}
+          </span>
+          <span class="shrink-0 font-medium text-foreground">${formatCurrency(l.unit_price * l.quantity)}</span>
+        </div>
+      `).join("");
+
+      document.getElementById("checkout-subtotal").textContent = formatCurrency(total);
+
+      const discount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
+      const payableTotal = Math.max(total - discount, 0);
+      const earned = Math.floor(payableTotal / 10);
+
+      const savingsRow = document.getElementById("checkout-savings-row");
+      if (discount > 0) {
+        savingsRow.classList.remove("hidden");
+        document.getElementById("checkout-savings-amount").textContent = `-${formatCurrency(discount)}`;
+        document.getElementById("active-coupon-deducted").textContent = `-${formatCurrency(discount)}`;
+        document.getElementById("active-coupon-remaining").textContent = formatCurrency(Math.max(0, appliedCoupon.discount_value - total));
+      } else {
+        savingsRow.classList.add("hidden");
+      }
+
+      const payableEl = document.getElementById("checkout-payable-total");
+      if (payableTotal === 0) {
+        payableEl.textContent = "FREE";
+        payableEl.className = "text-emerald-600 dark:text-emerald-400 font-black animate-pulse";
+      } else {
+        payableEl.textContent = formatCurrency(payableTotal);
+        payableEl.className = "text-foreground font-bold";
+      }
+
+      document.getElementById("checkout-earned-points").textContent = earned;
+
+      let combinedLabel = paymentMethod.toUpperCase();
+      if (appliedCoupon) {
+        combinedLabel = payableTotal === 0 ? "COUPON VOUCHER" : `SPLIT (${paymentMethod.toUpperCase()} + COUPON)`;
+      }
+      document.getElementById("summary-payment-mode").textContent = combinedLabel;
+
+      updateValidationButton();
+    }
+
+    function updateValidationButton() {
+      const isAddressValid = orderType === "table_booking" || !!selectedAddressId;
+      const btn = document.getElementById("place-order-button");
+      const total = window.cart.getSubtotal();
+      const discount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
+      const payableTotal = Math.max(total - discount, 0);
+
+      if (!isAddressValid) {
+        btn.disabled = true;
+        btn.textContent = "Select Delivery Address";
+      } else if (payableTotal === 0) {
+        btn.disabled = false;
+        btn.textContent = "Claim Free Order! 🎉";
+        btn.className = "w-full rounded-xl mt-2 h-11 inline-flex items-center justify-center whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow transition-colors";
+      } else if (paymentMethod === "online") {
+        btn.disabled = false;
+        btn.textContent = "Proceed to Online Pay";
+        btn.className = "w-full rounded-xl mt-2 h-11 inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 text-sm font-medium transition-colors";
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Place COD Order";
+        btn.className = "w-full rounded-xl mt-2 h-11 inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 text-sm font-medium transition-colors";
+      }
+    }
+
+    function handlePlaceOrderClick() {
+      const total = window.cart.getSubtotal();
+      const discount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
+      const payableTotal = Math.max(total - discount, 0);
+
+      if (payableTotal === 0) {
+        executeOrder(false);
+      } else if (paymentMethod === "online") {
+        openPaymentModal();
+      } else {
+        executeOrder(false);
+      }
+    }
+
+    function openPaymentModal() {
+      const total = window.cart.getSubtotal();
+      const discount = appliedCoupon ? Math.min(total, appliedCoupon.discount_value) : 0;
+      const payableTotal = Math.max(total - discount, 0);
+
+      document.getElementById("modal-orig-total").textContent = formatCurrency(total);
+      document.getElementById("modal-voucher-discount").textContent = `-${formatCurrency(discount)}`;
+      document.getElementById("modal-net-due").textContent = formatCurrency(payableTotal);
+      document.getElementById("online-payment-modal").classList.remove("hidden");
+    }
+
+    function closePaymentModal() {
+      document.getElementById("online-payment-modal").classList.add("hidden");
+    }
+
+    function executeOnlineOrder() {
+      closePaymentModal();
+      executeOrder(true);
+    }
+
+    async function executeOrder(isOnlinePaid) {
+      const lines = window.cart.all();
+      const shopId = lines[0].shop_id;
+      const notes = document.getElementById("checkout-notes").value.trim();
+      const pickup = document.getElementById("checkout-pickup").value;
+
+      const payload = {
+        shop_id: shopId,
+        items: lines.map((l) => ({
+          item_id: l.item_id,
+          variant_id: l.variant_id ?? undefined,
+          quantity: l.quantity,
+        })),
+        instructions: notes || undefined,
+        scheduled_at: pickup || undefined,
+        delivery_address_id: orderType === "delivery" ? selectedAddressId : null,
+        coupon_id: appliedCoupon ? appliedCoupon.id : undefined,
+        payment_method: paymentMethod,
+        order_type: orderType,
+        payment_confirmed: isOnlinePaid,
+      };
+
+      try {
+        const btn = document.getElementById("place-order-button");
+        btn.disabled = true;
+        btn.textContent = "Processing...";
+
+        const order = await window.api.orders.create(payload);
+        window.cart.clear();
+        window.toast.success(isOnlinePaid ? "Payment confirmed & order successfully placed!" : "Order placed successfully!");
+        window.location.href = `orders.html?id=${order.id}`;
+      } catch (err) {
+        window.toast.error(err.message || "Failed to complete checkout processing.");
+        updateValidationButton();
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initCheckout);
+  </script>
+</body>
+</html>
