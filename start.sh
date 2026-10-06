@@ -34,23 +34,8 @@ if [ -n "$DATABASE_URL" ]; then
     migration_status=$?
 
     if [ $migration_status -ne 0 ]; then
-        echo "⚠ Migration failed with status $migration_status"
-
-        if [ -f "/app/reset_migrations.py" ]; then
-            echo "Attempting migration reset..."
-            PYTHONPATH="/app" python reset_migrations.py
-
-            echo "Retrying migrations..."
-            PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
-            migration_status=$?
-        fi
-
-        if [ $migration_status -ne 0 ]; then
-            echo "✗ Migration failed after retry"
-            exit 1
-        else
-            echo "✓ Migration succeeded after retry"
-        fi
+        echo "✗ Migration failed with status $migration_status"
+        exit 1
     else
         echo "✓ Migrations completed successfully"
     fi
