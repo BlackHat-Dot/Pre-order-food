@@ -4,7 +4,7 @@
 
 const Auth = {
   getToken() {
-    return localStorage.getItem("auth_token");
+    return window.tokenStore ? window.tokenStore.access : localStorage.getItem("pof_access_token");
   },
 
   getUser() {
@@ -20,32 +20,35 @@ const Auth = {
     return !!this.getToken() && !!this.getUser();
   },
 
-  async login(email, password) {
-    const res = await window.api.auth.login(email, password);
-    if (res.access_token) {
-      localStorage.setItem("auth_token", res.access_token);
-      // Fetch full profile
-      const user = await window.api.auth.getMe();
-      localStorage.setItem("auth_user", JSON.stringify(user));
-      return user;
-    }
-    throw new Error("Invalid login response");
+  async login(identifier, password) {
+    const user = await window.api.auth.login(identifier, password);
+    return user;
   },
 
   async register(payload) {
     const res = await window.api.auth.register(payload);
-    if (res.access_token) {
-      localStorage.setItem("auth_token", res.access_token);
-      const user = await window.api.auth.getMe();
-      localStorage.setItem("auth_user", JSON.stringify(user));
-      return user;
-    }
     return res;
   },
 
+  async refresh() {
+    try {
+      if (this.getToken()) {
+        const me = await window.api.auth.getMe();
+        localStorage.setItem("auth_user", JSON.stringify(me));
+        return me;
+      }
+    } catch {
+      this.logout();
+    }
+    return null;
+  },
+
   logout() {
-    localStorage.removeItem("auth_token");
+    if (window.tokenStore) window.tokenStore.clear();
     localStorage.removeItem("auth_user");
+    localStorage.removeItem("pof_access_token");
+    localStorage.removeItem("pof_refresh_token");
+    localStorage.removeItem("auth_token");
     window.location.href = "login.html";
   },
 
@@ -53,7 +56,7 @@ const Auth = {
     if (role === "admin") return "admin.html";
     if (role === "shop_owner") return "owner.html";
     return "orders.html";
-  }
+  },
 };
 
 window.auth = Auth;

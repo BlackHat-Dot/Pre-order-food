@@ -1,94 +1,228 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loyalty Rewards — PreOrder</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-  <div class="bg-ambient">
-    <div class="bg-ambient-gradient"></div>
-    <div class="bg-ambient-grid"></div>
+<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
+  <!-- Exact Ambient Background -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
+    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
   </div>
 
   <div id="navbar-root"></div>
 
-  <main style="padding: 3rem 0 5rem;">
-    <div class="container" style="max-width: 800px;">
-      <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">Loyalty Rewards</h1>
-      <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Earn points on every meal and save on future pre-orders.</p>
+  <div class="min-h-screen">
+    <div class="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
 
-      <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.1)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-xl); padding: 2rem; margin-top: 2rem; text-align: center;">
-        <span style="font-size: 2.5rem;">🏆</span>
-        <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">How Loyalty Works</h2>
-        <p style="color: var(--foreground-muted); font-size: 0.875rem; max-width: 500px; margin: 0.5rem auto 0;">
-          Points are credited automatically when your order is placed and confirmed. Redeem your points during checkout for an instant price cut.
-        </p>
-      </div>
+      <!-- SECTION 1: Shop Selection & Balance Display Card -->
+      <div class="overflow-hidden border border-primary/20 shadow-xl rounded-2xl" style="background: var(--gradient-surface);">
+        <div class="flex flex-wrap items-center justify-between gap-4 p-6">
+          <div class="space-y-4 flex-1 min-w-[240px] text-left">
+            <div>
+              <p class="text-xs font-semibold tracking-wider text-primary/80 uppercase">Shop-Specific Wallet</p>
+              <input id="loyalty-shop-id-input" oninput="handleShopIdChange()" placeholder="Paste Shop ID here..." class="mt-1.5 max-w-xs h-10 rounded-xl bg-background/50 border border-primary/20 px-3 text-sm flex w-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+            </div>
 
-      <div style="margin-top: 2rem;">
-        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">Your Balances by Restaurant</h3>
-        <div id="loyalty-list">
-          <div style="text-align: center; padding: 3rem; color: var(--muted-foreground);">Checking points...</div>
+            <div id="loyalty-balance-box" class="hidden">
+              <p class="text-xs text-muted-foreground font-medium">Available Loyalty Balance</p>
+              <p class="mt-0.5 text-4xl font-black text-foreground tracking-tight">
+                <span id="loyalty-points-val">0</span>
+                <span class="text-base font-medium text-muted-foreground">pts</span>
+              </p>
+              <p id="loyalty-discount-factor" class="text-[11px] text-muted-foreground mt-1"></p>
+            </div>
+          </div>
+
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-12 w-12 text-primary animate-pulse shrink-0 hidden sm:block"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
         </div>
       </div>
-    </div>
-  </main>
 
-  <footer class="footer">
-    <div class="container">
-      © 2026 PreOrder. All rights reserved.
+      <!-- SECTION 2: Interactive Coupon Generator Minting Module -->
+      <div id="mint-coupon-card" class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm p-6 space-y-4 text-left hidden">
+        <div class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+          <h3 class="text-base font-bold text-foreground">Generate Shareable Voucher</h3>
+        </div>
+
+        <form id="mint-form" onsubmit="handleMintSubmit(event)" class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[180px] space-y-1.5">
+            <label for="mint-points-input" class="text-xs font-medium text-muted-foreground block">
+              Points to burn (Max <span id="max-burn-pts">0</span> pts)
+            </label>
+            <input id="mint-points-input" type="number" min="1" value="100" class="h-10 rounded-xl flex w-full border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+          </div>
+          <button id="mint-submit-btn" type="submit" class="h-10 rounded-xl px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-md shadow-primary/10 transition-all inline-flex items-center justify-center whitespace-nowrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 mr-1"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
+            Convert to Coupon
+          </button>
+        </form>
+
+        <div id="minted-coupon-banner" class="mt-2 border border-dashed border-emerald-500/30 bg-emerald-500/5 p-4 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">Coupon Created Successfully</p>
+              <p id="minted-coupon-discount" class="text-lg font-black text-foreground">₹0.00 Total Discount</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-emerald-500 animate-pulse"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg>
+          </div>
+
+          <div class="flex items-center gap-2 bg-background border border-border p-2.5 rounded-xl justify-between shadow-sm">
+            <code id="minted-coupon-code" class="font-mono text-sm font-bold select-all tracking-wider text-primary px-1"></code>
+            <button type="button" onclick="copyMintedCode()" class="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            </button>
+          </div>
+          <p class="text-[10px] text-muted-foreground flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3 text-primary"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Pass this code to a friend! Anyone who inputs it at checkout will get the discount applied instantly.
+          </p>
+        </div>
+      </div>
+
+      <!-- SECTION 3: Transaction Ledger Display Module -->
+      <div class="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-sm p-6 space-y-4 text-left">
+        <div class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-muted-foreground"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8h-6"/><path d="M16 12h-6"/><path d="M10 16h4"/></svg>
+          <h3 class="text-base font-bold text-foreground">Ledger Transactions</h3>
+        </div>
+
+        <div id="txns-list" class="space-y-2">
+          <p class="py-8 text-center text-xs text-muted-foreground font-medium">
+            Please enter a valid Shop ID above to unlock historical account transaction histories.
+          </p>
+        </div>
+      </div>
+
     </div>
-  </footer>
+  </div>
 
   <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
   <script src="js/cart.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
   <script>
-    async function loadLoyalty() {
-      if (!window.auth.isLoggedIn()) {
-        window.location.href = "login.html";
+    let currentBalance = 0;
+    let currentShopObj = null;
+    let latestMintedCoupon = null;
+
+    async function handleShopIdChange() {
+      const shopId = document.getElementById("loyalty-shop-id-input").value.trim();
+      const balanceBox = document.getElementById("loyalty-balance-box");
+      const mintCard = document.getElementById("mint-coupon-card");
+      const txnsList = document.getElementById("txns-list");
+
+      if (!shopId) {
+        balanceBox.classList.add("hidden");
+        mintCard.classList.add("hidden");
+        txnsList.innerHTML = `<p class="py-8 text-center text-xs text-muted-foreground font-medium">Please enter a valid Shop ID above to unlock historical account transaction histories.</p>`;
         return;
       }
 
-      const container = document.getElementById("loyalty-list");
-
       try {
-        const accounts = await window.api.loyalty.getMyAccounts();
-        if (!accounts || accounts.length === 0) {
-          container.innerHTML = `
-            <div style="text-align: center; padding: 4rem 1rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-lg);">
-              <p style="color: var(--foreground-muted);">No loyalty points earned yet. Place an order to start earning!</p>
-            </div>
-          `;
-          return;
-        }
+        currentShopObj = await window.api.shops.get(shopId);
+        const account = await window.api.loyalty.me(shopId);
+        currentBalance = account?.points_balance || 0;
 
-        container.innerHTML = accounts.map(acc => `
-          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 0.75rem;">
-            <div>
-              <div style="font-weight: 700; font-size: 1rem;">Shop #${acc.shop_id ? acc.shop_id.substring(0, 8) : 'Partner'}</div>
-              <div style="font-size: 0.785rem; color: var(--foreground-muted);">Redeem value: ${formatCurrency(acc.points_balance * 0.1)}</div>
-            </div>
-            <div style="text-align: right;">
-              <span style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">${acc.points_balance}</span>
-              <span style="font-size: 0.8125rem; color: var(--foreground-muted); display: block;">points</span>
-            </div>
-          </div>
-        `).join("");
+        document.getElementById("loyalty-points-val").textContent = currentBalance;
+        document.getElementById("max-burn-pts").textContent = currentBalance;
+        document.getElementById("mint-points-input").max = currentBalance;
 
+        const discountPerPt = currentShopObj?.loyalty_discount_per_point || 0.1;
+        document.getElementById("loyalty-discount-factor").innerHTML = `Value factor at <span class="font-semibold text-foreground">${currentShopObj.name}</span>: 1 pt = ${formatCurrency(discountPerPt)} discount`;
+
+        balanceBox.classList.remove("hidden");
+        mintCard.classList.remove("hidden");
+
+        loadTransactions(shopId);
       } catch (err) {
-        container.innerHTML = `
-          <div style="padding: 1.5rem; background: var(--surface); border-radius: var(--radius); text-align: center; color: var(--foreground-muted);">
-            No active points balance found.
-          </div>
-        `;
+        txnsList.innerHTML = `<p class="py-8 text-center text-xs text-muted-foreground font-medium">Unable to find loyalty wallet records for this Shop ID.</p>`;
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadLoyalty);
+    async function loadTransactions(shopId) {
+      const txnsList = document.getElementById("txns-list");
+      try {
+        const txns = await window.api.loyalty.transactions(shopId);
+        if (!txns || txns.length === 0) {
+          txnsList.innerHTML = `<p class="py-8 text-center text-xs text-muted-foreground font-medium">No transactions found for this vendor account.</p>`;
+          return;
+        }
+
+        txnsList.innerHTML = txns.map((t) => `
+          <div class="flex items-center justify-between border-b border-border/40 py-2.5 text-sm last:border-0 text-left">
+            <div class="space-y-0.5">
+              <p class="font-semibold text-xs capitalize text-foreground">${t.action}</p>
+              <p class="text-[10px] text-muted-foreground">
+                ${t.order_id ? `Order #${t.order_id.slice(0, 8)}` : 'Coupon Mint Point Conversion'} · ${formatDate(t.created_at)}
+              </p>
+            </div>
+            <span class="text-xs font-bold ${t.points >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}">
+              ${t.points >= 0 ? '+' : ''}${t.points} pts
+            </span>
+          </div>
+        `).join("");
+      } catch {
+        txnsList.innerHTML = `<p class="py-8 text-center text-xs text-muted-foreground font-medium">No transactions found for this vendor account.</p>`;
+      }
+    }
+
+    async function handleMintSubmit(e) {
+      e.preventDefault();
+      const shopId = document.getElementById("loyalty-shop-id-input").value.trim();
+      const pts = parseInt(document.getElementById("mint-points-input").value, 10);
+
+      if (isNaN(pts) || pts <= 0) {
+        window.toast.error("Please provide a valid point value.");
+        return;
+      }
+      if (pts > currentBalance) {
+        window.toast.error("Requested points exceed your available balance.");
+        return;
+      }
+
+      const btn = document.getElementById("mint-submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Generating...";
+
+      try {
+        const coupon = await window.api.coupons.mint(shopId, pts);
+        latestMintedCoupon = coupon;
+        window.toast.success(`Successfully minted voucher: ${coupon.code}`);
+
+        document.getElementById("minted-coupon-banner").classList.remove("hidden");
+        document.getElementById("minted-coupon-discount").textContent = `${formatCurrency(coupon.discount_value)} Total Discount`;
+        document.getElementById("minted-coupon-code").textContent = coupon.code;
+
+        btn.disabled = false;
+        btn.textContent = "Convert to Coupon";
+
+        handleShopIdChange();
+      } catch (err) {
+        window.toast.error(err.message || "Failed to mint voucher.");
+        btn.disabled = false;
+        btn.textContent = "Convert to Coupon";
+      }
+    }
+
+    function copyMintedCode() {
+      if (latestMintedCoupon) {
+        navigator.clipboard.writeText(latestMintedCoupon.code);
+        window.toast.success("Coupon code copied to clipboard!");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopId = urlParams.get("shopId") || urlParams.get("id");
+      if (shopId) {
+        document.getElementById("loyalty-shop-id-input").value = shopId;
+        handleShopIdChange();
+      }
+    });
   </script>
 </body>
 </html>
