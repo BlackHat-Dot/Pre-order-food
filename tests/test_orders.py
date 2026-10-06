@@ -86,4 +86,34 @@ async def test_verify_order_access_shop_owner_forbidden():
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.anyio
+async def test_update_order_status_customer_cannot_complete():
+    from unittest.mock import MagicMock
+    from app.api.v1.endpoints.orders import update_order_status
+    from app.schemas.order import OrderStatusUpdate
+
+    db = AsyncMock()
+    order = Order(id="order-1", customer_id="user-1", shop_id="shop-1", status="ready")
+    db.execute.return_value = MagicMock(scalar_one_or_none=lambda: order)
+    user = User(id="user-1", role="customer")
+    with pytest.raises(HTTPException) as exc_info:
+        await update_order_status("order-1", OrderStatusUpdate(status="completed"), db, user)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_update_order_status_customer_cannot_set_arbitrary_status():
+    from unittest.mock import MagicMock
+    from app.api.v1.endpoints.orders import update_order_status
+    from app.schemas.order import OrderStatusUpdate
+
+    db = AsyncMock()
+    order = Order(id="order-1", customer_id="user-1", shop_id="shop-1", status="pending")
+    db.execute.return_value = MagicMock(scalar_one_or_none=lambda: order)
+    user = User(id="user-1", role="customer")
+    with pytest.raises(HTTPException) as exc_info:
+        await update_order_status("order-1", OrderStatusUpdate(status="preparing"), db, user)
+    assert exc_info.value.status_code == 403
+
+
 

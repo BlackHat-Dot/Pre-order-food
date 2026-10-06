@@ -185,6 +185,7 @@ async def restore_coupon(
     coupon = await db.get(
         Coupon,
         order.coupon_id,
+        with_for_update=True,
     )
 
     if not coupon:
@@ -468,6 +469,7 @@ async def create_order(
         coupon = await db.get(
             Coupon,
             payload.coupon_id,
+            with_for_update=True,
         )
 
         if not coupon:
@@ -488,7 +490,7 @@ async def create_order(
                 detail="Coupon inactive",
             )
 
-        if coupon.is_redeemed:
+        if coupon.is_redeemed or float(coupon.discount_value or 0) <= 0:
             raise HTTPException(
                 status_code=400,
                 detail=(
