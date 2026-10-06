@@ -62,7 +62,7 @@ echo  - Backend: http://localhost:8000
 echo.
 
 REM Start backend in background
-start "Pre-Order Food Backend" python main.py
+start "Pre-Order Food Backend" uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 REM Start frontend server
 cd order-delight-main

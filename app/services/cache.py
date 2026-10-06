@@ -242,7 +242,7 @@ async def acquire_lock(
     redis = await redis_client()
 
     if not redis:
-        return False
+        return True
 
     try:
         return bool(
@@ -260,7 +260,7 @@ async def acquire_lock(
             key,
             e,
         )
-        return False
+        return True
 
 
 async def release_lock(

@@ -31,11 +31,6 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
-from app.services.cache import (
-    cache_get_json,
-    cache_set_json,
-    get_redis,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -130,15 +125,6 @@ async def _user_from_access_token(
 
     user_id = payload["sub"]
 
-    cache_key = (
-        f"auth:user:{user_id}"
-    )
-
-    cached_user = await cache_get_json(cache_key)
-
-    if cached_user:
-        return User(**cached_user)
-
     t0 = time.perf_counter()
 
     result = await db.execute(
@@ -174,23 +160,6 @@ async def _user_from_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
-
-    await cache_set_json(
-    cache_key,
-    {
-        "id": user.id,
-        "role": user.role,
-        "name": user.name,
-        "phone": user.phone,
-        "email": user.email,
-        "password_hash": user.password_hash,
-        "is_active": user.is_active,
-        "phone_verified": user.phone_verified,
-        "email_verified": user.email_verified,
-        "created_at": user.created_at,
-        "updated_at": user.updated_at,
-    },
-)
 
     return user
 

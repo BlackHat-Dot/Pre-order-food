@@ -101,16 +101,58 @@ async def list_users(
         User,
         Depends(require_roles("admin")),
     ],
+    search: str | None = Query(None),
+    role: str | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int | None = Query(None, ge=1, le=100),
 ):
-    stmt = select(User).order_by(
-        User.created_at.desc()
-    )
+    stmt = select(User)
+    if role:
+        stmt = stmt.where(User.role == role)
+    if search:
+        search_filter = f"%{search}%"
+        stmt = stmt.where(
+            User.name.ilike(search_filter)
+            | User.phone.ilike(search_filter)
+            | User.email.ilike(search_filter)
+        )
+    stmt = stmt.order_by(User.created_at.desc())
+
+    if page is not None and page_size is not None:
+        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
     users = (
         await db.execute(stmt)
     ).scalars().all()
 
-    return users
+    return list(users)
+
+
+@router.get("/users/count")
+async def count_users(
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    _: Annotated[
+        User,
+        Depends(require_roles("admin")),
+    ],
+):
+    total = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    active = (await db.execute(select(func.count(User.id)).where(User.is_active.is_(True)))).scalar() or 0
+    roles_res = await db.execute(select(User.role, func.count(User.id)).group_by(User.role))
+    by_role = {r: count for r, count in roles_res.all()}
+
+    return {
+        "total": total,
+        "active": active,
+        "by_role": {
+            "customer": by_role.get("customer", 0),
+            "shop_owner": by_role.get("shop_owner", 0),
+            "admin": by_role.get("admin", 0),
+        },
+    }
 
 
 @router.patch("/users/{user_id}/active")
@@ -205,16 +247,58 @@ async def admin_list_shops(
         User,
         Depends(require_roles("admin")),
     ],
+    search: str | None = Query(None),
+    verified: bool | None = Query(None),
+    active: bool | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int | None = Query(None, ge=1, le=100),
 ):
-    stmt = select(Shop).order_by(
-        Shop.created_at.desc()
-    )
+    stmt = select(Shop)
+    if verified is not None:
+        stmt = stmt.where(Shop.is_verified.is_(verified))
+    if active is not None:
+        stmt = stmt.where(Shop.is_active.is_(active))
+    if search:
+        search_filter = f"%{search}%"
+        stmt = stmt.where(
+            Shop.name.ilike(search_filter)
+            | Shop.city.ilike(search_filter)
+            | Shop.phone.ilike(search_filter)
+        )
+    stmt = stmt.order_by(Shop.created_at.desc())
+
+    if page is not None and page_size is not None:
+        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
     shops = (
         await db.execute(stmt)
     ).scalars().all()
 
-    return shops
+    return list(shops)
+
+
+@router.get("/shops/count")
+async def count_shops(
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    _: Annotated[
+        User,
+        Depends(require_roles("admin")),
+    ],
+):
+    total = (await db.execute(select(func.count(Shop.id)))).scalar() or 0
+    verified = (await db.execute(select(func.count(Shop.id)).where(Shop.is_verified.is_(True)))).scalar() or 0
+    active = (await db.execute(select(func.count(Shop.id)).where(Shop.is_active.is_(True)))).scalar() or 0
+    open_now = (await db.execute(select(func.count(Shop.id)).where(Shop.is_open.is_(True)))).scalar() or 0
+
+    return {
+        "total": total,
+        "verified": verified,
+        "active": active,
+        "open_now": open_now,
+    }
 
 
 @router.patch("/shops/{shop_id}/verify")

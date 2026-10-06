@@ -298,23 +298,18 @@ async def verify_payment(
             ),
         )
 
-    if payload.signature != "mock_signature":
-        is_valid_signature = (
-            verify_payment_signature(
-                provider=payment.provider,
-                provider_order_id=payload.provider_order_id,
-                provider_payment_id=payload.provider_payment_id,
-                signature=payload.signature,
-            )
-        )
+    is_valid_signature = verify_payment_signature(
+        provider=payment.provider,
+        provider_order_id=payload.provider_order_id,
+        provider_payment_id=payload.provider_payment_id,
+        signature=payload.signature,
+    )
 
-        if not is_valid_signature:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Payment verification failed"
-                ),
-            )
+    if not is_valid_signature:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment verification failed",
+        )
 
     payment.provider_order_id = (
         payload.provider_order_id

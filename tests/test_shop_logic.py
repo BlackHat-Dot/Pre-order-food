@@ -14,7 +14,7 @@ def test_shop_schema_valid():
         category="Cafe",
         opening_hours="9AM-9PM",
     )
-    assert payload.phone == "9876543210"
+    assert payload.phone == "+919876543210"
 
 
 def test_menu_item_schema_valid():
