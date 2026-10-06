@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <main style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 3rem 1rem;">
+    <div style="width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px; font-size: 1.35rem;">🍴</div>
+        <h2 style="font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em;">Join PreOrder</h2>
+        <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Start skipping the queue today</p>
+      </div>
+
+      <form id="reg-form">
+        <!-- Role selector tabs -->
+        <div class="form-group">
+          <label class="form-label">I want to:</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div id="role-customer" class="radio-option selected" onclick="setRole('customer')">
+              <input type="radio" name="role" checked style="accent-color: var(--primary);">
+              <span style="font-weight: 700; font-size: 0.85rem;">Order Food</span>
+            </div>
+            <div id="role-owner" class="radio-option" onclick="setRole('shop_owner')">
+              <input type="radio" name="role" style="accent-color: var(--primary);">
+              <span style="font-weight: 700; font-size: 0.85rem;">Sell Food</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="reg-name" class="input" required placeholder="John Doe">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="reg-email" class="input" required placeholder="john@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="reg-phone" class="input" placeholder="+919876543210">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="reg-password" class="input" required placeholder="At least 6 characters">
+        </div>
+
+        <button type="submit" id="reg-btn" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 0.95rem; margin-top: 0.5rem;">
+          Create Account ➔
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 1.5rem; font-size: 0.8125rem; color: var(--foreground-muted);">
+        Already have an account? <a href="login.html" style="color: var(--primary); font-weight: 600;">Sign in</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let selectedRole = "customer";
+
+    function setRole(role) {
+      selectedRole = role;
+      document.querySelectorAll("#role-customer, #role-owner").forEach(el => el.classList.remove("selected"));
+      if (role === "shop_owner") {
+        document.getElementById("role-owner").classList.add("selected");
+      } else {
+        document.getElementById("role-customer").classList.add("selected");
+      }
+    }
+
+    document.getElementById("reg-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("reg-btn");
+      btn.disabled = true;
+      btn.textContent = "Creating account...";
+
+      const payload = {
+        name: document.getElementById("reg-name").value.trim(),
+        email: document.getElementById("reg-email").value.trim(),
+        phone: document.getElementById("reg-phone").value.trim() || undefined,
+        password: document.getElementById("reg-password").value,
+        role: selectedRole,
+      };
+
+      try {
+        const user = await window.auth.register(payload);
+        showToast("success", "Account created successfully!");
+        setTimeout(() => {
+          window.location.href = window.auth.getLandingPage(user.role || selectedRole);
+        }, 500);
+      } catch (err) {
+        showToast("error", err.message);
+        btn.disabled = false;
+        btn.textContent = "Create Account ➔";
+      }
+    });
+  </script>
+</body>
+</html>

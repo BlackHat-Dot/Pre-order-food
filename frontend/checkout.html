@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .checkout-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+      margin-top: 2rem;
+    }
+    @media (min-width: 960px) {
+      .checkout-layout {
+        grid-template-columns: 1.8fr 1.2fr;
+      }
+    }
+    .checkout-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <main style="padding: 3rem 0 5rem;">
+    <div class="container">
+      <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">Checkout</h1>
+      <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Confirm fulfillment details and lock in your order.</p>
+
+      <div class="checkout-layout">
+        <!-- Left: Form details -->
+        <div>
+          <!-- Fulfillment Mode -->
+          <div class="checkout-section">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">1. Fulfillment Option</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div id="opt-pickup" class="radio-option selected" onclick="setOrderType('dine_in')">
+                <input type="radio" name="order_type" checked style="accent-color: var(--primary);">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.9rem;">Takeaway / Pickup</div>
+                  <div style="font-size: 0.75rem; color: var(--foreground-muted);">Pick up at counter</div>
+                </div>
+              </div>
+              <div id="opt-delivery" class="radio-option" onclick="setOrderType('delivery')">
+                <input type="radio" name="order_type" style="accent-color: var(--primary);">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.9rem;">Delivery</div>
+                  <div style="font-size: 0.75rem; color: var(--foreground-muted);">Deliver to your address</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Address block (shown for delivery) -->
+            <div id="address-container" style="display: none; margin-top: 1.25rem;">
+              <label class="form-label">Delivery Address:</label>
+              <select id="address-select" class="select" style="margin-bottom: 0.75rem;"></select>
+              <input type="text" id="new-address-input" class="input" placeholder="Or type new delivery address...">
+            </div>
+          </div>
+
+          <!-- Schedule & Notes -->
+          <div class="checkout-section">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">2. Timing & Special Notes</h3>
+            <div class="form-group">
+              <label class="form-label">Special instructions for kitchen:</label>
+              <textarea id="order-instructions" class="textarea" rows="2" placeholder="e.g. Extra napkins, less spicy..."></textarea>
+            </div>
+          </div>
+
+          <!-- Loyalty & Coupons -->
+          <div class="checkout-section">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">3. Discounts & Loyalty</h3>
+            <div class="form-group">
+              <label class="form-label">Redeem Loyalty Points:</label>
+              <div style="display: flex; gap: 0.75rem;">
+                <input type="number" id="loyalty-input" class="input" placeholder="e.g. 100" min="0" value="0">
+                <button type="button" onclick="applyLoyalty()" class="btn btn-outline" style="white-space: nowrap;">Apply</button>
+              </div>
+              <div id="loyalty-hint" style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.35rem;">
+                Points balance: checking...
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Method -->
+          <div class="checkout-section">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">4. Payment Method</h3>
+            <div id="pay-cash" class="radio-option selected" onclick="setPaymentMethod('cash')">
+              <input type="radio" name="pay_method" checked style="accent-color: var(--primary);">
+              <div>
+                <div style="font-weight: 700; font-size: 0.9rem;">Cash on Pickup / Delivery</div>
+                <div style="font-size: 0.75rem; color: var(--foreground-muted);">Pay directly at the counter or doorstep</div>
+              </div>
+            </div>
+            <div id="pay-online" class="radio-option" onclick="setPaymentMethod('online')">
+              <input type="radio" name="pay_method" style="accent-color: var(--primary);">
+              <div>
+                <div style="font-weight: 700; font-size: 0.9rem;">Online Payment (Razorpay / UPI / Cards)</div>
+                <div style="font-size: 0.75rem; color: var(--foreground-muted);">Secure digital payment gateway</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Summary & Pay Button -->
+        <div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.75rem; position: sticky; top: 80px;">
+            <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Bill Details</h3>
+            
+            <div id="checkout-items-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);"></div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--foreground-muted);">
+              <span>Subtotal</span>
+              <span id="subtotal-val">₹0.00</span>
+            </div>
+            <div id="loyalty-discount-row" style="display: none; justify-content: space-between; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--success);">
+              <span>Loyalty Discount</span>
+              <span id="loyalty-discount-val">-₹0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 1.25rem; font-weight: 800; border-top: 1px solid var(--border); padding-top: 1rem; margin-bottom: 1.5rem;">
+              <span>Total to Pay</span>
+              <span id="final-total-val" style="color: var(--primary);">₹0.00</span>
+            </div>
+
+            <button id="place-order-btn" onclick="submitOrder()" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-lg);">
+              Place Pre-Order Now ➔
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      © 2026 PreOrder. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let orderType = "dine_in";
+    let paymentMethod = "cash";
+    let redeemedPoints = 0;
+    let loyaltyDiscount = 0;
+    let availablePoints = 0;
+
+    async function initCheckout() {
+      if (!window.auth.isLoggedIn()) {
+        window.location.href = "login.html?redirect=checkout.html";
+        return;
+      }
+
+      const items = window.cart.getItems();
+      if (items.length === 0) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      renderCheckoutItems(items);
+      updateBill();
+
+      // Check loyalty balance
+      const shopId = window.cart.getShopId();
+      if (shopId) {
+        try {
+          const res = await window.api.loyalty.getBalance(shopId);
+          availablePoints = res?.points_balance || 0;
+          document.getElementById("loyalty-hint").textContent = `Available balance: ${availablePoints} points (1 pt = ₹0.10)`;
+        } catch {
+          document.getElementById("loyalty-hint").textContent = "Loyalty points not available for this shop.";
+        }
+      }
+
+      // Load saved addresses
+      try {
+        const addresses = await window.api.auth.listAddresses();
+        const sel = document.getElementById("address-select");
+        if (addresses && addresses.length > 0) {
+          sel.innerHTML = addresses.map(a => `<option value="${a.id}">${a.address_line}, ${a.city}</option>`).join("");
+        } else {
+          sel.style.display = "none";
+        }
+      } catch {}
+    }
+
+    function renderCheckoutItems(items) {
+      const container = document.getElementById("checkout-items-list");
+      container.innerHTML = items.map(item => `
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.5rem;">
+          <div>
+            <span style="font-weight: 700;">${item.quantity}x</span> ${item.name}
+            ${item.variant_name ? `<span style="color: var(--muted-foreground);">(${item.variant_name})</span>` : ''}
+          </div>
+          <span style="font-weight: 600;">${formatCurrency(item.price * item.quantity)}</span>
+        </div>
+      `).join("");
+    }
+
+    function setOrderType(type) {
+      orderType = type;
+      document.querySelectorAll("#opt-pickup, #opt-delivery").forEach(el => el.classList.remove("selected"));
+      if (type === "delivery") {
+        document.getElementById("opt-delivery").classList.add("selected");
+        document.getElementById("address-container").style.display = "block";
+      } else {
+        document.getElementById("opt-pickup").classList.add("selected");
+        document.getElementById("address-container").style.display = "none";
+      }
+    }
+
+    function setPaymentMethod(method) {
+      paymentMethod = method;
+      document.querySelectorAll("#pay-cash, #pay-online").forEach(el => el.classList.remove("selected"));
+      if (method === "online") {
+        document.getElementById("pay-online").classList.add("selected");
+      } else {
+        document.getElementById("pay-cash").classList.add("selected");
+      }
+    }
+
+    function applyLoyalty() {
+      const val = parseInt(document.getElementById("loyalty-input").value || "0", 10);
+      if (val < 0) return;
+      if (val > availablePoints) {
+        showToast("error", `You only have ${availablePoints} points.`);
+        return;
+      }
+      redeemedPoints = val;
+      loyaltyDiscount = Math.round(val * 0.1 * 100) / 100;
+      showToast("success", `Applied ${redeemedPoints} loyalty points (-${formatCurrency(loyaltyDiscount)})`);
+      updateBill();
+    }
+
+    function updateBill() {
+      const subtotal = window.cart.getSubtotal();
+      document.getElementById("subtotal-val").textContent = formatCurrency(subtotal);
+
+      if (loyaltyDiscount > 0) {
+        document.getElementById("loyalty-discount-row").style.display = "flex";
+        document.getElementById("loyalty-discount-val").textContent = `-${formatCurrency(loyaltyDiscount)}`;
+      } else {
+        document.getElementById("loyalty-discount-row").style.display = "none";
+      }
+
+      const finalTotal = Math.max(0, subtotal - loyaltyDiscount);
+      document.getElementById("final-total-val").textContent = formatCurrency(finalTotal);
+    }
+
+    async function submitOrder() {
+      const btn = document.getElementById("place-order-btn");
+      btn.disabled = true;
+      btn.textContent = "Processing order...";
+
+      const items = window.cart.getItems();
+      const shopId = window.cart.getShopId();
+      const instructions = document.getElementById("order-instructions").value;
+
+      const payload = {
+        shop_id: shopId,
+        order_type: orderType,
+        payment_method: paymentMethod,
+        instructions: instructions,
+        redeem_loyalty_points: redeemedPoints,
+        items: items.map(item => ({
+          item_id: item.item_id,
+          variant_id: item.variant_id || null,
+          quantity: item.quantity,
+        })),
+      };
+
+      try {
+        const order = await window.api.orders.create(payload);
+        
+        // Handle online payment gateway flow
+        if (paymentMethod === "online") {
+          btn.textContent = "Initiating payment...";
+          const payData = await window.api.payments.createPayment(order.id);
+          
+          // Verify signature (Mock or Razorpay)
+          await window.api.payments.verifyPayment({
+            order_id: order.id,
+            provider_order_id: payData.provider_order_id || "mock_order_123",
+            provider_payment_id: "pay_test_auto",
+            signature: payData.key_id ? "sig_test" : null,
+          });
+        }
+
+        window.cart.clear();
+        showToast("success", "Order placed successfully!");
+        setTimeout(() => {
+          window.location.href = "orders.html";
+        }, 800);
+
+      } catch (err) {
+        showToast("error", err.message);
+        btn.disabled = false;
+        btn.textContent = "Place Pre-Order Now ➔";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initCheckout);
+  </script>
+</body>
+</html>

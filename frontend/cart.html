@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .cart-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    @media (min-width: 900px) {
+      .cart-grid {
+        grid-template-columns: 1.8fr 1.2fr;
+      }
+    }
+    .cart-item-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .qty-stepper {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .qty-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      padding: 0.35rem 0.75rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .qty-btn:hover {
+      background: var(--muted);
+    }
+    .qty-display {
+      padding: 0.35rem 0.65rem;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <main style="padding: 3rem 0 5rem;">
+    <div class="container">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem;">
+        <div>
+          <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">Review Your Cart</h1>
+          <p id="cart-shop-name" style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;"></p>
+        </div>
+        <button id="clear-cart-btn" onclick="clearCart()" class="btn btn-outline btn-sm" style="color: var(--destructive);">
+          Clear Cart
+        </button>
+      </div>
+
+      <div id="cart-container" class="cart-grid">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      © 2026 PreOrder. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function renderCart() {
+      const container = document.getElementById("cart-container");
+      const shopTitle = document.getElementById("cart-shop-name");
+      const clearBtn = document.getElementById("clear-cart-btn");
+      const items = window.cart.getItems();
+
+      if (items.length === 0) {
+        shopTitle.textContent = "Your cart is currently empty";
+        clearBtn.style.display = "none";
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 5rem 1rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-lg);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🛍️</div>
+            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">Your cart is empty</h3>
+            <p style="color: var(--foreground-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Discover great dishes from local shops and pre-order today.</p>
+            <a href="index.html" class="btn btn-primary">Discover Shops</a>
+          </div>
+        `;
+        return;
+      }
+
+      shopTitle.textContent = `Ordering from: ${items[0].shop_name || 'Selected Restaurant'}`;
+      clearBtn.style.display = "inline-flex";
+
+      const subtotal = window.cart.getSubtotal();
+
+      const itemsHtml = items.map(item => `
+        <div class="cart-item-card">
+          <div style="flex: 1;">
+            <h4 style="font-weight: 700; font-size: 0.95rem;">${item.name}</h4>
+            ${item.variant_name ? `<span style="font-size: 0.75rem; color: var(--primary); font-weight: 600;">Size/Option: ${item.variant_name}</span>` : ''}
+            <div style="font-weight: 800; color: var(--foreground); font-size: 0.95rem; margin-top: 0.35rem;">
+              ${formatCurrency(item.price)}
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="qty-stepper">
+              <button class="qty-btn" onclick="updateQty('${item.item_id}', '${item.variant_id || ''}', ${item.quantity - 1})">-</button>
+              <span class="qty-display">${item.quantity}</span>
+              <button class="qty-btn" onclick="updateQty('${item.item_id}', '${item.variant_id || ''}', ${item.quantity + 1})">+</button>
+            </div>
+            <button onclick="removeItem('${item.item_id}', '${item.variant_id || ''}')" class="btn btn-ghost btn-sm" style="color: var(--destructive); padding: 0.4rem;" title="Remove dish">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `).join("");
+
+      const summaryHtml = `
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.75rem; height: fit-content; position: sticky; top: 80px;">
+          <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Order Summary</h3>
+          <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--foreground-muted);">
+            <span>Items (${window.cart.getCount()})</span>
+            <span>${formatCurrency(subtotal)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 1.25rem; color: var(--foreground-muted);">
+            <span>Service fee</span>
+            <span style="color: var(--success);">Free</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 800; border-top: 1px solid var(--border); padding-top: 1rem; margin-bottom: 1.5rem;">
+            <span>Subtotal</span>
+            <span style="color: var(--primary);">${formatCurrency(subtotal)}</span>
+          </div>
+          <a href="checkout.html" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-lg);">
+            Proceed to Checkout ➔
+          </a>
+        </div>
+      `;
+
+      container.innerHTML = `
+        <div>${itemsHtml}</div>
+        <div>${summaryHtml}</div>
+      `;
+    }
+
+    function updateQty(itemId, variantId, qty) {
+      window.cart.updateQuantity(itemId, variantId || null, qty);
+      renderCart();
+    }
+
+    function removeItem(itemId, variantId) {
+      window.cart.removeItem(itemId, variantId || null);
+      renderCart();
+    }
+
+    function clearCart() {
+      if (confirm("Are you sure you want to clear your cart?")) {
+        window.cart.clear();
+        renderCart();
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", renderCart);
+    window.addEventListener("cart-updated", renderCart);
+  </script>
+</body>
+</html>

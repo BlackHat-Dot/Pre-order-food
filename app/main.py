@@ -366,12 +366,58 @@ def create_app() -> FastAPI:
             name="static",
         )
 
+        css_dir = frontend_dir / "css"
+        if css_dir.exists():
+            app.mount(
+                "/css",
+                StaticFiles(
+                    directory=str(
+                        css_dir
+                    )
+                ),
+                name="css",
+            )
+
+        js_dir = frontend_dir / "js"
+        if js_dir.exists():
+            app.mount(
+                "/js",
+                StaticFiles(
+                    directory=str(
+                        js_dir
+                    )
+                ),
+                name="js",
+            )
+
         @app.get(
             "/",
             include_in_schema=False,
         )
         async def frontend_index(
         ) -> FileResponse:
+            return FileResponse(
+                str(
+                    frontend_dir
+                    / "index.html"
+                )
+            )
+
+        @app.get(
+            "/{page_name}.html",
+            include_in_schema=False,
+        )
+        async def frontend_page(
+            page_name: str,
+        ) -> FileResponse:
+            target = (
+                frontend_dir
+                / f"{page_name}.html"
+            )
+            if target.exists():
+                return FileResponse(
+                    str(target)
+                )
             return FileResponse(
                 str(
                     frontend_dir

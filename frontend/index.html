@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PreOrder — Order ahead, skip the line</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Ambient Background Grids & Glows -->
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <!-- Shared Navbar Root -->
+  <div id="navbar-root"></div>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-glow-left"></div>
+    <div class="hero-glow-right"></div>
+    <div class="container">
+      <div class="hero-grid">
+        <!-- Left Floating Food Icons -->
+        <div class="floating-food">
+          <div class="food-icon-circle">🍔</div>
+          <div class="food-icon-circle">🍜</div>
+          <div class="food-icon-circle">🍣</div>
+        </div>
+
+        <!-- Center Hero Text & Search -->
+        <div class="hero-content">
+          <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-full); padding: 0.35rem 1rem; color: var(--primary); font-size: 0.8125rem; font-weight: 600; margin-bottom: 1.25rem;">
+            <span>★</span> Pre order · Skip the queue · Earn rewards
+          </div>
+
+          <h1 class="hero-title">
+            Your favourite food.<br>
+            <span class="gradient-text">Ready when you arrive.</span>
+          </h1>
+
+          <p class="hero-subtitle">
+            Browse local shops, place your order ahead of time, and walk in to pick it up — no waiting, no stress.
+          </p>
+
+          <form id="search-form" class="search-box">
+            <span style="color: var(--muted-foreground); margin-right: 0.5rem; font-size: 1.1rem;">🔍</span>
+            <input type="text" id="search-input" class="search-input" placeholder="Search shops, cuisines, cities...">
+            <button type="submit" class="btn btn-primary" style="border-radius: var(--radius-lg); padding: 0.65rem 1.5rem;">
+              Search
+            </button>
+          </form>
+
+          <div class="hero-badges">
+            <span>🛡️ Verified shops</span>
+            <span>⚡ Instant confirmation</span>
+            <span>🏆 Loyalty rewards</span>
+          </div>
+        </div>
+
+        <!-- Right Preview Device Mockup -->
+        <div style="display: flex; justify-content: center;">
+          <div class="hero-preview-card">
+            <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80" alt="Restaurant preview">
+            <div class="floating-pill" style="top: 1.5rem; left: -2.5rem;">
+              <div style="font-size: 0.625rem; text-transform: uppercase; color: var(--primary); font-weight: 700;">Live activity:</div>
+              <div style="font-size: 0.75rem; font-weight: 700;">Pre-ordered 10m ago</div>
+            </div>
+            <div class="floating-pill" style="bottom: 2rem; right: -2rem;">
+              <div style="font-size: 0.625rem; color: var(--primary); font-weight: 700;">Featured:</div>
+              <div style="font-size: 0.75rem; font-weight: 700;">Spice Junction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Pillars -->
+  <section class="features-section">
+    <div class="container">
+      <div style="text-align: center;">
+        <h2 style="font-size: 1.75rem; font-weight: 800;">How it works</h2>
+        <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Four steps to a better food experience</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-wrap">⚡</div>
+          <h3 class="feature-title">Pre-order in seconds</h3>
+          <p class="feature-desc">Browse menus, customize your dishes, and place your order before you step out.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-wrap">⏱️</div>
+          <h3 class="feature-title">Zero wait time</h3>
+          <p class="feature-desc">Your order is prepared and packed the moment you arrive. Walk in, grab, go.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-wrap">🎁</div>
+          <h3 class="feature-title">Earn loyalty points</h3>
+          <p class="feature-desc">Every purchase rewards you with points redeemable for instant checkout discounts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-wrap">📈</div>
+          <h3 class="feature-title">Track in real-time</h3>
+          <p class="feature-desc">Follow order progress live from acceptance to kitchen prep and packaging.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shop Discovery Section -->
+  <section style="padding: 4rem 0;">
+    <div class="container">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+        <div>
+          <h2 id="discover-heading" class="section-title">Discover shops</h2>
+          <p id="discover-subtitle" class="section-subtitle">Loading partner restaurants...</p>
+        </div>
+        <button id="clear-search-btn" class="btn btn-outline btn-sm" style="display: none;">
+          Clear search
+        </button>
+      </div>
+
+      <!-- Shop Grid Container -->
+      <div id="shop-grid" class="shop-grid">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      © 2026 PreOrder. All rights reserved. · Built for food lovers.
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    const FALLBACK_IMAGES = [
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80"
+    ];
+
+    function getFallbackImage(id) {
+      let hash = 0;
+      for (let i = 0; i < (id || "").length; i++) {
+        hash = (hash << 5) - hash + id.charCodeAt(i);
+        hash |= 0;
+      }
+      return FALLBACK_IMAGES[Math.abs(hash) % FALLBACK_IMAGES.length];
+    }
+
+    async function loadShops(search = "") {
+      const grid = document.getElementById("shop-grid");
+      const subtitle = document.getElementById("discover-subtitle");
+      const clearBtn = document.getElementById("clear-search-btn");
+
+      grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--muted-foreground);">Loading shops...</div>`;
+
+      try {
+        const shops = await window.api.shops.list({ search: search || undefined, page_size: 24 });
+        
+        if (search) {
+          clearBtn.style.display = "inline-flex";
+          document.getElementById("discover-heading").textContent = `Results for "${search}"`;
+        } else {
+          clearBtn.style.display = "none";
+          document.getElementById("discover-heading").textContent = "Discover shops";
+        }
+
+        if (!shops || shops.length === 0) {
+          subtitle.textContent = "0 shops found";
+          grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 5rem 1rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-lg);">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔍</div>
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">No shops found</h3>
+              <p style="color: var(--muted-foreground); font-size: 0.875rem;">Try another keyword or search terms.</p>
+            </div>
+          `;
+          return;
+        }
+
+        subtitle.textContent = `${shops.length} ${shops.length === 1 ? 'shop' : 'shops'} ready to take your order`;
+
+        grid.innerHTML = shops.map(shop => {
+          const img = shop.image_url || getFallbackImage(shop.id);
+          const isOpen = shop.is_open;
+          const rating = shop.rating ? Number(shop.rating).toFixed(1) : null;
+
+          return `
+            <div class="shop-card" onclick="window.location.href='shop.html?id=${shop.id}'">
+              <div class="shop-card-image-wrap">
+                <img src="${img}" alt="${shop.name}" loading="lazy" onerror="this.src='${FALLBACK_IMAGES[0]}'">
+                <div class="shop-card-image-overlay"></div>
+                ${isOpen ? '<span class="badge badge-open" style="position: absolute; top: 0.75rem; left: 0.75rem;">Open now</span>' : ''}
+                ${rating ? `<span class="badge badge-rating" style="position: absolute; top: 0.75rem; right: 0.75rem;">★ ${rating}</span>` : ''}
+              </div>
+              <div class="shop-card-content">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                  <h3 style="font-size: 0.95rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${shop.name}
+                  </h3>
+                  ${shop.is_verified ? '<span class="badge-verified" title="Verified partner">🛡️</span>' : ''}
+                </div>
+                ${shop.cuisine ? `<div style="font-size: 0.75rem; color: var(--muted-foreground);">${shop.cuisine}</div>` : ''}
+                ${shop.address ? `<div style="font-size: 0.75rem; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📍 ${shop.address}</div>` : ''}
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);">
+                  <span style="font-size: 0.75rem; font-weight: 600; color: ${isOpen ? 'var(--success)' : 'var(--muted-foreground)'};">
+                    ${isOpen ? '● Open' : '○ Closed'}
+                  </span>
+                  <span style="font-size: 0.75rem; font-weight: 600; color: var(--primary);">
+                    Order ➔
+                  </span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      } catch (err) {
+        subtitle.textContent = "Error loading shops";
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-lg);">
+            <p style="color: var(--destructive); font-weight: 700; margin-bottom: 0.5rem;">Failed to load shops.</p>
+            <p style="color: var(--muted-foreground); font-size: 0.8125rem;">${err.message}</p>
+            <button onclick="loadShops()" class="btn btn-primary btn-sm" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    document.getElementById("search-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const val = document.getElementById("search-input").value.trim();
+      loadShops(val);
+    });
+
+    document.getElementById("clear-search-btn").addEventListener("click", () => {
+      document.getElementById("search-input").value = "";
+      loadShops("");
+    });
+
+    document.addEventListener("DOMContentLoaded", () => loadShops());
+  </script>
+</body>
+</html>

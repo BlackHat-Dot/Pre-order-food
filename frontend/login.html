@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <main style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 3rem 1rem;">
+    <div style="width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px; font-size: 1.35rem;">🍴</div>
+        <h2 style="font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em;">Welcome Back</h2>
+        <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Sign in to your account</p>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="login-email" class="input" required placeholder="you@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-password" class="input" required placeholder="••••••••">
+        </div>
+
+        <button type="submit" id="login-btn" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 0.95rem; margin-top: 0.5rem;">
+          Sign In ➔
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 1.5rem; font-size: 0.8125rem; color: var(--foreground-muted);">
+        Don't have an account? <a href="register.html" style="color: var(--primary); font-weight: 600;">Sign up</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("login-btn");
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+
+      const email = document.getElementById("login-email").value.trim();
+      const pass = document.getElementById("login-password").value;
+
+      try {
+        const user = await window.auth.login(email, pass);
+        showToast("success", `Welcome back, ${user.name || 'User'}!`);
+        
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get("redirect") || window.auth.getLandingPage(user.role);
+        
+        setTimeout(() => {
+          window.location.href = redirect;
+        }, 500);
+      } catch (err) {
+        showToast("error", err.message);
+        btn.disabled = false;
+        btn.textContent = "Sign In ➔";
+      }
+    });
+  </script>
+</body>
+</html>

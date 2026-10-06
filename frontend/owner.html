@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop Owner Portal — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <main style="padding: 3rem 0 5rem;">
+    <div class="container">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem;">
+        <div>
+          <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">Shop Owner Portal</h1>
+          <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-top: 0.25rem;">Manage your shop status, kitchen orders, and menu dishes.</p>
+        </div>
+        <button onclick="openCreateShopModal()" class="btn btn-primary btn-sm">+ Register New Shop</button>
+      </div>
+
+      <div id="shops-container" style="margin-top: 2rem;">
+        <div style="text-align: center; padding: 4rem; color: var(--muted-foreground);">Loading your restaurant dashboard...</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create Shop Modal -->
+  <div id="create-shop-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-weight: 700;">Register New Restaurant</h3>
+        <button onclick="closeModal('create-shop-modal')" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <form id="create-shop-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Shop Name</label>
+            <input type="text" id="shop-name-input" class="input" required placeholder="e.g. Spice Corner">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cuisine Type</label>
+            <input type="text" id="shop-cuisine-input" class="input" placeholder="e.g. South Indian, Cafe, Biryani">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Physical Address</label>
+            <input type="text" id="shop-address-input" class="input" required placeholder="Full shop address">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Phone</label>
+            <input type="tel" id="shop-phone-input" class="input" placeholder="+919876543210">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('create-shop-modal')" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Shop</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Dish Modal -->
+  <div id="add-dish-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-weight: 700;">Add Menu Item</h3>
+        <button onclick="closeModal('add-dish-modal')" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <form id="add-dish-form">
+        <input type="hidden" id="dish-shop-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Dish Name</label>
+            <input type="text" id="dish-name-input" class="input" required placeholder="e.g. Masala Dosa">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price (₹)</label>
+            <input type="number" step="0.01" id="dish-price-input" class="input" required placeholder="120.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea id="dish-desc-input" class="textarea" rows="2" placeholder="Ingredients and details"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Image URL (Optional)</label>
+            <input type="url" id="dish-img-input" class="input" placeholder="https://images.unsplash.com/...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('add-dish-modal')" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      © 2026 PreOrder. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    async function initOwner() {
+      const user = window.auth.getUser();
+      if (!user || (user.role !== "shop_owner" && user.role !== "admin")) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      loadMyShops();
+    }
+
+    async function loadMyShops() {
+      const container = document.getElementById("shops-container");
+      try {
+        const shops = await window.api.shops.listMyShops();
+        if (!shops || shops.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 4rem 1rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-lg);">
+              <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🏪</div>
+              <h3 style="font-weight: 700; margin-bottom: 0.5rem;">No registered shops yet</h3>
+              <p style="color: var(--foreground-muted); font-size: 0.875rem; margin-bottom: 1.25rem;">Register your restaurant to start accepting online pre-orders.</p>
+              <button onclick="openCreateShopModal()" class="btn btn-primary">Register Restaurant Now</button>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = shops.map(shop => `
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 1.75rem; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <h2 style="font-size: 1.4rem; font-weight: 800;">${shop.name}</h2>
+                  <span class="badge ${shop.is_open ? 'badge-open' : 'badge-closed'}">${shop.is_open ? '● Open' : '○ Closed'}</span>
+                </div>
+                <div style="font-size: 0.8125rem; color: var(--foreground-muted); margin-top: 0.25rem;">
+                  ${shop.cuisine || 'Restaurant'} · 📍 ${shop.address || 'Address not set'}
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.75rem;">
+                <button onclick="toggleShopStatus('${shop.id}', ${!shop.is_open})" class="btn btn-outline btn-sm">
+                  ${shop.is_open ? 'Close Shop' : 'Open Shop'}
+                </button>
+                <button onclick="openAddDishModal('${shop.id}')" class="btn btn-primary btn-sm">+ Add Dish</button>
+              </div>
+            </div>
+
+            <!-- Shop Live Orders -->
+            <div style="margin-top: 1.5rem;">
+              <h4 style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.75rem;">Live Incoming Orders</h4>
+              <div id="orders-for-${shop.id}">
+                <div style="font-size: 0.8125rem; color: var(--muted-foreground);">Loading orders...</div>
+              </div>
+            </div>
+          </div>
+        `).join("");
+
+        // Fetch live orders for each shop
+        shops.forEach(s => loadShopOrders(s.id));
+
+      } catch (err) {
+        container.innerHTML = `<div style="color: var(--destructive);">Failed to load shops: ${err.message}</div>`;
+      }
+    }
+
+    async function loadShopOrders(shopId) {
+      const el = document.getElementById(`orders-for-${shopId}`);
+      try {
+        const orders = await window.api.orders.listShopOrders(shopId);
+        if (!orders || orders.length === 0) {
+          el.innerHTML = `<p style="font-size: 0.8125rem; color: var(--muted-foreground);">No orders right now.</p>`;
+          return;
+        }
+
+        el.innerHTML = orders.map(o => {
+          let actionBtn = "";
+          if (o.status === "placed") {
+            actionBtn = `<button onclick="updateOrderStatus('${o.id}', 'accepted')" class="btn btn-primary btn-sm">Accept Order</button>`;
+          } else if (o.status === "accepted") {
+            actionBtn = `<button onclick="updateOrderStatus('${o.id}', 'preparing')" class="btn btn-outline btn-sm">Mark Preparing</button>`;
+          } else if (o.status === "preparing") {
+            actionBtn = `<button onclick="updateOrderStatus('${o.id}', 'ready')" class="btn btn-primary btn-sm">Mark Ready</button>`;
+          } else if (o.status === "ready") {
+            actionBtn = `<button onclick="updateOrderStatus('${o.id}', 'completed')" class="btn btn-outline btn-sm">Complete</button>`;
+          }
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.875rem 1rem; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span style="font-weight: 700; font-size: 0.875rem;">Order #${o.id.substring(0, 8)}</span>
+                <span style="margin-left: 0.5rem;">${renderStatusBadge(o.status)}</span>
+                <span style="font-size: 0.785rem; color: var(--foreground-muted); margin-left: 0.75rem;">${formatCurrency(o.total_price)}</span>
+              </div>
+              <div>${actionBtn}</div>
+            </div>
+          `;
+        }).join("");
+
+      } catch {
+        el.innerHTML = `<p style="font-size: 0.8125rem; color: var(--muted-foreground);">Could not load orders.</p>`;
+      }
+    }
+
+    async function toggleShopStatus(shopId, isOpen) {
+      try {
+        await window.api.shops.update(shopId, { is_open: isOpen });
+        showToast("success", isOpen ? "Shop opened!" : "Shop closed.");
+        loadMyShops();
+      } catch (err) {
+        showToast("error", err.message);
+      }
+    }
+
+    async function updateOrderStatus(orderId, nextStatus) {
+      try {
+        await window.api.orders.updateStatus(orderId, nextStatus);
+        showToast("success", `Order updated to ${nextStatus}.`);
+        loadMyShops();
+      } catch (err) {
+        showToast("error", err.message);
+      }
+    }
+
+    function openCreateShopModal() {
+      document.getElementById("create-shop-modal").classList.add("active");
+    }
+
+    function openAddDishModal(shopId) {
+      document.getElementById("dish-shop-id").value = shopId;
+      document.getElementById("add-dish-modal").classList.add("active");
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove("active");
+    }
+
+    document.getElementById("create-shop-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await window.api.shops.create({
+          name: document.getElementById("shop-name-input").value.trim(),
+          cuisine: document.getElementById("shop-cuisine-input").value.trim() || undefined,
+          address: document.getElementById("shop-address-input").value.trim(),
+          phone: document.getElementById("shop-phone-input").value.trim() || undefined,
+        });
+        showToast("success", "Shop registered successfully!");
+        closeModal("create-shop-modal");
+        loadMyShops();
+      } catch (err) {
+        showToast("error", err.message);
+      }
+    });
+
+    document.getElementById("add-dish-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const shopId = document.getElementById("dish-shop-id").value;
+      try {
+        await window.api.menu.createItem(shopId, {
+          name: document.getElementById("dish-name-input").value.trim(),
+          price: parseFloat(document.getElementById("dish-price-input").value),
+          description: document.getElementById("dish-desc-input").value.trim() || undefined,
+          image_url: document.getElementById("dish-img-input").value.trim() || undefined,
+        });
+        showToast("success", "Dish added to menu!");
+        closeModal("add-dish-modal");
+        document.getElementById("add-dish-form").reset();
+      } catch (err) {
+        showToast("error", err.message);
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", initOwner);
+  </script>
+</body>
+</html>

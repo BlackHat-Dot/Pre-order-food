@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop Menu — PreOrder</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .shop-header {
+      position: relative;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 0 2.5rem;
+    }
+    .shop-header-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (min-width: 768px) {
+      .shop-header-grid {
+        flex-direction: row;
+        align-items: center;
+        gap: 2.5rem;
+      }
+    }
+    .shop-avatar {
+      width: 140px;
+      height: 140px;
+      border-radius: var(--radius-xl);
+      object-fit: cover;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      box-shadow: var(--shadow-md);
+    }
+    .dish-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      display: flex;
+      gap: 1rem;
+      transition: all 0.2s ease;
+    }
+    .dish-card:hover {
+      border-color: rgba(245, 158, 11, 0.4);
+      transform: translateY(-2px);
+    }
+    .dish-thumb {
+      width: 96px;
+      height: 96px;
+      border-radius: var(--radius);
+      object-fit: cover;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-ambient">
+    <div class="bg-ambient-gradient"></div>
+    <div class="bg-ambient-grid"></div>
+  </div>
+
+  <div id="navbar-root"></div>
+
+  <!-- Shop Header Details -->
+  <section class="shop-header">
+    <div class="container">
+      <div id="shop-header-content">
+        <div style="padding: 2rem 0; color: var(--muted-foreground);">Loading shop details...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Menu Section -->
+  <main style="padding: 3rem 0;">
+    <div class="container">
+      <!-- Category Tabs Nav -->
+      <div id="category-tabs" class="tabs-nav">
+        <button class="tab-btn active" onclick="filterCategory(null)">All Items</button>
+      </div>
+
+      <!-- Dish Grid -->
+      <div id="dishes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Item Customization Modal -->
+  <div id="variant-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-dish-name" style="font-size: 1.15rem; font-weight: 700;">Customize Dish</h3>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm" style="font-size: 1.25rem; padding: 0.25rem 0.5rem;">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-dish-desc" style="color: var(--foreground-muted); font-size: 0.875rem; margin-bottom: 1.25rem;"></p>
+        
+        <div id="variants-container">
+          <label class="form-label">Select Option:</label>
+          <div id="variant-options-list"></div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <span style="font-size: 0.875rem; font-weight: 600;">Price:</span>
+          <span id="modal-price-display" style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">₹0.00</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-outline">Cancel</button>
+        <button id="modal-add-btn" class="btn btn-primary">Add to Order</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      © 2026 PreOrder. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopId = urlParams.get("id");
+
+    let currentShop = null;
+    let allItems = [];
+    let activeCategory = null;
+    let selectedDish = null;
+    let selectedVariant = null;
+
+    async function initShop() {
+      if (!shopId) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      try {
+        currentShop = await window.api.shops.get(shopId);
+        document.title = `${currentShop.name} — Menu | PreOrder`;
+        renderShopHeader(currentShop);
+
+        // Load Categories & Items
+        const categories = await window.api.menu.listCategories(shopId).catch(() => []);
+        allItems = await window.api.menu.listItems(shopId).catch(() => []);
+
+        renderCategories(categories);
+        renderItems(allItems);
+      } catch (err) {
+        document.getElementById("shop-header-content").innerHTML = `
+          <div style="padding: 2rem; background: var(--destructive-bg); border-radius: var(--radius); color: var(--destructive-foreground);">
+            <h3>Failed to load shop</h3>
+            <p>${err.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderShopHeader(shop) {
+      const img = shop.image_url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80";
+      const rating = shop.rating ? Number(shop.rating).toFixed(1) : "New";
+
+      document.getElementById("shop-header-content").innerHTML = `
+        <div class="shop-header-grid">
+          <img src="${img}" alt="${shop.name}" class="shop-avatar">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">${shop.name}</h1>
+              ${shop.is_verified ? '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">🛡️ Verified Partner</span>' : ''}
+              <span class="badge ${shop.is_open ? 'badge-open' : 'badge-closed'}">${shop.is_open ? '● Open now' : '○ Closed'}</span>
+            </div>
+            <p style="color: var(--foreground-muted); font-size: 0.95rem; margin-top: 0.35rem;">
+              ${shop.cuisine || 'Multi-cuisine'} · ★ ${rating}
+            </p>
+            <div style="display: flex; gap: 1.5rem; margin-top: 0.75rem; font-size: 0.8125rem; color: var(--muted-foreground);">
+              <span>📍 ${shop.address || 'Local pick-up available'}</span>
+              ${shop.phone ? `<span>📞 ${shop.phone}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCategories(categories) {
+      const tabs = document.getElementById("category-tabs");
+      let html = `<button class="tab-btn active" onclick="filterCategory(null)">All Items</button>`;
+      
+      categories.forEach(cat => {
+        html += `<button class="tab-btn" onclick="filterCategory('${cat.id}')">${cat.name}</button>`;
+      });
+
+      tabs.innerHTML = html;
+    }
+
+    function filterCategory(catId) {
+      activeCategory = catId;
+      document.querySelectorAll(".tab-btn").forEach((btn, idx) => {
+        if ((!catId && idx === 0) || btn.getAttribute("onclick")?.includes(`'${catId}'`)) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+
+      const filtered = catId ? allItems.filter(i => i.category_id === catId) : allItems;
+      renderItems(filtered);
+    }
+
+    function renderItems(items) {
+      const grid = document.getElementById("dishes-grid");
+      if (!items || items.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 1rem; color: var(--muted-foreground);">
+            No menu items found in this section.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = items.map(dish => {
+        const hasVariants = dish.variants && dish.variants.length > 0;
+        const img = dish.image_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80";
+        const price = formatCurrency(dish.price);
+
+        return `
+          <div class="dish-card">
+            <img src="${img}" alt="${dish.name}" class="dish-thumb" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'">
+            <div style="display: flex; flex-direction: column; justify-content: space-between; flex: 1;">
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem;">${dish.name}</h4>
+                <p style="font-size: 0.785rem; color: var(--foreground-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                  ${dish.description || ''}
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem;">
+                <span style="font-weight: 800; color: var(--primary); font-size: 0.95rem;">${price}</span>
+                <button onclick="handleAddToCart('${dish.id}')" class="btn btn-outline btn-sm" style="border-radius: var(--radius); padding: 0.25rem 0.75rem;">
+                  + Add
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function handleAddToCart(dishId) {
+      const dish = allItems.find(d => d.id === dishId);
+      if (!dish) return;
+
+      if (dish.variants && dish.variants.length > 0) {
+        selectedDish = dish;
+        openModal(dish);
+      } else {
+        const added = window.cart.addItem(currentShop.id, currentShop.name, dish, null, 1);
+        if (added) showToast("success", `Added "${dish.name}" to cart!`);
+      }
+    }
+
+    function openModal(dish) {
+      selectedDish = dish;
+      selectedVariant = dish.variants[0];
+
+      document.getElementById("modal-dish-name").textContent = dish.name;
+      document.getElementById("modal-dish-desc").textContent = dish.description || "Choose your preferred serving size:";
+
+      const list = document.getElementById("variant-options-list");
+      list.innerHTML = dish.variants.map((v, i) => `
+        <div class="radio-option ${i === 0 ? 'selected' : ''}" onclick="selectVariant('${v.id}')" id="variant-opt-${v.id}">
+          <input type="radio" name="variant" ${i === 0 ? 'checked' : ''} style="accent-color: var(--primary);">
+          <span style="flex: 1; font-size: 0.875rem; font-weight: 600;">${v.name}</span>
+          <span style="font-weight: 700; color: var(--primary); font-size: 0.875rem;">${formatCurrency(v.price)}</span>
+        </div>
+      `).join("");
+
+      updateModalPrice();
+      document.getElementById("variant-modal").classList.add("active");
+    }
+
+    function selectVariant(varId) {
+      if (!selectedDish) return;
+      selectedVariant = selectedDish.variants.find(v => v.id === varId);
+      document.querySelectorAll(".radio-option").forEach(el => el.classList.remove("selected"));
+      document.getElementById(`variant-opt-${varId}`)?.classList.add("selected");
+      updateModalPrice();
+    }
+
+    function updateModalPrice() {
+      const priceEl = document.getElementById("modal-price-display");
+      if (selectedVariant) {
+        priceEl.textContent = formatCurrency(selectedVariant.price);
+      } else if (selectedDish) {
+        priceEl.textContent = formatCurrency(selectedDish.price);
+      }
+    }
+
+    function closeModal() {
+      document.getElementById("variant-modal").classList.remove("active");
+      selectedDish = null;
+      selectedVariant = null;
+    }
+
+    document.getElementById("modal-add-btn").addEventListener("click", () => {
+      if (!selectedDish) return;
+      const added = window.cart.addItem(currentShop.id, currentShop.name, selectedDish, selectedVariant, 1);
+      if (added) {
+        showToast("success", `Added "${selectedDish.name} (${selectedVariant?.name || ''})" to cart!`);
+        closeModal();
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", initShop);
+  </script>
+</body>
+</html>
