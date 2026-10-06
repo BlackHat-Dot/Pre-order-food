@@ -42,3 +42,9 @@ def test_order_item_input_rejects_blank_variant_id():
     with pytest.raises(ValueError):
         OrderItemInput(item_id="item-123", variant_id="", quantity=1)
 
+
+def test_order_item_input_rejects_blank_item_id():
+    with pytest.raises(ValueError):
+        OrderItemInput(item_id="", variant_id="variant-123", quantity=1)
+
+

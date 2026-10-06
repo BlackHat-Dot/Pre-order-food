@@ -62,6 +62,12 @@ class OrderItemInput(
         self,
     ) -> "OrderItemInput":
 
+        if self.item_id is not None and not self.item_id.strip():
+            raise ValueError("item_id cannot be blank")
+
+        if self.variant_id is not None and not self.variant_id.strip():
+            raise ValueError("variant_id cannot be blank")
+
         item_id = (
             self.item_id.strip()
             if self.item_id
