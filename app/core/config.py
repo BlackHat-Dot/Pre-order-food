@@ -115,6 +115,8 @@ class Settings(BaseSettings):
 
     MSG91_AUTH_KEY: str | None = None
 
+    MSG91_WIDGET_ID: str = "36656c6f6867323433323337"
+
     # ─────────────────────────────────────────
     # Resend
     # ─────────────────────────────────────────

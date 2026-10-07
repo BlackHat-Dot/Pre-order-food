@@ -45,24 +45,37 @@ async def verify_msg91_token(access_token: str, phone: str, otp: str = "") -> st
     """
     normalized = normalize_e164(phone)
 
-    if not settings.MSG91_AUTH_KEY or access_token in {"local_dev", "dev", "mock", "test"} or access_token.startswith("local_"):
-        logger.info(
-            "[MSG91] Trusting verification for token=%s phone=%s",
-            access_token, phone
-        )
+    is_prod = (settings.ENV or "").lower() in {"production", "prod"}
+
+    if access_token in {"local_dev", "dev", "mock", "test"} or access_token.startswith("local_"):
+        if is_prod:
+            logger.warning("[MSG91] Rejected simulated token in production phone=%s", phone)
+            raise ValueError("Simulated verification tokens are not permitted in production. Please complete phone OTP verification.")
+        logger.info("[MSG91] Trusting verification in development environment for phone=%s", phone)
+        return normalized
+
+    if not settings.MSG91_AUTH_KEY:
+        if is_prod:
+            raise ValueError("Phone verification service is not configured (missing MSG91_AUTH_KEY).")
+        logger.warning("[MSG91] MSG91_AUTH_KEY not set — operating in dev mode.")
         return normalized
 
     try:
+        verify_payload = {
+            "widgetId": settings.MSG91_WIDGET_ID,
+            "tokenAuth": settings.MSG91_AUTH_KEY,
+            "req_id": access_token,
+        }
+        if otp:
+            verify_payload["otp"] = otp
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 MSG91_VERIFY_URL,
-                json={
-                    "req_id": access_token,
-                    "otp": otp,
-                    "authkey": settings.MSG91_AUTH_KEY,
-        },
-        )
-        print("MSG91 RESPONSE:", resp.status_code, resp.text)
+                json=verify_payload,
+                headers={"authkey": settings.MSG91_AUTH_KEY},
+            )
+            logger.info("MSG91 verifyOtp status=%s response=%s", resp.status_code, resp.text)
     
     except httpx.TimeoutException as exc:
         logger.error("[MSG91] API timeout: %s", exc)

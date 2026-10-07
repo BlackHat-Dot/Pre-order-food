@@ -31,26 +31,106 @@
 import { api } from '/js/api.js'; import { toast } from '/js/toast.js'; import '/js/shell.js';
 const $ = id => document.getElementById(id);
 if (new URLSearchParams(location.search).get('role') === 'shop_owner') document.querySelector('input[value=shop_owner]').checked = true;
+
+const MSG91_SDK_URL = "https://control.msg91.com/app/assets/otp-provider/otp-provider.js";
+const WIDGET_ID = window.MSG91_WIDGET_ID || "36656c6f6867323433323337";
+const TOKEN_AUTH = window.MSG91_TOKEN_AUTH || "516068TEEotSwiUFzE6a0347acP1";
+
 let token = null;
-async function verify() {
-  const r = await api.verifyPhone($('phone').value.trim(), 'local_dev');
-  token = r.verification_token; $('vs').hidden = false; $('ver').textContent = 'Verified'; $('ver').disabled = true;
+
+function loadMsg91Sdk() {
+  if (window.initSendOTP) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${MSG91_SDK_URL}"]`)) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = MSG91_SDK_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load MSG91 phone verification service"));
+    document.head.appendChild(script);
+  });
 }
-$('ver').addEventListener('click', async () => {
-  if (!$('phone').value.trim()) return toast.error('Enter your phone number first');
-  $('ver').disabled = true;
-  try { await verify(); } catch (e) { $('ver').disabled = false; toast.error(e.message || 'Could not verify this number'); }
+
+async function startVerification() {
+  const phone = $('phone').value.trim();
+  if (!phone) return toast.error('Enter your phone number first');
+  const btn = $('ver');
+  btn.disabled = true;
+  btn.textContent = 'Sending OTP…';
+
+  try {
+    await loadMsg91Sdk();
+    if (!window.initSendOTP) {
+      throw new Error('Phone verification service could not be initialized.');
+    }
+
+    const cleanIdentifier = phone.replace(/\D/g, '');
+
+    window.initSendOTP({
+      widgetId: WIDGET_ID,
+      tokenAuth: TOKEN_AUTH,
+      identifier: cleanIdentifier,
+      success: async (data) => {
+        try {
+          btn.textContent = 'Verifying…';
+          const reqId = data?.message || data?.req_id || data?.token || (typeof data === 'string' ? data : JSON.stringify(data));
+          const r = await api.verifyPhone(phone, reqId);
+          token = r.verification_token;
+          $('vs').hidden = false;
+          btn.textContent = 'Verified';
+          btn.disabled = true;
+          toast.success('Phone verified successfully!');
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = 'Verify';
+          toast.error(err.message || 'Verification confirmation failed');
+        }
+      },
+      failure: (err) => {
+        btn.disabled = false;
+        btn.textContent = 'Verify';
+        const msg = typeof err === 'string' ? err : err?.message || 'Phone verification failed';
+        toast.error(msg);
+      }
+    });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Verify';
+    toast.error(err.message || 'Could not launch verification');
+  }
+}
+
+$('phone').addEventListener('input', () => {
+  if (token) {
+    token = null;
+    $('vs').hidden = true;
+    $('ver').disabled = false;
+    $('ver').textContent = 'Verify';
+  }
 });
+
+$('ver').addEventListener('click', startVerification);
+
 $('f').addEventListener('submit', async e => {
   e.preventDefault();
-  const role = document.querySelector('input[name=role]:checked').value, phone = $('phone').value.trim(), password = $('pw').value;
+  const phone = $('phone').value.trim();
+  if (!token) {
+    toast.error('Please verify your phone number via OTP first');
+    return startVerification();
+  }
+  const role = document.querySelector('input[name=role]:checked').value;
+  const name = $('name').value.trim();
+  const password = $('pw').value;
   const b = $('go'); b.disabled = true; b.textContent = 'Creating account…';
   try {
-    if (!token) await verify();
-    await api.register({ role, name: $('name').value.trim(), phone, password, phone_verification_token: token });
+    await api.register({ role, name, phone, password, phone_verification_token: token });
     await api.login(phone, password);
     toast.success('Account created');
     setTimeout(() => location.href = role === 'shop_owner' ? '/owner.html' : '/index.html', 400);
-  } catch (err) { toast.error(err.message || 'Could not create the account'); b.disabled = false; b.textContent = 'Create account'; }
+  } catch (err) {
+    toast.error(err.message || 'Could not create the account');
+    b.disabled = false;
+    b.textContent = 'Create account';
+  }
 });
 </script></body></html>
