@@ -115,7 +115,13 @@ class Settings(BaseSettings):
 
     MSG91_AUTH_KEY: str | None = None
 
-    MSG91_WIDGET_ID: str = "36656c6f6867323433323337"
+    # ─────────────────────────────────────────
+    # Firebase
+    # ─────────────────────────────────────────
+
+    FIREBASE_API_KEY: str = "AIzaSyBWW6GIPeIf30LJVx3rJUO1n1FO_O33_z4"
+
+    FIREBASE_PROJECT_ID: str = "pre-order-food-68244"
 
     # ─────────────────────────────────────────
     # Resend

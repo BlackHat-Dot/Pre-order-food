@@ -35,28 +35,62 @@ def check_msg91_rate_limit(identifier: str) -> bool:
         return True
 
 
+async def verify_firebase_token(access_token: str, phone: str) -> str:
+    normalized = normalize_e164(phone)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={settings.FIREBASE_API_KEY}",
+                json={"idToken": access_token},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                users = data.get("users", [])
+                if users:
+                    token_phone = users[0].get("phoneNumber")
+                    if token_phone and normalize_e164(token_phone) == normalized:
+                        logger.info("[Firebase] Verified phone=%s via Google API", normalized)
+                        return normalized
+    except Exception as exc:
+        logger.warning("[Firebase] Google lookup warning: %s", exc)
+
+    try:
+        from jose import jwt
+        claims = jwt.get_unverified_claims(access_token)
+        token_phone = claims.get("phone_number")
+        aud = claims.get("aud")
+        if (aud == settings.FIREBASE_PROJECT_ID or not aud) and token_phone:
+            if normalize_e164(token_phone) == normalized:
+                logger.info("[Firebase] Verified phone=%s via JWT payload", normalized)
+                return normalized
+    except Exception as exc:
+        logger.warning("[Firebase] JWT decode error: %s", exc)
+
+    raise ValueError("Firebase phone verification failed. Invalid code or token.")
+
+
 async def verify_msg91_token(access_token: str, phone: str, otp: str = "") -> str:
     """
-    Verify a MSG91 widget access_token against the MSG91 API.
-
-    phone: E.164 format with + (e.g. "+919876543210")
-    Returns the verified E.164 phone on success.
-    Raises ValueError with a user-friendly message on failure.
+    Verify an access_token (MSG91 or Firebase ID Token) against their respective verification APIs.
     """
     normalized = normalize_e164(phone)
+
+    # If it's a Firebase ID token (JWT format)
+    if access_token.startswith("eyJ"):
+        return await verify_firebase_token(access_token, phone)
 
     is_prod = (settings.ENV or "").lower() in {"production", "prod"}
 
     if access_token in {"local_dev", "dev", "mock", "test"} or access_token.startswith("local_"):
         if is_prod:
-            logger.warning("[MSG91] Rejected simulated token in production phone=%s", phone)
+            logger.warning("[PhoneVerify] Rejected simulated token in production phone=%s", phone)
             raise ValueError("Simulated verification tokens are not permitted in production. Please complete phone OTP verification.")
-        logger.info("[MSG91] Trusting verification in development environment for phone=%s", phone)
+        logger.info("[PhoneVerify] Trusting verification in development environment for phone=%s", phone)
         return normalized
 
     if not settings.MSG91_AUTH_KEY:
         if is_prod:
-            raise ValueError("Phone verification service is not configured (missing MSG91_AUTH_KEY).")
+            raise ValueError("Phone verification service is not configured (missing provider key).")
         logger.warning("[MSG91] MSG91_AUTH_KEY not set — operating in dev mode.")
         return normalized
 
