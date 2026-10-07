@@ -11,7 +11,7 @@
 <main class="page"><div class="wrap">
   <div class="page-head">
     <div><h1 class="h1" id="title">Kitchen desk</h1>
-      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><select class="input" id="shops" style="width:260px" aria-label="Kitchen"></select><button class="btn line" id="new-shop">Add kitchen</button></div></div>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><select class="input" id="shops" style="width:260px" aria-label="Kitchen"></select><button class="btn line" id="new-shop">Add kitchen</button><button class="btn accent" id="btn-add-dish">+ Add dish</button></div></div>
     <div class="panel" style="padding:14px 20px;display:flex;gap:24px;flex-wrap:wrap">
       <label class="sw"><input type="checkbox" id="is-open"><span id="l-open">Closed</span></label>
       <label class="sw"><input type="checkbox" id="is-acc"><span id="l-acc">Orders paused</span></label></div>
@@ -38,7 +38,7 @@
   <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="v-save" value="s">Add option</button></div></form></dialog>
 <dialog id="sd"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">Add a kitchen</h2>
   <div class="field"><label for="s-n">Name</label><input class="input" id="s-n"></div>
-  <div class="field"><label for="s-ph">Phone</label><input class="input" id="s-ph" type="tel" placeholder="+919876543210"></div>
+  <div class="field"><label for="s-ph">Phone</label><input class="input" id="s-ph" type="tel" readonly style="background:var(--paper);cursor:not-allowed"><span class="hint" style="margin-top:4px">Automatically linked to your account phone number</span></div>
   <div class="field"><label for="s-d">Description</label><textarea class="input" id="s-d"></textarea></div>
   <div class="field"><label for="s-a">Address</label><input class="input" id="s-a"></div>
   <div class="grid3"><div class="field"><label for="s-c">City</label><input class="input" id="s-c"></div><div class="field"><label for="s-s">State</label><input class="input" id="s-s"></div><div class="field"><label for="s-z">Pincode</label><input class="input" id="s-z"></div></div>
@@ -53,8 +53,17 @@ let shops = [], shop = null, orders = [], menu = [], tab = 'orders', filt = '', 
 const NEXT = { pending: ['accepted', 'Accept order'], accepted: ['preparing', 'Start cooking'], preparing: ['ready', 'Mark ready'], ready: ['completed', 'Hand over'] };
 const LABEL = { pending: 'New', accepted: 'Accepted', preparing: 'Cooking', ready: 'Ready', completed: 'Done', cancelled: 'Cancelled', cancel_requested: 'Cancel requested' };
 
+async function fillOwnerPhone() {
+  let u = auth.getUser();
+  if (!u?.phone) {
+    try { u = await api.getCurrentUser(); if (u) auth.setUser(u); } catch {}
+  }
+  if ($('s-ph')) $('s-ph').value = u?.phone || '';
+}
+
 async function init() {
   try {
+    await fillOwnerPhone();
     shops = await api.getMyShops();
     if (!shops.length) { $('shops').innerHTML = '<option>No kitchens yet</option>'; $('title').textContent = 'Add your first kitchen'; $('sd').showModal(); return; }
     $('shops').innerHTML = shops.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.city)})</option>`).join('');
@@ -116,10 +125,15 @@ function dishes() {
     <p class="small muted">${esc(d.description || 'No description.')}</p>
     ${(d.variants || []).length ? `<div>${d.variants.map(v => `<div class="kv"><dt>${esc(v.name)}</dt><dd class="num">${formatPrice(v.price)}</dd></div>`).join('')}</div>` : ''}
     <div class="acts"><button class="btn line sm" data-m="stock" data-id="${esc(d.id)}" data-av="${av}">${av ? 'Mark sold out' : 'Back in stock'}</button><button class="btn quiet sm" data-m="var" data-id="${esc(d.id)}" data-name="${esc(d.name)}">Add option</button><button class="btn danger sm" data-m="del" data-id="${esc(d.id)}">Delete</button></div></article>`; }).join('')
-    : `<p class="empty" style="grid-column:1/-1">No dishes yet. Add your first one.</p>`;
+    : `<div class="panel empty" style="grid-column:1/-1;text-align:center;padding:48px 24px">
+        <h3 class="h2" style="margin-bottom:8px">No dishes yet</h3>
+        <p class="muted" style="margin-bottom:20px">Add dishes to your menu so diners can start ordering.</p>
+        <button class="btn accent" data-m="add-first">+ Add first dish</button>
+       </div>`;
 }
 $('menu').addEventListener('click', async e => {
   const b = e.target.closest('button[data-m]'); if (!b) return; const { m, id } = b.dataset;
+  if (m === 'add-first') return openAddDish();
   try {
     if (m === 'stock') { await api.updateMenuItem(id, { is_available: b.dataset.av !== 'true' }); toast.success('Stock updated'); }
     if (m === 'del') { if (!confirm('Delete this dish? This cannot be undone.')) return; await api.deleteMenuItem(id); toast.success('Dish deleted'); }
@@ -128,20 +142,41 @@ $('menu').addEventListener('click', async e => {
   } catch (err) { toast.error(err.message || 'That change could not be made'); }
 });
 
+function openAddDish() {
+  if (!shop) return toast.error('Please add or select a kitchen first');
+  $('d-n').value = '';
+  $('d-d').value = '';
+  $('d-p').value = '';
+  $('d-t').value = '15';
+  $('d-c').value = '';
+  $('d-v').value = 'veg';
+  $('dd').showModal();
+}
+
 $('tabs').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; tab = b.dataset.t;
   document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
   const o = tab === 'orders'; $('board').hidden = !o; $('menu').hidden = o; $('filters').hidden = !o; $('add-dish').hidden = o; $('live').hidden = !o; load();
 });
 $('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#filters button').forEach(x => x.setAttribute('aria-selected', x === b)); filt = b.dataset.s; board(); });
-$('add-dish').addEventListener('click', () => $('dd').showModal());
-$('new-shop').addEventListener('click', () => $('sd').showModal());
+$('btn-add-dish').addEventListener('click', openAddDish);
+$('add-dish').addEventListener('click', openAddDish);
+$('new-shop').addEventListener('click', async () => { await fillOwnerPhone(); $('sd').showModal(); });
 
 const guard = (e, ok, msg) => { if (!ok) { e.preventDefault(); toast.error(msg); } return ok; };
 $('d-save').addEventListener('click', async e => {
   const name = $('d-n').value.trim(), price = Number($('d-p').value);
   if (!guard(e, name && price > 0, 'Add a name and a price above zero')) return;
-  try { await api.createMenuItem(shop.id, { name, description: $('d-d').value.trim() || null, price, prep_time_minutes: Number($('d-t').value), category: $('d-c').value.trim() || null, dietary_type: $('d-v').value }); toast.success(`${name} added`); load(); }
+  try {
+    await api.createMenuItem(shop.id, { name, description: $('d-d').value.trim() || null, price, prep_time_minutes: Number($('d-t').value), category: $('d-c').value.trim() || null, dietary_type: $('d-v').value });
+    toast.success(`${name} added`);
+    if (tab !== 'menu') {
+      tab = 'menu';
+      document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', x.dataset.t === 'menu'));
+      $('board').hidden = true; $('menu').hidden = false; $('filters').hidden = true; $('add-dish').hidden = false; $('live').hidden = true;
+    }
+    load();
+  }
   catch (err) { toast.error(err.message || 'Dish could not be added'); }
 });
 $('v-save').addEventListener('click', async e => {
@@ -152,8 +187,10 @@ $('v-save').addEventListener('click', async e => {
 });
 $('s-save').addEventListener('click', async e => {
   const v = k => $(k).value.trim(), city = v('s-c');
-  if (!guard(e, v('s-n') && v('s-ph') && v('s-a') && city && v('s-z'), 'Fill in name, phone, address, city and pincode')) return;
-  try { const c = await api.createShop({ name: v('s-n'), phone: v('s-ph'), description: v('s-d') || null, address_line: v('s-a'), city, state: v('s-s') || city, pincode: v('s-z'), category: v('s-k') || 'Gourmet' }); toast.success(`${c.name} added`); init(); }
+  const user = auth.getUser();
+  const phone = user?.phone || v('s-ph');
+  if (!guard(e, v('s-n') && phone && v('s-a') && city && v('s-z'), 'Fill in name, address, city and pincode')) return;
+  try { const c = await api.createShop({ name: v('s-n'), phone, description: v('s-d') || null, address_line: v('s-a'), city, state: v('s-s') || city, pincode: v('s-z'), category: v('s-k') || 'Gourmet' }); toast.success(`${c.name} added`); init(); }
   catch (err) { toast.error(err.message || 'Kitchen could not be added'); }
 });
 init();

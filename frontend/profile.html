@@ -13,7 +13,7 @@
   <div class="split even">
     <div>
       <section class="panel"><h2 class="h2" id="nm">—</h2>
-        <dl><div class="kv"><dt>Phone</dt><dd id="ph"></dd></div><div class="kv"><dt>Email</dt><dd id="em"></dd></div><div class="kv"><dt>Account type</dt><dd id="rl"></dd></div></dl>
+        <dl><div class="kv"><dt>Phone</dt><dd id="ph"></dd></div><div class="kv"><dt>Account type</dt><dd id="rl"></dd></div></dl>
         <button class="btn line" id="edit" style="margin-top:18px">Edit details</button></section>
       <section class="panel"><h2 class="h3">Change password</h2>
         <form id="pf"><div class="field"><label for="op">Current password</label><input class="input" id="op" type="password" required autocomplete="current-password"></div>
@@ -29,7 +29,6 @@
 
 <dialog id="ed"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">Edit details</h2>
   <div class="field"><label for="e-n">Full name</label><input class="input" id="e-n" required></div>
-  <div class="field"><label for="e-e">Email</label><input class="input" id="e-e" type="email"></div>
   <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="e-save" value="s">Save</button></div></form></dialog>
 <dialog id="ad"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">New address</h2>
   <div class="field"><label for="a-t">Label</label><input class="input" id="a-t" placeholder="Home, Office…"></div>
@@ -45,7 +44,7 @@ let me;
 async function init() {
   try {
     me = await api.getMe(); auth.setUser(me);
-    $('nm').textContent = me.name || 'Your account'; $('ph').textContent = me.phone; $('em').textContent = me.email || 'Not added';
+    $('nm').textContent = me.name || 'Your account'; $('ph').textContent = me.phone;
     $('rl').textContent = ({ customer: 'Diner', shop_owner: 'Kitchen owner', admin: 'Admin' })[me.role] || me.role; addrs();
   } catch { toast.error('Your account could not be loaded'); }
 }
@@ -66,10 +65,10 @@ $('addrs').addEventListener('click', async e => {
     addrs();
   } catch (err) { toast.error(err.message || 'That change could not be made'); }
 });
-$('edit').addEventListener('click', () => { $('e-n').value = me.name || ''; $('e-e').value = me.email || ''; $('ed').showModal(); });
+$('edit').addEventListener('click', () => { $('e-n').value = me.name || ''; $('ed').showModal(); });
 $('e-save').addEventListener('click', async e => {
   const name = $('e-n').value.trim(); if (!name) { e.preventDefault(); return toast.error('Name is required'); }
-  try { await api.updateUserProfile({ name, email: $('e-e').value.trim() || null }); toast.success('Details saved'); init(); }
+  try { await api.updateUserProfile({ name }); toast.success('Details saved'); init(); }
   catch (err) { toast.error(err.message || 'Details could not be saved'); }
 });
 $('pf').addEventListener('submit', async e => {

@@ -10,7 +10,7 @@
 <div id="site-header"></div>
 <main class="auth"><div class="panel">
   <h1 class="h1">Create account</h1>
-  <p class="muted" style="margin-bottom:24px">Order ahead as a diner, or run a kitchen.</p>
+  <p class="muted" style="margin-bottom:24px">Order ahead and track preparation live.</p>
   <div class="grid2" style="margin-bottom:20px" role="radiogroup" aria-label="Account type">
     <label class="choice" style="margin:0"><span><input type="radio" name="role" value="customer" checked>Diner</span></label>
     <label class="choice" style="margin:0"><span><input type="radio" name="role" value="shop_owner">Kitchen</span></label>
@@ -20,7 +20,6 @@
     <div class="field"><label for="phone">Phone number</label>
       <div style="display:flex;gap:8px"><input class="input" id="phone" type="tel" placeholder="+919876543210" required autocomplete="tel"><button type="button" class="btn line sm" id="ver">Verify</button></div>
       <div class="fb ok" id="vs" hidden>Phone verified</div></div>
-    <div class="field"><label for="email">Email (optional)</label><input class="input" id="email" type="email" autocomplete="email"></div>
     <div class="field"><label for="pw">Password</label><input class="input" id="pw" type="password" minlength="6" required autocomplete="new-password"><span class="hint">At least 6 characters.</span></div>
     <button class="btn accent lg" id="go" style="width:100%;margin-top:8px">Create account</button>
   </form>
@@ -48,7 +47,7 @@ $('f').addEventListener('submit', async e => {
   const b = $('go'); b.disabled = true; b.textContent = 'Creating account…';
   try {
     if (!token) await verify();
-    await api.register({ role, name: $('name').value.trim(), phone, email: $('email').value.trim() || null, password, phone_verification_token: token });
+    await api.register({ role, name: $('name').value.trim(), phone, password, phone_verification_token: token });
     await api.login(phone, password);
     toast.success('Account created');
     setTimeout(() => location.href = role === 'shop_owner' ? '/owner.html' : '/index.html', 400);

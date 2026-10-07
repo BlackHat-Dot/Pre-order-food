@@ -38,7 +38,7 @@ function footer() {
   el.className = 'site-footer';
   el.innerHTML = `<div class="wrap">
     <span>preorder — order ahead, collect hot.</span>
-    <nav><a href="/register.html?role=shop_owner">Run a kitchen</a><a href="/login.html">Log in</a><a href="/orders.html">Your orders</a></nav>
+    <nav><a href="/login.html">Log in</a><a href="/orders.html">Your orders</a></nav>
   </div>`;
 }
 
