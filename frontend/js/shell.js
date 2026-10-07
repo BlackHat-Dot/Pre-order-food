@@ -1,6 +1,7 @@
 import { auth } from './auth.js';
 import { cart } from './cart.js';
 import { toast } from './toast.js';
+import { api } from './api.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const formatPrice = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -33,6 +34,97 @@ document.addEventListener('click', (e) => {
   }
 });
 
+let notifs = [];
+let notifTimer = null;
+
+async function initNotifications() {
+  if (!auth.isLoggedIn()) return;
+  const btn = document.getElementById('notif-btn');
+  const menu = document.getElementById('notif-menu');
+  const readAll = document.getElementById('notif-read-all');
+  if (!btn || !menu) return;
+
+  async function refresh() {
+    try {
+      notifs = await api.getNotifications() || [];
+      renderNotifs();
+    } catch {}
+  }
+
+  function renderNotifs() {
+    const badge = document.getElementById('notif-badge');
+    const list = document.getElementById('notif-list');
+    if (!badge || !list) return;
+
+    const unread = notifs.filter(n => !n.is_read).length;
+    if (unread > 0) {
+      badge.style.display = 'inline-grid';
+      badge.textContent = unread > 9 ? '9+' : unread;
+    } else {
+      badge.style.display = 'none';
+    }
+
+    if (!notifs.length) {
+      list.innerHTML = `<div class="empty" style="padding:28px 16px;text-align:center;font-size:.85rem">No notifications yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = notifs.map(n => `
+      <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${esc(n.id)}">
+        <div class="notif-item-title">
+          ${n.is_read ? '' : '<span class="notif-dot"></span>'}
+          <span>${esc(n.title || 'Notification')}</span>
+        </div>
+        <div class="notif-item-msg">${esc(n.message || '')}</div>
+        <div class="notif-item-time">${formatDate(n.created_at)}</div>
+      </div>
+    `).join('');
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = menu.hidden;
+    menu.hidden = !isHidden;
+    if (isHidden) {
+      refresh();
+    }
+  });
+
+  menu.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const item = e.target.closest('.notif-item');
+    if (!item) return;
+    const id = item.dataset.id;
+    const n = notifs.find(x => x.id === id);
+    if (n && !n.is_read) {
+      try {
+        await api.markNotificationRead(id);
+        n.is_read = true;
+        renderNotifs();
+      } catch {}
+    }
+  });
+
+  readAll?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try {
+      await api.markAllNotificationsRead();
+      notifs.forEach(n => n.is_read = true);
+      renderNotifs();
+    } catch {}
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.hidden = true;
+    }
+  });
+
+  refresh();
+  clearInterval(notifTimer);
+  notifTimer = setInterval(refresh, 25000);
+}
+
 function header() {
   const el = document.getElementById('site-header');
   if (!el) return;
@@ -51,12 +143,34 @@ function header() {
       </nav>
       <div class="head-end">
         ${auth.isLoggedIn()
-          ? `<a class="who" href="/profile.html">${esc((user?.name || 'Account').split(' ')[0])}</a><button class="btn quiet sm" id="logout">Log out</button>`
+          ? `
+            <div class="notif-wrap">
+              <button class="btn quiet sm notif-btn" id="notif-btn" aria-label="Notifications" title="Notifications" style="position:relative;padding:7px 10px;line-height:1">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="count notif-badge" id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;font-size:0.7rem;padding:0 4px">0</span>
+              </button>
+              <div class="notif-menu" id="notif-menu" hidden>
+                <div class="notif-head">
+                  <strong>Notifications</strong>
+                  <button class="btn quiet sm" id="notif-read-all" style="padding:2px 6px;font-size:0.75rem">Mark all read</button>
+                </div>
+                <div class="notif-list" id="notif-list">
+                  <div class="empty" style="padding:24px 16px;text-align:center;font-size:.85rem">Loading…</div>
+                </div>
+              </div>
+            </div>
+            <a class="who" href="/profile.html">${esc((user?.name || 'Account').split(' ')[0])}</a>
+            <button class="btn quiet sm" id="logout">Log out</button>
+          `
           : `<a class="btn quiet sm" href="/login.html">Log in</a>`}
         <button class="btn sm" id="open-cart" aria-label="Open order">Order <span class="count" id="cart-count">0</span></button>
       </div>
     </div>`;
   document.getElementById('logout')?.addEventListener('click', () => auth.logout());
+  initNotifications();
 }
 
 function footer() {

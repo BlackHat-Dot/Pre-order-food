@@ -343,6 +343,23 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ verified: isV })
     });
+  },
+
+  // ── Notifications ──
+  async getNotifications() {
+    return request('/notifications/me');
+  },
+
+  async markNotificationRead(id) {
+    return request(`/notifications/${id}/read`, {
+      method: 'PATCH'
+    });
+  },
+
+  async markAllNotificationsRead() {
+    return request('/notifications/read-all', {
+      method: 'POST'
+    });
   }
 };
 
