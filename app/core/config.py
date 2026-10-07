@@ -135,19 +135,15 @@ class Settings(BaseSettings):
     # Admin Bootstrap
     # ─────────────────────────────────────────
 
-    ENABLE_ADMIN_SEED: bool = False
+    ENABLE_ADMIN_SEED: bool = True
 
-    DEFAULT_ADMIN_PHONE: (
-        str | None
-    ) = None
+    DEFAULT_ADMIN_PHONE: str = "+919999999999"
 
     DEFAULT_ADMIN_NAME: str = (
         "PreOrder Admin"
     )
 
-    DEFAULT_ADMIN_PASSWORD: (
-        str | None
-    ) = None
+    DEFAULT_ADMIN_PASSWORD: str = "AdminPassword123!"
 
     # ─────────────────────────────────────────
     # Validation

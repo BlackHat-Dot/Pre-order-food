@@ -143,7 +143,9 @@ class OrderCreate(
     order_type: Literal[
         "delivery",
         "table_booking",
-    ] = "delivery"
+        "counter",
+        "pickup",
+    ] = "table_booking"
 
     payment_confirmed: bool = False
 

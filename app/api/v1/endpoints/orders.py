@@ -988,10 +988,7 @@ async def update_order_status(
             order.payment_method == "cod"
             and order.payment_status != "paid"
         ):
-            raise HTTPException(
-                status_code=400,
-                detail="Payment pending",
-            )
+            order.payment_status = "paid"
 
         # Prevent double-awarding points
         if order.status == "completed":
