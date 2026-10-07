@@ -1,466 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Order Fulfillment Tracker — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <!-- Active Order Focus Section -->
-    <div id="active-tracker-section" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
-        <div>
-          <div class="eyebrow">LIVE TELEMETRY STREAM</div>
-          <h1 class="headline-1">Active Fulfillment Pipeline</h1>
-        </div>
-        <button class="btn btn-ghost btn-sm" id="view-all-orders-btn">
-          &larr; BACK TO ORDER ARCHIVE
-        </button>
-      </div>
-
-      <!-- Tracker Card -->
-      <div class="order-tracker-card" id="tracker-card">
-        <div class="order-tracker-top">
-          <div>
-            <div class="mono-meta" style="color: var(--text-tertiary);">ORDER IDENTIFIER</div>
-            <div class="order-id-large" id="tracker-order-num">ORDER #----</div>
-            <div class="mono-meta" id="tracker-shop-meta" style="margin-top: 4px; color: var(--text-secondary);">
-              KITCHEN: — &bull; DISPATCH: COUNTER PICKUP
-            </div>
-          </div>
-
-          <div class="order-countdown-box">
-            <div class="mono-meta">[ ESTIMATED DISPATCH TIME ]</div>
-            <div class="order-countdown-time" id="tracker-countdown">--:--</div>
-            <span class="telemetry-badge live" id="tracker-status-pill">STATUS: PENDING</span>
-          </div>
-        </div>
-
-        <!-- 5-Step Pipeline Stepper -->
-        <div class="order-pipeline" id="order-pipeline-stepper">
-          <div class="pipeline-step" data-step="pending">
-            <div class="pipeline-step-bar"></div>
-            <span class="pipeline-step-label">01 // PENDING</span>
-          </div>
-          <div class="pipeline-step" data-step="accepted">
-            <div class="pipeline-step-bar"></div>
-            <span class="pipeline-step-label">02 // ACCEPTED</span>
-          </div>
-          <div class="pipeline-step" data-step="preparing">
-            <div class="pipeline-step-bar"></div>
-            <span class="pipeline-step-label">03 // PREPARING</span>
-          </div>
-          <div class="pipeline-step" data-step="ready">
-            <div class="pipeline-step-bar"></div>
-            <span class="pipeline-step-label">04 // READY</span>
-          </div>
-          <div class="pipeline-step" data-step="completed">
-            <div class="pipeline-step-bar"></div>
-            <span class="pipeline-step-label">05 // COMPLETED</span>
-          </div>
-        </div>
-
-        <!-- Cancellation Notice / Reason if Cancelled -->
-        <div id="tracker-cancel-banner" style="display: none; padding: 14px 18px; margin: 16px 0; border: 1px solid var(--status-danger-border); background: var(--status-danger-bg); border-radius: var(--radius-xs);">
-          <div class="mono-meta" style="color: var(--status-danger); font-weight: 700;">[ CANCELLATION EVENT ]</div>
-          <p id="tracker-cancel-text" style="font-size: 0.84rem; color: var(--text-primary); margin-top: 4px;"></p>
-        </div>
-
-        <div class="hairline-divider" style="margin: 28px 0 20px;"></div>
-
-        <!-- Manifest & Financial Split -->
-        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; align-items: start;">
-          <div>
-            <div class="mono-meta" style="color: var(--text-tertiary); margin-bottom: 8px;">ORDER MANIFEST</div>
-            <div id="tracker-manifest-items" style="display: flex; flex-direction: column; gap: 8px;">
-              <!-- Items populated dynamically -->
-            </div>
-          </div>
-
-          <div style="border-left: 1px solid var(--border-subtle); padding-left: 28px; display: flex; flex-direction: column; gap: 10px;">
-            <div class="mono-meta" style="color: var(--text-tertiary);">SETTLEMENT TELEMETRY</div>
-            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
-              <span style="color: var(--text-secondary);">FINAL TOTAL:</span>
-              <strong id="tracker-total-val" style="color: var(--accent-ember-hover);">₹0.00</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
-              <span style="color: var(--text-secondary);">PAYMENT STATUS:</span>
-              <span id="tracker-payment-status" class="mono-meta" style="font-weight: 600;">UNPAID</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
-              <span style="color: var(--text-secondary);">PAYMENT METHOD:</span>
-              <span id="tracker-payment-method" class="mono-meta">COD</span>
-            </div>
-
-            <!-- Cancellation Action Trigger -->
-            <div id="cancel-action-slot" style="margin-top: 14px;">
-              <button class="btn btn-danger btn-sm" id="open-cancel-btn" style="width: 100%;">
-                REQUEST ORDER CANCELLATION
-              </button>
-            </div>
-          </div>
-        </div>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <section id="track" hidden>
+    <div class="page-head"><div><h1 class="h1" id="t-num">Order</h1><p class="muted" id="t-meta"></p></div><button class="btn line" id="back">All orders</button></div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap"><div><div class="small muted">Estimated wait</div><div class="eta" id="t-eta">—</div></div><span class="status" id="t-status"></span></div>
+      <div class="pipe" id="pipe"><div data-s="pending">Sent</div><div data-s="accepted">Accepted</div><div data-s="preparing">Cooking</div><div data-s="ready">Ready</div><div data-s="completed">Collected</div></div>
+      <div class="banner-note" id="t-cancel" hidden></div>
+      <div class="split even" style="margin-top:24px">
+        <div id="t-items"></div>
+        <div><dl><div class="kv total" style="border-top:0;margin:0;padding-top:0"><dt>Total</dt><dd class="num" id="t-total"></dd></div>
+          <div class="kv"><dt>Payment</dt><dd id="t-pay"></dd></div></dl>
+          <button class="btn danger" id="t-cancel-btn" style="width:100%;margin-top:18px" hidden>Request cancellation</button></div>
       </div>
     </div>
+  </section>
 
-    <!-- Orders Archive Section -->
-    <div id="orders-archive-section">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
-        <div>
-          <div class="eyebrow">ORDER REPOSITORY</div>
-          <h1 class="headline-1">Fulfillment Ledger</h1>
-        </div>
-        <div class="mono-meta" id="archive-count-meta">0 ORDERS RECORDED</div>
-      </div>
+  <section id="list">
+    <div class="page-head"><div><h1 class="h1">Your orders</h1><p class="muted" id="count"></p></div></div>
+    <div class="tabs" id="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-f="">All</button><button role="tab" aria-selected="false" data-f="active">In progress</button>
+      <button role="tab" aria-selected="false" data-f="completed">Collected</button><button role="tab" aria-selected="false" data-f="cancelled">Cancelled</button></div>
+    <div class="tbl-wrap" style="border-top:0"><table class="tbl"><thead><tr><th>Order</th><th>Placed</th><th>Kitchen</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody id="body"></tbody></table></div>
+  </section>
+</div></main>
 
-      <!-- Status Filter Tabs -->
-      <div class="category-capsules" id="archive-filter-tabs" style="margin-bottom: 24px;">
-        <button class="category-capsule active" data-filter="">ALL DISPATCHES</button>
-        <button class="category-capsule" data-filter="active">ACTIVE IN-KITCHEN</button>
-        <button class="category-capsule" data-filter="completed">FULFILLED</button>
-        <button class="category-capsule" data-filter="cancelled">CANCELLED</button>
-      </div>
+<dialog id="cd"><form method="dialog">
+  <h2 class="h2" style="margin-bottom:6px">Cancel this order?</h2>
+  <p class="muted small" style="margin-bottom:18px">You can cancel before the kitchen starts cooking. The kitchen will confirm.</p>
+  <div class="field"><label for="why">Reason (optional)</label><textarea class="input" id="why"></textarea></div>
+  <div class="actions"><button class="btn quiet" value="x">Keep order</button><button class="btn danger" id="c-ok" value="y">Request cancellation</button></div>
+</form></dialog>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice, formatDate } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireAuth()) throw 0;
+const STEPS = ['pending', 'accepted', 'preparing', 'ready', 'completed'];
+const LABEL = { pending: 'Sent', accepted: 'Accepted', preparing: 'Cooking', ready: 'Ready', completed: 'Collected', cancelled: 'Cancelled', cancel_requested: 'Cancel requested' };
+const cls = st => st === 'completed' || st === 'ready' ? 'open' : (st === 'cancelled' || st === 'cancel_requested') ? 'shut' : '';
+let all = [], filter = '', cur = null, timer = null;
 
-      <!-- Orders Data Table -->
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>ORDER #</th>
-              <th>TIMESTAMP</th>
-              <th>KITCHEN OUTLET</th>
-              <th>ITEMS</th>
-              <th>TOTAL</th>
-              <th>STATUS</th>
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody id="orders-table-body">
-            <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
-                [ SYNCHRONIZING FULFILLMENT LEDGER... ]
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </main>
+async function openOrder(id) {
+  $('list').hidden = true; $('track').hidden = false;
+  try { cur = await api.getOrder(id); paint(cur); poll(id); } catch { toast.error('That order could not be found'); showList(); }
+}
+function paint(o) {
+  $('t-num').textContent = `Order #${o.order_number || o.id.slice(0, 8).toUpperCase()}`;
+  $('t-meta').textContent = `${o.shop?.name || 'Kitchen'} · ${o.order_type === 'delivery' ? 'Delivery' : 'Counter pickup'}`;
+  $('t-total').textContent = formatPrice(o.total_price || o.total_amount);
+  $('t-pay').textContent = `${(o.payment_method || 'cod').toUpperCase()} · ${o.payment_status || 'unpaid'}`;
+  $('t-status').textContent = LABEL[o.status] || o.status; $('t-status').className = `status ${cls(o.status)}`;
+  const dead = o.status === 'cancelled' || o.status === 'cancel_requested';
+  $('t-cancel').hidden = !dead; if (dead) $('t-cancel').textContent = o.cancellation_reason ? `Reason: ${o.cancellation_reason}` : (o.status === 'cancelled' ? 'This order was cancelled.' : 'Waiting for the kitchen to confirm the cancellation.');
+  $('t-eta').textContent = dead ? 'Cancelled' : { completed: 'Collected', ready: 'Ready now', preparing: '~10 min' }[o.status] || '~15 min';
+  $('t-cancel-btn').hidden = !['pending', 'accepted'].includes(o.status);
+  const idx = STEPS.indexOf(o.status);
+  document.querySelectorAll('#pipe div').forEach(d => { const i = STEPS.indexOf(d.dataset.s); d.className = dead ? '' : i < idx || o.status === 'completed' ? 'done' : i === idx ? 'now' : ''; });
+  $('t-items').innerHTML = (o.items || []).map(i => `<div class="kv"><dt>${i.quantity} × ${esc(i.item_name_snapshot || i.item_name || 'Dish')}${(i.variant_name_snapshot || i.variant_name) ? ` (${esc(i.variant_name_snapshot || i.variant_name)})` : ''}</dt><dd class="num">${formatPrice(i.total_price || i.unit_price * i.quantity)}</dd></div>`).join('') || '<p class="muted">Items unavailable.</p>';
+}
+function poll(id) {
+  clearInterval(timer);
+  timer = setInterval(async () => { try { cur = await api.getOrder(id); paint(cur); if (['completed', 'cancelled'].includes(cur.status)) clearInterval(timer); } catch {} }, 5000);
+}
+function showList() { clearInterval(timer); history.pushState({}, '', '/orders.html'); $('track').hidden = true; $('list').hidden = false; load(); }
+$('back').addEventListener('click', showList);
 
-  <!-- Cancel Reason Modal -->
-  <div class="modal-backdrop" id="cancel-modal-backdrop">
-    <div class="modal-sheet" id="cancel-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">CANCELLATION REQUEST</div>
-          <h3 class="headline-3">Confirm Order Abort</h3>
-        </div>
-        <button class="drawer-close" id="close-cancel-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5;">
-          Orders may be cancelled prior to kitchen preparation commencement. Please submit a reason for outlet records:
-        </p>
-        <div class="form-group" style="margin-top: 10px;">
-          <label class="form-label">REASON FOR CANCELLATION</label>
-          <textarea id="cancel-reason-input" class="textarea-input" placeholder="e.g. Schedule change, inadvertent duplicate ticket..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="dismiss-cancel-btn">KEEP ORDER</button>
-        <button class="btn btn-danger" id="confirm-cancel-btn">CONFIRM CANCELLATION</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-    import { formatPrice, formatDate } from '/js/app.js';
-
-    if (!auth.requireAuth()) {
-      // Handled by guard
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const activeOrderId = urlParams.get('id');
-
-    let allOrders = [];
-    let currentFilter = '';
-    let pollingInterval = null;
-    let currentActiveOrder = null;
-
-    async function init() {
-      if (activeOrderId) {
-        await loadActiveOrder(activeOrderId);
-        startPolling(activeOrderId);
-      } else {
-        await loadOrdersArchive();
-      }
-    }
-
-    // ── Active Order Tracker ──
-    async function loadActiveOrder(orderId) {
-      document.getElementById('active-tracker-section').style.display = 'block';
-      document.getElementById('orders-archive-section').style.display = 'none';
-
-      try {
-        currentActiveOrder = await api.getOrder(orderId);
-        renderActiveOrder(currentActiveOrder);
-      } catch (err) {
-        console.error('Failed to load active order:', err);
-        toast.error('Unable to locate order ticket');
-        showArchiveView();
-      }
-    }
-
-    function renderActiveOrder(order) {
-      document.getElementById('tracker-order-num').textContent = `ORDER #${order.order_number || order.id.slice(0, 8).toUpperCase()}`;
-
-      const shopName = order.shop ? order.shop.name : 'Partner Kitchen';
-      const orderTypeStr = order.order_type === 'delivery' ? 'COURIER DISPATCH' : 'COUNTER PICKUP';
-      document.getElementById('tracker-shop-meta').textContent = `KITCHEN: ${shopName} • DISPATCH: ${orderTypeStr}`;
-
-      document.getElementById('tracker-total-val').textContent = formatPrice(order.total_price || order.total_amount);
-      document.getElementById('tracker-payment-status').textContent = (order.payment_status || 'unpaid').toUpperCase();
-      document.getElementById('tracker-payment-method').textContent = (order.payment_method || 'cod').toUpperCase();
-
-      // Status pill & Countdown
-      const statusPill = document.getElementById('tracker-status-pill');
-      const countdownEl = document.getElementById('tracker-countdown');
-      const cancelSlot = document.getElementById('cancel-action-slot');
-      const cancelBanner = document.getElementById('tracker-cancel-banner');
-
-      statusPill.textContent = `STATUS: ${order.status.toUpperCase()}`;
-
-      if (order.status === 'cancelled' || order.status === 'cancel_requested') {
-        statusPill.className = 'telemetry-badge closed';
-        countdownEl.textContent = 'ABORTED';
-        cancelSlot.style.display = 'none';
-        cancelBanner.style.display = 'block';
-        document.getElementById('tracker-cancel-text').textContent =
-          order.cancellation_reason ? `Reason: ${order.cancellation_reason}` : 'Order cancelled by customer or kitchen.';
-      } else if (order.status === 'completed') {
-        statusPill.className = 'telemetry-badge live';
-        countdownEl.textContent = 'FULFILLED';
-        cancelSlot.style.display = 'none';
-        cancelBanner.style.display = 'none';
-      } else {
-        cancelBanner.style.display = 'none';
-        statusPill.className = 'telemetry-badge live';
-
-        if (order.status === 'ready') {
-          countdownEl.textContent = 'READY FOR PICKUP';
-          cancelSlot.style.display = 'none';
-        } else if (order.status === 'preparing') {
-          countdownEl.textContent = '~10 MIN';
-          cancelSlot.style.display = 'none'; // Cannot cancel while in pan
-        } else {
-          countdownEl.textContent = '~15 MIN';
-          cancelSlot.style.display = 'block';
-        }
-      }
-
-      // Update Pipeline Stepper
-      const steps = ['pending', 'accepted', 'preparing', 'ready', 'completed'];
-      const currentIdx = steps.indexOf(order.status);
-
-      document.querySelectorAll('#order-pipeline-stepper .pipeline-step').forEach(el => {
-        const stepName = el.dataset.step;
-        const stepIdx = steps.indexOf(stepName);
-
-        el.classList.remove('completed', 'active');
-        if (order.status === 'cancelled' || order.status === 'cancel_requested') {
-          // Keep neutral
-        } else if (stepIdx < currentIdx) {
-          el.classList.add('completed');
-        } else if (stepIdx === currentIdx) {
-          el.classList.add('active');
-        }
-      });
-
-      // Manifest
-      const manifestContainer = document.getElementById('tracker-manifest-items');
-      if (order.items && order.items.length > 0) {
-        manifestContainer.innerHTML = order.items.map(item => {
-          const name = item.item_name_snapshot || item.item_name || 'Culinary Dish';
-          const variant = item.variant_name_snapshot || item.variant_name || null;
-          const lineTotal = item.total_price || (item.unit_price * item.quantity);
-          return `
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 6px;">
-            <div>
-              <span style="font-weight: 600; font-size: 0.88rem;">${name}</span>
-              ${variant ? `<span class="mono-meta" style="color: var(--accent-ember);">[ ${variant} ]</span>` : ''}
-              <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-tertiary);">${item.quantity} × ${formatPrice(item.unit_price)}</div>
-            </div>
-            <span class="mono-meta" style="font-weight: 700;">${formatPrice(lineTotal)}</span>
-          </div>
-        `;
-        }).join('');
-      } else {
-        manifestContainer.innerHTML = '<div class="mono-meta">Manifest items unavailable.</div>';
-      }
-    }
-
-    function startPolling(orderId) {
-      if (pollingInterval) clearInterval(pollingInterval);
-      pollingInterval = setInterval(async () => {
-        try {
-          const freshOrder = await api.getOrder(orderId);
-          currentActiveOrder = freshOrder;
-          renderActiveOrder(freshOrder);
-          if (freshOrder.status === 'completed' || freshOrder.status === 'cancelled') {
-            clearInterval(pollingInterval);
-          }
-        } catch (err) {
-          console.warn('Poll update failed:', err);
-        }
-      }, 5000);
-    }
-
-    function showArchiveView() {
-      if (pollingInterval) clearInterval(pollingInterval);
-      window.history.pushState({}, '', '/orders.html');
-      document.getElementById('active-tracker-section').style.display = 'none';
-      document.getElementById('orders-archive-section').style.display = 'block';
-      loadOrdersArchive();
-    }
-
-    document.getElementById('view-all-orders-btn')?.addEventListener('click', showArchiveView);
-
-    // ── Orders Archive ──
-    async function loadOrdersArchive() {
-      const tbody = document.getElementById('orders-table-body');
-      const countEl = document.getElementById('archive-count-meta');
-
-      try {
-        allOrders = await api.getCustomerOrders({ page: 1, page_size: 50 });
-        renderOrdersArchive();
-      } catch (err) {
-        console.error('Failed to load orders archive:', err);
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align:center; padding:32px; color:var(--status-danger);">
-              Failed to load order archive.
-            </td>
-          </tr>
-        `;
-      }
-    }
-
-    function renderOrdersArchive() {
-      const tbody = document.getElementById('orders-table-body');
-      const countEl = document.getElementById('archive-count-meta');
-
-      const filtered = allOrders.filter(o => {
-        if (!currentFilter) return true;
-        if (currentFilter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
-        if (currentFilter === 'completed') return o.status === 'completed';
-        if (currentFilter === 'cancelled') return o.status === 'cancelled' || o.status === 'cancel_requested';
-        return true;
-      });
-
-      if (countEl) countEl.textContent = `${filtered.length} / ${allOrders.length} DISPATCHES`;
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; padding: 48px; color: var(--text-tertiary); font-family: var(--font-mono);">
-              [ ∅ NO ORDERS MATCH CURRENT FILTER ]
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = filtered.map(order => {
-        const orderNum = order.order_number ? `#${order.order_number}` : `#${order.id.slice(0, 8).toUpperCase()}`;
-        const shopName = order.shop ? order.shop.name : 'Kitchen';
-        const itemCount = order.items ? order.items.reduce((s, i) => s + i.quantity, 0) : 0;
-
-        let statusClass = 'waiting';
-        if (order.status === 'completed') statusClass = 'live';
-        if (order.status === 'cancelled') statusClass = 'closed';
-        if (order.status === 'preparing') statusClass = 'info';
-
-        return `
-          <tr>
-            <td class="mono-cell" style="font-weight: 700; color: var(--accent-ember-hover);">${orderNum}</td>
-            <td class="mono-cell" style="font-size: 0.76rem; color: var(--text-secondary);">${formatDate(order.created_at)}</td>
-            <td style="font-weight: 600;">${shopName}</td>
-            <td class="mono-cell">${itemCount} items</td>
-            <td class="mono-cell" style="font-weight: 700;">${formatPrice(order.total_price || order.total_amount)}</td>
-            <td>
-              <span class="telemetry-badge ${statusClass}">${order.status.toUpperCase()}</span>
-            </td>
-            <td>
-              <button class="btn btn-secondary btn-sm inspect-order-btn" data-id="${order.id}">
-                TRACK &rarr;
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      document.querySelectorAll('.inspect-order-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const id = e.currentTarget.dataset.id;
-          window.history.pushState({}, '', `/orders.html?id=${id}`);
-          loadActiveOrder(id);
-          startPolling(id);
-        });
-      });
-    }
-
-    // Filter capsules
-    document.getElementById('archive-filter-tabs')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('.category-capsule');
-      if (!btn) return;
-      document.querySelectorAll('#archive-filter-tabs .category-capsule').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      renderOrdersArchive();
-    });
-
-    // ── Cancellation Workflow ──
-    const cancelBackdrop = document.getElementById('cancel-modal-backdrop');
-    document.getElementById('open-cancel-btn')?.addEventListener('click', () => {
-      cancelBackdrop.classList.add('active');
-    });
-
-    const closeCancelModal = () => cancelBackdrop.classList.remove('active');
-    document.getElementById('close-cancel-modal')?.addEventListener('click', closeCancelModal);
-    document.getElementById('dismiss-cancel-btn')?.addEventListener('click', closeCancelModal);
-
-    document.getElementById('confirm-cancel-btn')?.addEventListener('click', async () => {
-      if (!currentActiveOrder) return;
-      const reason = document.getElementById('cancel-reason-input').value.trim();
-
-      try {
-        await api.updateOrderStatus(currentActiveOrder.id, {
-          status: 'cancel_requested',
-          reason: reason || 'Customer requested order cancellation before preparation.'
-        });
-        toast.success('Cancellation request transmitted');
-        closeCancelModal();
-        await loadActiveOrder(currentActiveOrder.id);
-      } catch (err) {
-        toast.error(err.message || 'Failed to submit cancellation request');
-      }
-    });
-
-    init();
-  </script>
-</body>
-</html>
+async function load() {
+  try { all = await api.getCustomerOrders({ page: 1, page_size: 50 }); render(); }
+  catch { $('body').innerHTML = `<tr><td colspan="7" class="empty">Orders could not be loaded. Refresh to try again.</td></tr>`; }
+}
+function render() {
+  const rows = all.filter(o => !filter || (filter === 'active' && ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)) || (filter === 'completed' && o.status === 'completed') || (filter === 'cancelled' && ['cancelled', 'cancel_requested'].includes(o.status)));
+  $('count').textContent = `${rows.length} of ${all.length} orders`;
+  $('body').innerHTML = rows.length ? rows.map(o => `<tr>
+    <td class="num"><strong>#${esc(o.order_number || o.id.slice(0, 8).toUpperCase())}</strong></td><td class="muted num">${formatDate(o.created_at)}</td>
+    <td>${esc(o.shop?.name || 'Kitchen')}</td><td class="num">${(o.items || []).reduce((n, i) => n + i.quantity, 0)}</td>
+    <td class="num"><strong>${formatPrice(o.total_price || o.total_amount)}</strong></td><td><span class="status ${cls(o.status)}">${LABEL[o.status] || esc(o.status)}</span></td>
+    <td><button class="btn line sm" data-id="${esc(o.id)}">Track</button></td></tr>`).join('')
+    : `<tr><td colspan="7" class="empty">No orders here yet. <a href="/index.html"><strong>Find a kitchen</strong></a></td></tr>`;
+}
+$('body').addEventListener('click', e => { const b = e.target.closest('button[data-id]'); if (b) { history.pushState({}, '', `/orders.html?id=${b.dataset.id}`); openOrder(b.dataset.id); } });
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', x === b)); filter = b.dataset.f; render(); });
+$('t-cancel-btn').addEventListener('click', () => $('cd').showModal());
+$('c-ok').addEventListener('click', async () => {
+  try { await api.updateOrderStatus(cur.id, { status: 'cancel_requested', reason: $('why').value.trim() || 'Customer requested cancellation before preparation.' }); toast.success('Cancellation requested'); openOrder(cur.id); }
+  catch (err) { toast.error(err.message || 'Cancellation could not be requested'); }
+});
+const id = new URLSearchParams(location.search).get('id');
+id ? openOrder(id) : load();
+</script></body></html>

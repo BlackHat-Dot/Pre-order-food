@@ -6,7 +6,9 @@
 import { auth } from './auth.js';
 import { toast } from './toast.js';
 
-const BASE_URL = '/api/v1';
+const BASE_URL = (typeof window !== 'undefined' && window.location && window.location.port === '8000')
+  ? '/api/v1'
+  : `http://${(typeof window !== 'undefined' && window.location && window.location.hostname) || 'localhost'}:8000/api/v1`;
 
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
@@ -113,8 +115,8 @@ export const api = {
 
   async updatePassword(oldPassword, newPassword) {
     return request('/users/me/password', {
-      method: 'PUT',
-      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+      method: 'PATCH',
+      body: JSON.stringify({ current_password: oldPassword, old_password: oldPassword, new_password: newPassword })
     });
   },
 
@@ -214,7 +216,9 @@ export const api = {
     if (params.page) q.append('page', params.page);
     if (params.page_size) q.append('page_size', params.page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return request(`/orders/shop/${shopId}${qs}`);
+    return request(`/orders/shops/${shopId}${qs}`).catch(async () => {
+      return request(`/orders/shop/${shopId}${qs}`);
+    });
   },
 
   async getOrder(orderId) {
@@ -293,7 +297,18 @@ export const api = {
 
   // ── Admin ──
   async getAdminStats() {
-    return request('/admin/stats');
+    try {
+      const data = await request('/admin/analytics/overview');
+      return {
+        total_users: data.users ?? data.total_users ?? 0,
+        total_shops: data.shops ?? data.total_shops ?? 0,
+        total_orders: data.orders ?? data.total_orders ?? 0,
+        total_gmv: data.total_revenue ?? data.total_gmv ?? 0,
+        ...data
+      };
+    } catch {
+      return request('/admin/stats');
+    }
   },
 
   async getAdminShops(page = 1, pageSize = 50) {
@@ -301,9 +316,10 @@ export const api = {
   },
 
   async verifyAdminShop(shopId, verified = true) {
-    return request(`/admin/shops/${shopId}/verify`, {
+    const isV = Boolean(verified);
+    return request(`/admin/shops/${shopId}/verify?verified=${isV}`, {
       method: 'PATCH',
-      body: JSON.stringify({ verified })
+      body: JSON.stringify({ verified: isV })
     });
   }
 };

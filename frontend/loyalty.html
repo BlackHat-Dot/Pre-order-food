@@ -1,300 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loyalty Vault & Voucher Mint — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rewards — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px; margin-bottom: 32px;">
-      <div>
-        <div class="eyebrow">REWARDS & LEDGER VAULT</div>
-        <h1 class="headline-1">Culinary Loyalty Matrix</h1>
-        <p class="subheadline">Points accrue on verified order fulfillment. Mint loyalty balances into promotional vouchers or apply them directly during checkout.</p>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <label class="form-label">SELECT KITCHEN OUTPOST</label>
-        <select id="vault-shop-selector" class="select-input" style="width: 280px;">
-          <option value="">Locating kitchen vault...</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Metrics Ribbon for Loyalty -->
-    <div class="metrics-ribbon" style="border-radius: var(--radius-sm); border: 1px solid var(--border-medium); margin-bottom: 36px;">
-      <div class="metric-cell">
-        <span class="metric-tag">[ ACCRUED BALANCE ]</span>
-        <span class="metric-val" id="vault-points-val">0<span style="font-size:1.2rem; color:var(--text-tertiary);">PTS</span></span>
-        <span class="metric-desc">Redeemable across future orders</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ MONETARY EQUIVALENT ]</span>
-        <span class="metric-val" id="vault-cash-val" style="color: var(--accent-ember-hover);">₹0.00</span>
-        <span class="metric-desc">Computed at standard redemption rate</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ VAULT STATUS TIER ]</span>
-        <span class="metric-val" id="vault-tier-val" style="text-transform: uppercase;">BRONZE</span>
-        <span class="metric-desc">Progresses on order volume</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ ACCRUAL MULTIPLIER ]</span>
-        <span class="metric-val">1.0<span style="font-size:1.2rem; color:var(--text-tertiary);">&times;</span></span>
-        <span class="metric-desc">Points earned per rupee spent</span>
-      </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1.4fr; gap: 40px; align-items: start;">
-      <!-- Column 1: Mint Coupon Machine -->
-      <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 28px; border-radius: var(--radius-sm);">
-        <div class="eyebrow">COUPON MINTING STATION</div>
-        <h2 class="headline-3" style="margin: 4px 0 12px;">Convert Points to Voucher</h2>
-        <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px;">
-          Mint a shareable cryptographic voucher code by locking in loyalty points from your vault balance.
-        </p>
-
-        <div class="form-group">
-          <label class="form-label">
-            <span>POINTS TO CONVERT</span>
-            <span class="form-label-hint" id="mint-hint-val">Max: 0</span>
-          </label>
-          <div style="display: flex; gap: 8px;">
-            <input type="number" id="mint-points-input" class="input-text" min="10" step="10" placeholder="e.g. 100">
-            <button class="btn btn-secondary btn-sm" id="max-points-btn">MAX</button>
-          </div>
-        </div>
-
-        <div style="border: 1px dashed var(--border-subtle); background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-xs); margin: 16px 0; font-family: var(--font-mono); font-size: 0.78rem;">
-          <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
-            <span>CONVERSION VALUE:</span>
-            <strong id="mint-preview-val" style="color: var(--accent-ember-hover);">₹0.00 DISCOUNT</strong>
-          </div>
-        </div>
-
-        <button class="btn btn-primary btn-lg" id="mint-coupon-btn" style="width: 100%;">
-          MINT VOUCHER &rarr;
-        </button>
-
-        <!-- Newly Minted Code Result Display -->
-        <div id="minted-result-box" style="margin-top: 20px; display: none; padding: 16px; border: 1px solid var(--status-open-border); background: var(--status-open-bg); border-radius: var(--radius-xs);">
-          <div class="mono-meta" style="color: var(--status-open); font-weight: 700;">[ VOUCHER GENERATED SUCCESSFULLY ]</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <code id="minted-code-val" style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--text-primary); letter-spacing: 0.08em;">SHOP-XXXXXX</code>
-            <button class="btn btn-secondary btn-sm" id="copy-code-btn">COPY CODE</button>
-          </div>
-          <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">
-            Apply this code at checkout to receive your discount.
-          </p>
-        </div>
-      </div>
-
-      <!-- Column 2: Immutable Transaction Ledger -->
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
-          <div>
-            <div class="eyebrow">AUDIT RECORD</div>
-            <h2 class="headline-3">Points Transaction Ledger</h2>
-          </div>
-          <div class="mono-meta" id="ledger-count-meta">0 TRANSACTIONS</div>
-        </div>
-
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>TIMESTAMP</th>
-                <th>ACTION TYPE</th>
-                <th>POINTS CHANGE</th>
-              </tr>
-            </thead>
-            <tbody id="ledger-table-body">
-              <tr>
-                <td colspan="3" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
-                  [ SELECT AN OUTLET TO INSPECT AUDIT TRAIL ]
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-    import { formatPrice, formatDate } from '/js/app.js';
-
-    if (!auth.requireAuth()) {
-      // Stopped by guard
-    }
-
-    let allShops = [];
-    let currentShopId = null;
-    let currentAccount = null;
-
-    async function initVault() {
-      try {
-        const shopsRes = await api.getShops({ page: 1, page_size: 50 });
-        allShops = Array.isArray(shopsRes) ? shopsRes : (shopsRes.items || shopsRes.shops || []);
-
-        const selector = document.getElementById('vault-shop-selector');
-        if (allShops.length === 0) {
-          selector.innerHTML = '<option value="">No kitchen outlets available</option>';
-          return;
-        }
-
-        selector.innerHTML = allShops.map(s => `
-          <option value="${s.id}">${s.name} (${s.city})</option>
-        `).join('');
-
-        currentShopId = allShops[0].id;
-        selector.addEventListener('change', (e) => {
-          currentShopId = e.target.value;
-          loadShopVault();
-        });
-
-        loadShopVault();
-      } catch (err) {
-        console.error('Failed to init vault:', err);
-      }
-    }
-
-    async function loadShopVault() {
-      if (!currentShopId) return;
-
-      try {
-        currentAccount = await api.getLoyaltyAccount(currentShopId);
-        const balance = currentAccount.points_balance || 0;
-        const discountVal = balance * 0.1;
-
-        document.getElementById('vault-points-val').innerHTML = `${balance}<span style="font-size:1.2rem; color:var(--text-tertiary);">PTS</span>`;
-        document.getElementById('vault-cash-val').textContent = formatPrice(discountVal);
-        document.getElementById('vault-tier-val').textContent = (currentAccount.tier || 'bronze').toUpperCase();
-        document.getElementById('mint-hint-val').textContent = `Max: ${balance}`;
-        document.getElementById('mint-points-input').max = balance;
-
-        loadTransactions();
-      } catch (err) {
-        console.error('Failed to load loyalty account:', err);
-      }
-    }
-
-    async function loadTransactions() {
-      const tbody = document.getElementById('ledger-table-body');
-      const countMeta = document.getElementById('ledger-count-meta');
-
-      try {
-        const txs = await api.getLoyaltyTransactions(currentShopId, 1, 50);
-        if (countMeta) countMeta.textContent = `${txs.length} TRANSACTIONS`;
-
-        if (txs.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="3" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
-                [ ∅ NO TRANSACTIONS RECORDED FOR THIS OUTPOST ]
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        tbody.innerHTML = txs.map(tx => {
-          const isPositive = tx.points > 0;
-          return `
-            <tr>
-              <td class="mono-cell" style="font-size: 0.76rem; color: var(--text-secondary);">${formatDate(tx.created_at)}</td>
-              <td style="font-weight: 600; text-transform: uppercase;">${(tx.action || 'order_accrual').replace('_', ' ')}</td>
-              <td class="mono-cell" style="font-weight: 700; color: ${isPositive ? 'var(--status-open)' : 'var(--status-danger)'};">
-                ${isPositive ? '+' : ''}${tx.points} PTS
-              </td>
-            </tr>
-          `;
-        }).join('');
-      } catch (err) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="3" style="text-align: center; color: var(--status-danger); padding: 24px;">
-              Failed to load transaction ledger.
-            </td>
-          </tr>
-        `;
-      }
-    }
-
-    // Points Preview calculation
-    const pointsInput = document.getElementById('mint-points-input');
-    pointsInput?.addEventListener('input', (e) => {
-      const pts = Number(e.target.value || 0);
-      document.getElementById('mint-preview-val').textContent = `${formatPrice(pts * 0.1)} DISCOUNT`;
-    });
-
-    // Max Points Trigger
-    document.getElementById('max-points-btn')?.addEventListener('click', () => {
-      if (!currentAccount) return;
-      pointsInput.value = currentAccount.points_balance || 0;
-      document.getElementById('mint-preview-val').textContent = `${formatPrice(pointsInput.value * 0.1)} DISCOUNT`;
-    });
-
-    // Mint Coupon Trigger
-    document.getElementById('mint-coupon-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('mint-coupon-btn');
-      const pts = Number(pointsInput.value);
-
-      if (!pts || pts <= 0) {
-        toast.error('Specify a positive quantity of points to mint');
-        return;
-      }
-
-      if (currentAccount && pts > currentAccount.points_balance) {
-        toast.error('Insufficient loyalty points balance');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'MINTING VOUCHER CODE...';
-
-      try {
-        const coupon = await api.mintCoupon(currentShopId, pts);
-        toast.success(`Coupon ${coupon.code} minted successfully!`);
-
-        const resultBox = document.getElementById('minted-result-box');
-        const codeVal = document.getElementById('minted-code-val');
-        codeVal.textContent = coupon.code;
-        resultBox.style.display = 'block';
-
-        pointsInput.value = '';
-        document.getElementById('mint-preview-val').textContent = '₹0.00 DISCOUNT';
-
-        loadShopVault();
-      } catch (err) {
-        toast.error(err.message || 'Minting operation failed');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'MINT VOUCHER →';
-      }
-    });
-
-    // Copy Code Button
-    document.getElementById('copy-code-btn')?.addEventListener('click', () => {
-      const code = document.getElementById('minted-code-val').textContent;
-      navigator.clipboard.writeText(code);
-      toast.success('Voucher code copied to clipboard');
-    });
-
-    initVault();
-  </script>
-</body>
-</html>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head"><div><h1 class="h1">Rewards</h1><p class="muted" style="max-width:52ch">You earn points when an order is collected. Spend them at checkout, or turn them into a voucher code to share.</p></div>
+    <div class="field" style="margin:0"><label for="shop">Kitchen</label><select class="input" id="shop" style="width:280px"></select></div></div>
+  <div class="stats" style="grid-template-columns:repeat(3,1fr)"><div><b id="pts">0</b><span>Points</span></div><div><b id="cash">₹0</b><span>Worth at checkout</span></div><div><b id="tier">Bronze</b><span>Tier</span></div></div>
+  <div class="split even">
+    <div class="panel"><h2 class="h2">Make a voucher</h2>
+      <p class="muted small" style="margin-bottom:18px">Lock some points into a code you can use at checkout or give to someone.</p>
+      <div class="field"><label for="amt">Points to convert <span class="faint" id="max" style="font-weight:400"></span></label>
+        <div style="display:flex;gap:8px"><input class="input" id="amt" type="number" min="10" step="10" placeholder="100"><button class="btn line sm" id="all">Use all</button></div></div>
+      <div class="kv"><dt>Voucher value</dt><dd class="num" id="prev">₹0</dd></div>
+      <button class="btn accent lg" id="mint" style="width:100%;margin-top:16px">Create voucher</button>
+      <div id="res" hidden style="margin-top:20px;padding:18px;border:1.5px solid var(--leaf);border-radius:8px">
+        <div class="small muted">Your voucher code</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px"><span class="code" id="code"></span><button class="btn line sm" id="copy">Copy</button></div></div></div>
+    <div><h2 class="h2" style="margin-bottom:6px">History</h2><p class="muted small" id="n" style="margin-bottom:12px"></p>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>What</th><th style="text-align:right">Points</th></tr></thead><tbody id="body"></tbody></table></div></div>
+  </div>
+</div></main>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice, formatDate } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireAuth()) throw 0;
+const RATE = 0.1; let sid = null, acct = null;
+const prev = () => $('prev').textContent = formatPrice(Number($('amt').value || 0) * RATE);
+try {
+  const r = await api.getShops({ page: 1, page_size: 50 }), shops = Array.isArray(r) ? r : (r.items || r.shops || []);
+  if (!shops.length) { $('shop').innerHTML = '<option>No kitchens yet</option>'; throw 0; }
+  $('shop').innerHTML = shops.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.city)})</option>`).join('');
+  sid = shops[0].id; $('shop').addEventListener('change', e => { sid = e.target.value; vault(); }); vault();
+} catch {}
+async function vault() {
+  try {
+    acct = await api.getLoyaltyAccount(sid); const b = acct.points_balance || 0;
+    $('pts').textContent = b; $('cash').textContent = formatPrice(b * RATE); $('tier').textContent = (acct.tier || 'bronze').replace(/^./, c => c.toUpperCase());
+    $('max').textContent = `(up to ${b})`; $('amt').max = b; history_();
+  } catch { toast.error('Rewards could not be loaded'); }
+}
+async function history_() {
+  try {
+    const t = await api.getLoyaltyTransactions(sid, 1, 50); $('n').textContent = `${t.length} entries`;
+    $('body').innerHTML = t.length ? t.map(x => `<tr><td class="muted num">${formatDate(x.created_at)}</td><td>${esc((x.action || 'order_accrual').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()))}</td><td class="num" style="text-align:right;font-weight:700;color:${x.points > 0 ? 'var(--leaf)' : 'var(--chili)'}">${x.points > 0 ? '+' : ''}${x.points}</td></tr>`).join('')
+      : `<tr><td colspan="3" class="empty">No points yet. Collect an order from this kitchen to earn some.</td></tr>`;
+  } catch { $('body').innerHTML = `<tr><td colspan="3" class="empty">History could not be loaded.</td></tr>`; }
+}
+$('amt').addEventListener('input', prev);
+$('all').addEventListener('click', () => { if (acct) { $('amt').value = acct.points_balance || 0; prev(); } });
+$('mint').addEventListener('click', async () => {
+  const p = Number($('amt').value);
+  if (!p || p <= 0) return toast.error('Enter how many points to convert');
+  if (acct && p > acct.points_balance) return toast.error("You don't have that many points");
+  const b = $('mint'); b.disabled = true; b.textContent = 'Creating…';
+  try { const c = await api.mintCoupon(sid, p); $('code').textContent = c.code; $('res').hidden = false; $('amt').value = ''; prev(); toast.success('Voucher created'); vault(); }
+  catch (e) { toast.error(e.message || 'Voucher could not be created'); }
+  finally { b.disabled = false; b.textContent = 'Create voucher'; }
+});
+$('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('code').textContent); toast.success('Code copied'); } catch { toast.error('Copy failed. Select the code manually.'); } });
+</script></body></html>

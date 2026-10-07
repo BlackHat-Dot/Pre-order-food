@@ -3,284 +3,169 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PREORDER — Precision Culinary Telemetry & Kitchen Scheduling</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+  <title>preorder — order ahead, collect hot</title>
+  <link rel="stylesheet" href="/css/system.css">
+  <style>
+    .hero{padding:clamp(48px,8vw,104px) 0 clamp(40px,6vw,72px)}
+    .hero .display{max-width:11ch}
+    .hero-foot{display:grid;grid-template-columns:1fr minmax(320px,520px);gap:clamp(32px,6vw,96px);align-items:end;margin-top:clamp(32px,5vw,64px)}
+    .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+
+    /* the one memorable element: the timing instrument */
+    .clock{background:var(--ink);color:var(--paper);border-radius:14px;padding:28px}
+    .clock p{color:rgba(247,248,244,.65);font-size:.88rem}
+    .clock .big{font-family:var(--display);font-weight:800;font-size:clamp(2rem,4vw,2.8rem);letter-spacing:-.04em;line-height:1;margin:6px 0 22px;color:var(--paper)}
+    .clock .big b{color:var(--saffron);font-weight:800}
+    .track{position:relative;height:44px;margin:8px 0 10px}
+    .track::before{content:'';position:absolute;left:0;right:0;top:20px;height:4px;background:rgba(247,248,244,.18);border-radius:4px}
+    .cook{position:absolute;top:20px;height:4px;background:var(--saffron);border-radius:4px;transition:left .3s var(--ease),width .3s var(--ease)}
+    .pin{position:absolute;top:0;transform:translateX(-50%);font-size:.76rem;white-space:nowrap;transition:left .3s var(--ease)}
+    .pin::after{content:'';display:block;width:2px;height:14px;background:currentColor;margin:3px auto 0;opacity:.6}
+    .pin.start{color:var(--saffron)}
+    .pin.end{top:auto;bottom:-2px;transform:translateX(-100%);text-align:right}
+    .pin.end::after{display:none}
+    .clock input[type=range]{width:100%;margin-top:22px;accent-color:var(--saffron)}
+    .clock .scale{display:flex;justify-content:space-between;font-size:.76rem;color:rgba(247,248,244,.5)}
+
+    .sequence{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(24px,5vw,72px)}
+    .sequence h3{margin-bottom:10px}
+
+    .finder{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:28px}
+    .search{width:min(340px,100%)}
+    .kitchen{grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 56px}
+    .kitchen h3{font-size:1.5rem;margin-bottom:4px}
+    .kitchen p{font-size:.92rem;color:var(--ink-2);max-width:56ch;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    .kitchen .rate{text-align:right;font-weight:700}
+    @media (max-width:860px){
+      .hero-foot,.sequence{grid-template-columns:1fr}
+      .kitchen{grid-template-columns:1fr auto;gap:8px 16px}
+      .kitchen .c2,.kitchen .c3{display:none}
+    }
+  </style>
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
+  <div id="site-header"></div>
 
-  <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="app-container">
-      <div class="hero-grid">
-        <div class="hero-content">
-          <div class="eyebrow">HIGH-CONCURRENCY ORDER SCHEDULING</div>
-          <h1 class="headline-display">
-            Direct Kitchen Telemetry. <br>
-            <span style="color: var(--accent-ember);">Zero Queue Wait.</span>
-          </h1>
-          <p class="subheadline">
-            PreOrder synchronizes diner arrival times with kitchen prep cycles. Your culinary order begins cooking at the precise moment to be finished right as you step to the counter.
-          </p>
-          <div class="hero-cta-group">
-            <a href="#kitchens-section" class="btn btn-primary btn-lg">EXPLORE OUTLETS &darr;</a>
-            <a href="/register.html?role=shop_owner" class="btn btn-secondary btn-lg">PARTNER AS KITCHEN</a>
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <h1 class="display">Hot food, no counter queue.</h1>
+        <div class="hero-foot">
+          <div>
+            <p class="lede">Choose a dish before you leave. The kitchen starts cooking so it finishes when you walk in.</p>
+            <div class="cta">
+              <a class="btn accent lg" href="#kitchens">Find a kitchen</a>
+              <a class="btn line lg" href="/register.html?role=shop_owner">Run a kitchen</a>
+            </div>
           </div>
-        </div>
 
-        <div class="hero-telemetry-box">
-          <div class="telemetry-row">
-            <span class="telemetry-key">NETWORK STATUS</span>
-            <span class="telemetry-badge live">ALL DISPATCH HUBS ONLINE</span>
-          </div>
-          <div class="telemetry-row">
-            <span class="telemetry-key">ACTIVE ENGINE</span>
-            <span class="telemetry-value">FASTAPI UTC LOGISTICS</span>
-          </div>
-          <div class="telemetry-row">
-            <span class="telemetry-key">KITCHEN SYNC ACCURACY</span>
-            <span class="telemetry-value" style="color: var(--accent-ember);">&plusmn;42 SECONDS</span>
-          </div>
-          <div class="telemetry-row">
-            <span class="telemetry-key">PEAK BOTTLENECK REDUCTION</span>
-            <span class="telemetry-value">&minus;88% QUEUE TIME</span>
-          </div>
-          <div class="telemetry-row">
-            <span class="telemetry-key">SECURITY PROTOCOL</span>
-            <span class="telemetry-value">ENCRYPTED TOKEN DISPATCH</span>
+          <div class="clock" aria-label="Example of how arrival time sets the cooking start">
+            <p>Example: a dish that takes 12 minutes</p>
+            <div class="big">You arrive in <b id="eta">25</b> min.<br>Cooking starts in <b id="fire">13</b>.</div>
+            <div class="track" id="track">
+              <span class="cook" id="cook"></span>
+              <span class="pin start" id="pin-start">Cooking starts</span>
+              <span class="pin end" id="pin-end">You arrive</span>
+            </div>
+            <input type="range" id="eta-range" min="12" max="45" value="25" aria-label="Minutes until you arrive">
+            <div class="scale"><span>Now</span><span>+45 min</span></div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Institutional Metrics Ribbon (Reference: Tresmares) -->
-  <section class="metrics-ribbon">
-    <div class="metric-cell">
-      <span class="metric-tag">[ AVERAGE PREPARATION ]</span>
-      <span class="metric-val">12<span style="font-size:1.2rem; color:var(--text-tertiary);">MIN</span></span>
-      <span class="metric-desc">Chefs alerted dynamically based on live preparation slots</span>
-    </div>
-    <div class="metric-cell">
-      <span class="metric-tag">[ PHYSICAL COUNTER WAIT ]</span>
-      <span class="metric-val">0<span style="font-size:1.2rem; color:var(--text-tertiary);">SEC</span></span>
-      <span class="metric-desc">Walk-up digital ticket collection with zero idle time</span>
-    </div>
-    <div class="metric-cell">
-      <span class="metric-tag">[ KITCHEN INTEGRITY ]</span>
-      <span class="metric-val">100<span style="font-size:1.2rem; color:var(--text-tertiary);">%</span></span>
-      <span class="metric-desc">Rigorous hygiene and culinary verification inspection</span>
-    </div>
-    <div class="metric-cell">
-      <span class="metric-tag">[ VERIFIED DINER SCORE ]</span>
-      <span class="metric-val">4.92<span style="font-size:1.2rem; color:var(--accent-ember);">&starf;</span></span>
-      <span class="metric-desc">Computed across verified post-fulfillment diners</span>
-    </div>
-  </section>
+    <hr class="rule">
 
-  <!-- Marketplace & Discovery -->
-  <main class="app-container" id="kitchens-section" style="padding-top: 48px;">
-    <div class="filter-desk">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px;">
-        <div>
-          <div class="eyebrow">DISCOVERY DIRECTORY</div>
-          <h2 class="headline-2">Curated Kitchen Roster</h2>
+    <section class="section" id="kitchens">
+      <div class="wrap">
+        <div class="finder">
+          <div>
+            <h2 class="h1">Kitchens</h2>
+            <p class="muted" id="count" aria-live="polite">Loading kitchens…</p>
+          </div>
+          <input class="input search" id="q" type="search" placeholder="Search by name, cuisine or city" aria-label="Search kitchens">
         </div>
-        <div class="mono-meta" id="roster-telemetry-count">
-          LOCATING OUTLETS...
+        <div class="tabs" id="cats" role="tablist">
+          <button role="tab" aria-selected="true" data-c="">All</button>
+          <button role="tab" aria-selected="false" data-c="Cafe">Cafés</button>
+          <button role="tab" aria-selected="false" data-c="Bakery">Bakeries</button>
+          <button role="tab" aria-selected="false" data-c="Fast Food">Quick bites</button>
+          <button role="tab" aria-selected="false" data-c="Fine Dining">Fine dining</button>
+        </div>
+        <ul class="rows" id="list" style="margin-top:0;border-top:0"></ul>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="h1" style="max-width:16ch;margin-bottom:48px">Three steps, one walk.</h2>
+        <div class="sequence">
+          <div><h3 class="h2">Choose</h3><p class="muted">Pick dishes and options from a kitchen's live menu. Pay at the counter, online, or with rewards.</p></div>
+          <div><h3 class="h2">Leave</h3><p class="muted">The kitchen sees your order and cooks it to be ready when you arrive. Track every stage on your phone.</p></div>
+          <div><h3 class="h2">Collect</h3><p class="muted">Show your order number at the counter and go. Every order earns points at that kitchen.</p></div>
         </div>
       </div>
-
-      <div class="filter-desk-top">
-        <div class="search-bar-wrap">
-          <span class="search-icon">&telrec;</span>
-          <input type="text" id="kitchen-search" class="search-bar-input" placeholder="Search kitchen name, cuisine, specialty dishes...">
-        </div>
-        <div class="category-capsules" id="category-filters">
-          <button class="category-capsule active" data-category="">ALL KITCHENS</button>
-          <button class="category-capsule" data-category="Cafe">CAFES & BISTROS</button>
-          <button class="category-capsule" data-category="Bakery">ARTISANAL BAKERIES</button>
-          <button class="category-capsule" data-category="Fast Food">FAST GOURMET</button>
-          <button class="category-capsule" data-category="Fine Dining">FINE DINING</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Kitchens Grid -->
-    <div class="kitchen-grid" id="kitchen-grid-container">
-      <div style="padding: 60px 0; grid-column: 1 / -1; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-        [ CONNECTING TO TELEMETRY ROSTER... ]
-      </div>
-    </div>
+    </section>
   </main>
 
-  <hr class="hairline-divider">
+  <div id="site-footer"></div>
 
-  <!-- Narrative Triad (Reference: Drone.riotters structure & storytelling) -->
-  <section style="padding: 80px 0; background: var(--bg-surface-subtle);">
-    <div class="app-container">
-      <div class="eyebrow" style="margin-bottom: 12px;">OPERATIONAL PROTOCOL</div>
-      <h2 class="headline-1" style="margin-bottom: 48px; max-width: 24ch;">
-        How PreOrder Re-engineers Culinary Queue Dynamics
-      </h2>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px;">
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 32px; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 14px;">
-          <div class="mono-meta" style="color: var(--accent-ember); font-weight: 700; font-size: 0.9rem;">
-            01 // ORDER AHEAD
-          </div>
-          <h3 class="headline-3">Reserve Precision Slots</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
-            Browse artisanal menus and select custom variants. Lock in your arrival time before heading to the outlet, bypassing lines during peak dining rushes.
-          </p>
-        </div>
-
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 32px; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 14px;">
-          <div class="mono-meta" style="color: var(--accent-ember); font-weight: 700; font-size: 0.9rem;">
-            02 // KITCHEN SYNCHRONIZATION
-          </div>
-          <h3 class="headline-3">Real-Time Kitchen Feed</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
-            Chefs receive automated ticket dispatches timed to your transit window. Food is cooked fresh to order, preserving thermal texture and flavor integrity.
-          </p>
-        </div>
-
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 32px; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 14px;">
-          <div class="mono-meta" style="color: var(--accent-ember); font-weight: 700; font-size: 0.9rem;">
-            03 // DIRECT TICKET DISPATCH
-          </div>
-          <h3 class="headline-3">Instant Counter Pickup</h3>
-          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
-            Display your encrypted digital order ticket at the dedicated PreOrder priority counter. Step away with your meal in seconds.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
   <script type="module">
     import { api } from '/js/api.js';
-    import { formatPrice } from '/js/app.js';
+    import { esc } from '/js/shell.js';
 
-    let allShops = [];
-    let currentCategory = '';
-    let searchQuery = '';
+    // timing instrument (illustrative; prep fixed at 12 min)
+    const PREP = 12, MAX = 45, r = document.getElementById('eta-range');
+    const sync = () => {
+      const eta = +r.value, fire = eta - PREP, pct = v => (v / MAX) * 100;
+      eta_.textContent = eta; fire_.textContent = fire === 0 ? 'now' : `${fire} min`;
+      cook.style.left = pct(fire) + '%'; cook.style.width = pct(PREP) + '%';
+      ps.style.left = pct(fire) + '%'; pe.style.left = pct(eta) + '%';
+    };
+    const eta_ = document.getElementById('eta'), fire_ = document.getElementById('fire'),
+          cook = document.getElementById('cook'), ps = document.getElementById('pin-start'), pe = document.getElementById('pin-end');
+    r.addEventListener('input', sync); sync();
 
-    const defaultImages = [
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&q=80'
-    ];
+    // directory
+    let shops = [], cat = '', q = '';
+    const list = document.getElementById('list'), count = document.getElementById('count');
 
-    async function loadShops() {
-      const container = document.getElementById('kitchen-grid-container');
-      const countEl = document.getElementById('roster-telemetry-count');
-
-      try {
-        const response = await api.getShops({ page: 1, page_size: 50 });
-        allShops = Array.isArray(response) ? response : (response.items || response.shops || []);
-        renderShops();
-      } catch (err) {
-        console.error('Failed to load shops:', err);
-        container.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 48px; border: 1px solid var(--status-danger-border); background: var(--status-danger-bg); border-radius: var(--radius-sm); text-align: center;">
-            <div class="mono-meta" style="color: var(--status-danger); font-size: 0.9rem;">[ TELEMETRY CONNECTION ERROR ]</div>
-            <p style="margin-top: 8px; font-size: 0.88rem;">Failed to synchronize live kitchen outlets. Ensure backend service is reachable.</p>
-          </div>
-        `;
-        if (countEl) countEl.textContent = '[ STATUS: DISCONNECTED ]';
-      }
-    }
-
-    function renderShops() {
-      const container = document.getElementById('kitchen-grid-container');
-      const countEl = document.getElementById('roster-telemetry-count');
-
-      const filtered = allShops.filter(shop => {
-        const matchesCategory = !currentCategory || (shop.category && shop.category.toLowerCase().includes(currentCategory.toLowerCase()));
-        const matchesSearch = !searchQuery || (
-          shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (shop.category && shop.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (shop.city && shop.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (shop.description && shop.description.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-        return matchesCategory && matchesSearch;
-      });
-
-      if (countEl) {
-        countEl.textContent = `[ ACTIVE OUTLETS: ${filtered.length} / ${allShops.length} ]`;
-      }
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 60px 20px; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ ∅ NO MATCHING KITCHENS FOUND ]
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = filtered.map((shop, idx) => {
-        const isOpen = shop.is_open && shop.is_accepting_orders;
-        const img = shop.banner_url || defaultImages[idx % defaultImages.length];
-        const rating = (shop.rating_avg && shop.rating_avg > 0) ? `${Number(shop.rating_avg).toFixed(1)} ★` : 'NEW';
-
-        return `
-          <a href="/shop.html?id=${shop.id}" class="kitchen-card">
-            <div class="kitchen-card-image-wrap">
-              <img src="${img}" alt="${shop.name}" class="kitchen-card-image" loading="lazy" onerror="this.src='${defaultImages[0]}'">
-              <div class="kitchen-card-badge-top">
-                <span class="telemetry-badge ${isOpen ? 'live' : 'closed'}">
-                  ${isOpen ? 'OPEN FOR PREORDER' : 'CURRENTLY CLOSED'}
-                </span>
-              </div>
-              <div class="kitchen-card-rating">${rating}</div>
-            </div>
-
-            <div class="kitchen-card-body">
-              <div class="kitchen-card-category">${shop.category || 'CULINARY LAB'} &bull; ${shop.city || 'METRO'}</div>
-              <h3 class="kitchen-card-title">${shop.name}</h3>
-              <p class="kitchen-card-desc">${shop.description || 'Artisanal kitchen offering pre-scheduled pickups and verified gourmet dining.'}</p>
-
-              <div class="kitchen-card-meta">
-                <span>[ PREP: ~15 MIN ]</span>
-                <span style="color: var(--accent-ember-hover); font-weight: 600;">ENTER DOSSIER &rarr;</span>
-              </div>
-            </div>
-          </a>
-        `;
+    function render() {
+      const s = q.toLowerCase();
+      const rows = shops.filter(x =>
+        (!cat || (x.category || '').toLowerCase().includes(cat.toLowerCase())) &&
+        (!s || [x.name, x.category, x.city, x.description].some(v => (v || '').toLowerCase().includes(s))));
+      count.textContent = `${rows.length} of ${shops.length} kitchens`;
+      if (!rows.length) { list.innerHTML = `<li class="empty">No kitchens match. Try a different search or category.</li>`; return; }
+      list.innerHTML = rows.map(x => {
+        const open = x.is_open && x.is_accepting_orders;
+        const rating = x.rating_avg > 0 ? `${Number(x.rating_avg).toFixed(1)}★` : 'New';
+        return `<li style="border-top:0"><a class="row kitchen" href="/shop.html?id=${encodeURIComponent(x.id)}">
+          <div><h3>${esc(x.name)}</h3><p>${esc(x.description || 'Takes orders ahead for counter pickup.')}</p></div>
+          <div class="c2 muted small">${esc(x.category || 'Kitchen')}<br>${esc(x.city || '')}</div>
+          <div class="c3 muted small num">~15 min</div>
+          <div><span class="status ${open ? 'open' : 'shut'}">${open ? 'Taking orders' : 'Closed right now'}</span></div>
+          <div class="rate num">${rating}</div>
+        </a></li>`;
       }).join('');
     }
 
-    // Category button filters
-    document.getElementById('category-filters')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('.category-capsule');
-      if (!btn) return;
-
-      document.querySelectorAll('.category-capsule').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentCategory = btn.dataset.category;
-      renderShops();
+    document.getElementById('cats').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.querySelectorAll('#cats button').forEach(x => x.setAttribute('aria-selected', x === b));
+      cat = b.dataset.c; render();
     });
+    let t; document.getElementById('q').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { q = e.target.value.trim(); render(); }, 200); });
 
-    // Search input debounce
-    let debounceTimer;
-    document.getElementById('kitchen-search')?.addEventListener('input', (e) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        searchQuery = e.target.value.trim();
-        renderShops();
-      }, 250);
+    api.getShops({ page: 1, page_size: 50 }).then(res => {
+      shops = Array.isArray(res) ? res : (res.items || res.shops || []);
+      render();
+    }).catch(() => {
+      count.textContent = 'Kitchens could not be loaded.';
+      list.innerHTML = `<li class="empty">We couldn't reach the server. Check your connection and refresh.</li>`;
     });
-
-    loadShops();
   </script>
 </body>
 </html>

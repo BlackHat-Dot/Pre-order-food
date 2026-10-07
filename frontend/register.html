@@ -1,191 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Onboard Network Account — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create account — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
-<body style="min-height: 100vh; display: flex; flex-direction: column;">
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px var(--container-padding);">
-    <div style="width: 100%; max-width: 480px; border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
-      <div style="margin-bottom: 24px;">
-        <div class="eyebrow">HIGH-TRUST ONBOARDING</div>
-        <h1 class="headline-2" style="margin-top: 4px;">Initialize Account</h1>
-        <p class="subheadline" style="font-size: 0.85rem; margin-top: 6px;">Register your credentials into the high-concurrency culinary scheduling registry.</p>
-      </div>
-
-      <!-- Role Selector Radios -->
-      <div class="form-group" style="margin-bottom: 20px;">
-        <label class="form-label">SELECT ACCESS ROLE</label>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
-          <label style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--bg-surface-elevated);" id="role-cust-label">
-            <input type="radio" name="role" value="customer" checked>
-            <div>
-              <div style="font-weight: 600; font-size: 0.84rem;">Verified Diner</div>
-              <div class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">Order ahead & collect</div>
-            </div>
-          </label>
-
-          <label style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--bg-surface-elevated);" id="role-owner-label">
-            <input type="radio" name="role" value="shop_owner">
-            <div>
-              <div style="font-weight: 600; font-size: 0.84rem;">Kitchen Partner</div>
-              <div class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">Control desk & queue</div>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      <form id="register-form">
-        <div class="form-group">
-          <label class="form-label" for="reg-name">LEGAL / OPERATOR NAME</label>
-          <input type="text" id="reg-name" class="input-text" placeholder="e.g. John Doe / Chef Marco" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="reg-phone">TELEPHONE NUMBER</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="tel" id="reg-phone" class="input-text" placeholder="+919876543210" required>
-            <button type="button" class="btn btn-secondary btn-sm" id="verify-phone-btn" style="white-space: nowrap;">
-              VERIFY
-            </button>
-          </div>
-          <div id="phone-verified-status" style="margin-top: 6px; font-family: var(--font-mono); font-size: 0.72rem; display: none;"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="reg-email">COMMUNICATIONS EMAIL (OPTIONAL)</label>
-          <input type="email" id="reg-email" class="input-text" placeholder="name@domain.com">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="reg-password">ENCRYPTED PASSWORD</label>
-          <input type="password" id="reg-password" class="input-text" placeholder="Min. 8 characters with digits & symbols" required minlength="6">
-        </div>
-
-        <div style="margin-top: 24px;">
-          <button type="submit" class="btn btn-primary btn-lg" id="submit-reg-btn" style="width: 100%;">
-            ONBOARD ACCOUNT &rarr;
-          </button>
-        </div>
-      </form>
-
-      <div class="hairline-divider" style="margin: 28px 0 20px;"></div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 0.76rem;">
-        <span style="color: var(--text-tertiary);">ALREADY HAVE CREDENTIALS?</span>
-        <a href="/login.html" style="color: var(--accent-ember-hover); text-decoration: none; font-weight: 600;">SIGN IN &rarr;</a>
-      </div>
-    </div>
-  </main>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialRole = urlParams.get('role');
-    if (initialRole === 'shop_owner') {
-      const ownerRadio = document.querySelector('input[name="role"][value="shop_owner"]');
-      if (ownerRadio) ownerRadio.checked = true;
-    }
-
-    let verificationToken = null;
-
-    // 1-Click Verification Trigger
-    const verifyBtn = document.getElementById('verify-phone-btn');
-    const phoneStatus = document.getElementById('phone-verified-status');
-
-    verifyBtn.addEventListener('click', async () => {
-      const phone = document.getElementById('reg-phone').value.trim();
-      if (!phone) {
-        toast.error('Please specify a phone number first');
-        return;
-      }
-
-      verifyBtn.disabled = true;
-      verifyBtn.textContent = 'VERIFYING...';
-
-      try {
-        const res = await api.verifyPhone(phone, 'local_dev');
-        verificationToken = res.verification_token;
-        phoneStatus.style.display = 'block';
-        phoneStatus.style.color = 'var(--status-open)';
-        phoneStatus.textContent = `[ PHONE VERIFIED: TOKEN SEALED ]`;
-        verifyBtn.textContent = 'VERIFIED ✓';
-        toast.success('Phone cryptographic proof acquired');
-      } catch (err) {
-        verifyBtn.disabled = false;
-        verifyBtn.textContent = 'VERIFY';
-        toast.error(err.message || 'Verification proof failed');
-      }
-    });
-
-    // Form Submission
-    const form = document.getElementById('register-form');
-    const submitBtn = document.getElementById('submit-reg-btn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const phone = document.getElementById('reg-phone').value.trim();
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim() || null;
-      const password = document.getElementById('reg-password').value;
-      const role = document.querySelector('input[name="role"]:checked').value;
-
-      // Auto-verify if not clicked yet
-      if (!verificationToken) {
-        try {
-          const res = await api.verifyPhone(phone, 'local_dev');
-          verificationToken = res.verification_token;
-        } catch (err) {
-          toast.error('Telephone verification required before onboarding');
-          return;
-        }
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'ENROLLING IN REGISTRY...';
-
-      try {
-        await api.register({
-          role,
-          name,
-          phone,
-          email,
-          password,
-          phone_verification_token: verificationToken
-        });
-
-        toast.success('Registration successful. Transmitting login...');
-
-        // Auto-login
-        const { user } = await api.login(phone, password);
-        setTimeout(() => {
-          if (role === 'shop_owner') {
-            window.location.href = '/owner.html';
-          } else {
-            window.location.href = '/index.html';
-          }
-        }, 600);
-      } catch (err) {
-        console.error('Registration failed:', err);
-        toast.error(err.message || 'Failed to complete registration');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'ONBOARD ACCOUNT →';
-      }
-    });
-  </script>
-</body>
-</html>
+<body>
+<div id="site-header"></div>
+<main class="auth"><div class="panel">
+  <h1 class="h1">Create account</h1>
+  <p class="muted" style="margin-bottom:24px">Order ahead as a diner, or run a kitchen.</p>
+  <div class="grid2" style="margin-bottom:20px" role="radiogroup" aria-label="Account type">
+    <label class="choice" style="margin:0"><span><input type="radio" name="role" value="customer" checked>Diner</span></label>
+    <label class="choice" style="margin:0"><span><input type="radio" name="role" value="shop_owner">Kitchen</span></label>
+  </div>
+  <form id="f">
+    <div class="field"><label for="name">Full name</label><input class="input" id="name" required autocomplete="name"></div>
+    <div class="field"><label for="phone">Phone number</label>
+      <div style="display:flex;gap:8px"><input class="input" id="phone" type="tel" placeholder="+919876543210" required autocomplete="tel"><button type="button" class="btn line sm" id="ver">Verify</button></div>
+      <div class="fb ok" id="vs" hidden>Phone verified</div></div>
+    <div class="field"><label for="email">Email (optional)</label><input class="input" id="email" type="email" autocomplete="email"></div>
+    <div class="field"><label for="pw">Password</label><input class="input" id="pw" type="password" minlength="6" required autocomplete="new-password"><span class="hint">At least 6 characters.</span></div>
+    <button class="btn accent lg" id="go" style="width:100%;margin-top:8px">Create account</button>
+  </form>
+  <hr class="rule" style="margin:24px 0 16px">
+  <p class="small muted">Already registered? <a href="/login.html"><strong>Log in</strong></a></p>
+</div></main>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { toast } from '/js/toast.js'; import '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (new URLSearchParams(location.search).get('role') === 'shop_owner') document.querySelector('input[value=shop_owner]').checked = true;
+let token = null;
+async function verify() {
+  const r = await api.verifyPhone($('phone').value.trim(), 'local_dev');
+  token = r.verification_token; $('vs').hidden = false; $('ver').textContent = 'Verified'; $('ver').disabled = true;
+}
+$('ver').addEventListener('click', async () => {
+  if (!$('phone').value.trim()) return toast.error('Enter your phone number first');
+  $('ver').disabled = true;
+  try { await verify(); } catch (e) { $('ver').disabled = false; toast.error(e.message || 'Could not verify this number'); }
+});
+$('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const role = document.querySelector('input[name=role]:checked').value, phone = $('phone').value.trim(), password = $('pw').value;
+  const b = $('go'); b.disabled = true; b.textContent = 'Creating account…';
+  try {
+    if (!token) await verify();
+    await api.register({ role, name: $('name').value.trim(), phone, email: $('email').value.trim() || null, password, phone_verification_token: token });
+    await api.login(phone, password);
+    toast.success('Account created');
+    setTimeout(() => location.href = role === 'shop_owner' ? '/owner.html' : '/index.html', 400);
+  } catch (err) { toast.error(err.message || 'Could not create the account'); b.disabled = false; b.textContent = 'Create account'; }
+});
+</script></body></html>

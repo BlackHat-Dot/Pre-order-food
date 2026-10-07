@@ -1,326 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Diner Dossier & Logistics Book — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <div style="margin-bottom: 32px;">
-      <div class="eyebrow">IDENTITY & ADDRESS REPOSITORY</div>
-      <h1 class="headline-1">Account Dossier</h1>
-      <p class="subheadline">Manage verified telephone credentials, security passwords, and saved courier delivery destinations.</p>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head"><div><h1 class="h1">Account</h1><p class="muted">Your details, password and saved addresses.</p></div></div>
+  <div class="split even">
+    <div>
+      <section class="panel"><h2 class="h2" id="nm">—</h2>
+        <dl><div class="kv"><dt>Phone</dt><dd id="ph"></dd></div><div class="kv"><dt>Email</dt><dd id="em"></dd></div><div class="kv"><dt>Account type</dt><dd id="rl"></dd></div></dl>
+        <button class="btn line" id="edit" style="margin-top:18px">Edit details</button></section>
+      <section class="panel"><h2 class="h3">Change password</h2>
+        <form id="pf"><div class="field"><label for="op">Current password</label><input class="input" id="op" type="password" required autocomplete="current-password"></div>
+        <div class="field"><label for="np">New password</label><input class="input" id="np" type="password" minlength="6" required autocomplete="new-password"></div>
+        <button class="btn line">Update password</button></form></section>
     </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1.25fr; gap: 40px; align-items: start;">
-      <!-- Column 1: Identity & Security -->
-      <div style="display: flex; flex-direction: column; gap: 24px;">
-        <!-- Profile Card -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 28px; border-radius: var(--radius-sm);">
-          <div class="eyebrow">OPERATOR IDENTITY</div>
-          <h2 class="headline-3" id="profile-name-display" style="margin: 4px 0 16px;">—</h2>
-
-          <div style="display: flex; flex-direction: column; gap: 12px; font-family: var(--font-mono); font-size: 0.8rem;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 8px;">
-              <span style="color: var(--text-tertiary);">TELEPHONE:</span>
-              <strong id="profile-phone-display" style="color: var(--text-primary);">—</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 8px;">
-              <span style="color: var(--text-tertiary);">EMAIL:</span>
-              <span id="profile-email-display" style="color: var(--text-secondary);">—</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-tertiary);">NETWORK ROLE:</span>
-              <span class="account-pill-role" id="profile-role-display">CUSTOMER</span>
-            </div>
-          </div>
-
-          <div style="margin-top: 20px;">
-            <button class="btn btn-secondary btn-sm" id="edit-profile-btn" style="width: 100%;">
-              UPDATE CONTACT DETAILS
-            </button>
-          </div>
-        </div>
-
-        <!-- Security Password Card -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 28px; border-radius: var(--radius-sm);">
-          <div class="eyebrow">SECURITY VAULT</div>
-          <h2 class="headline-3" style="margin: 4px 0 16px;">Rotate Secret Password</h2>
-
-          <form id="password-form">
-            <div class="form-group">
-              <label class="form-label" for="old-pass">CURRENT PASSWORD</label>
-              <input type="password" id="old-pass" class="input-text" required autocomplete="current-password">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="new-pass">NEW PASSWORD</label>
-              <input type="password" id="new-pass" class="input-text" minlength="6" required autocomplete="new-password">
-            </div>
-            <div style="margin-top: 16px;">
-              <button type="submit" class="btn btn-secondary btn-sm" id="rotate-pass-btn" style="width: 100%;">
-                UPDATE PASSWORD SECRET
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Column 2: Saved Address Book -->
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
-          <div>
-            <div class="eyebrow">COURIER DESTINATIONS</div>
-            <h2 class="headline-3">Registered Addresses</h2>
-          </div>
-          <button class="btn btn-primary btn-sm" id="add-addr-btn">+ ADD ADDRESS</button>
-        </div>
-
-        <div id="addresses-list" style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="padding: 40px; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ RETRIEVING ADDRESS BOOK... ]
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Edit Profile Modal -->
-  <div class="modal-backdrop" id="edit-profile-modal-backdrop">
-    <div class="modal-sheet" id="edit-profile-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">UPDATE DOSSIER</div>
-          <h3 class="headline-3">Modify Contact Profile</h3>
-        </div>
-        <button class="drawer-close" id="close-profile-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">FULL NAME</label>
-          <input type="text" id="edit-name-input" class="input-text" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">EMAIL ADDRESS</label>
-          <input type="email" id="edit-email-input" class="input-text">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-profile-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-profile-btn">SAVE CHANGES</button>
-      </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h2 class="h2">Addresses</h2><button class="btn accent sm" id="add">Add address</button></div>
+      <ul class="rows" id="addrs"></ul>
     </div>
   </div>
+</div></main>
 
-  <!-- Add Address Modal -->
-  <div class="modal-backdrop" id="addr-modal-backdrop">
-    <div class="modal-sheet" id="addr-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">LOGISTICS ADDRESS</div>
-          <h3 class="headline-3">Register New Destination</h3>
-        </div>
-        <button class="drawer-close" id="close-addr-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">TITLE</label>
-          <input type="text" id="new-title" class="input-text" placeholder="e.g. Studio / Residence / Office">
-        </div>
-        <div class="form-group">
-          <label class="form-label">STREET ADDRESS & NUMBER</label>
-          <input type="text" id="new-line" class="input-text" placeholder="42 Artisan Square" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">LANDMARK / GATE</label>
-          <input type="text" id="new-landmark" class="input-text" placeholder="Opposite Metro Gate B">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-addr-modal-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-new-addr-btn">SAVE DESTINATION</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-
-    if (!auth.requireAuth()) {
-      // Stopped by guard
-    }
-
-    let userObj = null;
-    let addresses = [];
-
-    async function initProfile() {
-      try {
-        userObj = await api.getMe();
-        auth.setUser(userObj);
-
-        document.getElementById('profile-name-display').textContent = userObj.name || 'Account Holder';
-        document.getElementById('profile-phone-display').textContent = userObj.phone;
-        document.getElementById('profile-email-display').textContent = userObj.email || 'None registered';
-        document.getElementById('profile-role-display').textContent = (userObj.role || 'customer').toUpperCase();
-
-        loadAddresses();
-      } catch (err) {
-        console.error('Failed to load profile:', err);
-      }
-    }
-
-    async function loadAddresses() {
-      const container = document.getElementById('addresses-list');
-      try {
-        addresses = await api.getAddresses();
-        if (addresses.length === 0) {
-          container.innerHTML = `
-            <div style="border: 1px dashed var(--border-medium); padding: 40px; text-align: center; border-radius: var(--radius-sm); color: var(--text-tertiary); font-family: var(--font-mono);">
-              [ ∅ NO REGISTERED DESTINATIONS ]
-            </div>
-          `;
-          return;
-        }
-
-        container.innerHTML = addresses.map(a => `
-          <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 20px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
-            <div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="headline-3" style="font-size: 1rem;">${a.title || 'Address'}</span>
-                ${a.is_default ? '<span class="telemetry-badge live">DEFAULT</span>' : ''}
-              </div>
-              <p style="font-size: 0.88rem; color: var(--text-primary); margin-top: 6px;">${a.address_line}</p>
-              ${a.landmark ? `<p class="mono-meta" style="color: var(--text-tertiary); margin-top: 2px;">Landmark: ${a.landmark}</p>` : ''}
-            </div>
-
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              ${!a.is_default ? `
-                <button class="btn btn-secondary btn-sm set-default-btn" data-id="${a.id}">
-                  MAKE DEFAULT
-                </button>
-              ` : ''}
-              <button class="btn btn-ghost btn-sm delete-addr-btn" data-id="${a.id}" style="color: var(--status-danger);">
-                REMOVE
-              </button>
-            </div>
-          </div>
-        `).join('');
-
-        bindAddressButtons();
-      } catch (err) {
-        container.innerHTML = '<div style="color: var(--status-danger);">Failed to load address book.</div>';
-      }
-    }
-
-    function bindAddressButtons() {
-      document.querySelectorAll('.set-default-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          try {
-            await api.setDefaultAddress(id);
-            toast.success('Default address updated');
-            loadAddresses();
-          } catch (err) {
-            toast.error(err.message || 'Failed to update default address');
-          }
-        });
-      });
-
-      document.querySelectorAll('.delete-addr-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          if (!window.confirm('Delete this delivery destination?')) return;
-          try {
-            await api.deleteAddress(id);
-            toast.success('Address removed');
-            loadAddresses();
-          } catch (err) {
-            toast.error(err.message || 'Failed to delete address');
-          }
-        });
-      });
-    }
-
-    // Edit Profile Modal
-    const profileBackdrop = document.getElementById('edit-profile-modal-backdrop');
-    document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
-      document.getElementById('edit-name-input').value = userObj.name || '';
-      document.getElementById('edit-email-input').value = userObj.email || '';
-      profileBackdrop.classList.add('active');
-    });
-
-    const closeProfileModal = () => profileBackdrop.classList.remove('active');
-    document.getElementById('close-profile-modal')?.addEventListener('click', closeProfileModal);
-    document.getElementById('cancel-profile-btn')?.addEventListener('click', closeProfileModal);
-
-    document.getElementById('save-profile-btn')?.addEventListener('click', async () => {
-      const name = document.getElementById('edit-name-input').value.trim();
-      const email = document.getElementById('edit-email-input').value.trim();
-
-      try {
-        await api.updateUserProfile({ name, email: email || null });
-        toast.success('Profile details updated');
-        closeProfileModal();
-        initProfile();
-      } catch (err) {
-        toast.error(err.message || 'Failed to update profile');
-      }
-    });
-
-    // Rotate Password
-    document.getElementById('password-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const oldPass = document.getElementById('old-pass').value;
-      const newPass = document.getElementById('new-pass').value;
-
-      try {
-        await api.updatePassword(oldPass, newPass);
-        toast.success('Password secret rotated successfully');
-        document.getElementById('password-form').reset();
-      } catch (err) {
-        toast.error(err.message || 'Failed to rotate password');
-      }
-    });
-
-    // Add Address Modal
-    const addrBackdrop = document.getElementById('addr-modal-backdrop');
-    document.getElementById('add-addr-btn')?.addEventListener('click', () => addrBackdrop.classList.add('active'));
-    const closeAddrModal = () => addrBackdrop.classList.remove('active');
-    document.getElementById('close-addr-modal')?.addEventListener('click', closeAddrModal);
-    document.getElementById('cancel-addr-modal-btn')?.addEventListener('click', closeAddrModal);
-
-    document.getElementById('save-new-addr-btn')?.addEventListener('click', async () => {
-      const title = document.getElementById('new-title').value.trim();
-      const address_line = document.getElementById('new-line').value.trim();
-      const landmark = document.getElementById('new-landmark').value.trim();
-
-      if (!address_line) {
-        toast.error('Address line is required');
-        return;
-      }
-
-      try {
-        await api.createAddress({ title, address_line, landmark });
-        toast.success('Address destination added');
-        closeAddrModal();
-        loadAddresses();
-      } catch (err) {
-        toast.error(err.message || 'Failed to save address');
-      }
-    });
-
-    initProfile();
-  </script>
-</body>
-</html>
+<dialog id="ed"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">Edit details</h2>
+  <div class="field"><label for="e-n">Full name</label><input class="input" id="e-n" required></div>
+  <div class="field"><label for="e-e">Email</label><input class="input" id="e-e" type="email"></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="e-save" value="s">Save</button></div></form></dialog>
+<dialog id="ad"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">New address</h2>
+  <div class="field"><label for="a-t">Label</label><input class="input" id="a-t" placeholder="Home, Office…"></div>
+  <div class="field"><label for="a-l">Street address</label><input class="input" id="a-l"></div>
+  <div class="field"><label for="a-m">Landmark</label><input class="input" id="a-m"></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="a-save" value="s">Save address</button></div></form></dialog>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireAuth()) throw 0;
+let me;
+async function init() {
+  try {
+    me = await api.getMe(); auth.setUser(me);
+    $('nm').textContent = me.name || 'Your account'; $('ph').textContent = me.phone; $('em').textContent = me.email || 'Not added';
+    $('rl').textContent = ({ customer: 'Diner', shop_owner: 'Kitchen owner', admin: 'Admin' })[me.role] || me.role; addrs();
+  } catch { toast.error('Your account could not be loaded'); }
+}
+async function addrs() {
+  try {
+    const a = await api.getAddresses();
+    $('addrs').innerHTML = a.length ? a.map(x => `<li class="row" style="grid-template-columns:1fr auto;align-items:start">
+      <div><strong>${esc(x.title || 'Address')}</strong> ${x.is_default ? '<span class="status open">Default</span>' : ''}<div class="muted">${esc(x.address_line)}</div>${x.landmark ? `<div class="small faint">Near ${esc(x.landmark)}</div>` : ''}</div>
+      <div style="display:flex;gap:6px">${x.is_default ? '' : `<button class="btn line sm" data-a="def" data-id="${esc(x.id)}">Make default</button>`}<button class="btn quiet sm" data-a="del" data-id="${esc(x.id)}">Remove</button></div></li>`).join('')
+      : `<li class="empty">No saved addresses. Add one to order for delivery.</li>`;
+  } catch { $('addrs').innerHTML = `<li class="empty">Addresses could not be loaded.</li>`; }
+}
+$('addrs').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  try {
+    if (b.dataset.a === 'def') { await api.setDefaultAddress(b.dataset.id); toast.success('Default address changed'); }
+    else { if (!confirm('Remove this address?')) return; await api.deleteAddress(b.dataset.id); toast.success('Address removed'); }
+    addrs();
+  } catch (err) { toast.error(err.message || 'That change could not be made'); }
+});
+$('edit').addEventListener('click', () => { $('e-n').value = me.name || ''; $('e-e').value = me.email || ''; $('ed').showModal(); });
+$('e-save').addEventListener('click', async e => {
+  const name = $('e-n').value.trim(); if (!name) { e.preventDefault(); return toast.error('Name is required'); }
+  try { await api.updateUserProfile({ name, email: $('e-e').value.trim() || null }); toast.success('Details saved'); init(); }
+  catch (err) { toast.error(err.message || 'Details could not be saved'); }
+});
+$('pf').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api.updatePassword($('op').value, $('np').value); toast.success('Password updated'); e.target.reset(); }
+  catch (err) { toast.error(err.message || 'Password could not be updated'); }
+});
+$('add').addEventListener('click', () => $('ad').showModal());
+$('a-save').addEventListener('click', async e => {
+  const line = $('a-l').value.trim(); if (!line) { e.preventDefault(); return toast.error('Street address is required'); }
+  try { await api.createAddress({ title: $('a-t').value.trim(), address_line: line, landmark: $('a-m').value.trim() }); toast.success('Address saved'); $('a-t').value = $('a-l').value = $('a-m').value = ''; addrs(); }
+  catch (err) { toast.error(err.message || 'Address could not be saved'); }
+});
+init();
+</script></body></html>

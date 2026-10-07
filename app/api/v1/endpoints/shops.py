@@ -19,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.core.config import settings
 from app.core.deps import (
     get_current_user,
     require_roles,
@@ -172,6 +173,7 @@ async def create_shop(
         ),
         is_verified=(
             user.role == "admin"
+            or settings.ENV.lower() in {"local", "dev", "development", "test"}
         ),
     )
 
@@ -231,8 +233,9 @@ async def list_shops(
 
     stmt = select(Shop).where(
         Shop.is_active.is_(True),
-        Shop.is_verified.is_(True),
     )
+    if settings.ENV.lower() in {"production", "prod"}:
+        stmt = stmt.where(Shop.is_verified.is_(True))
 
     if city:
         stmt = stmt.where(

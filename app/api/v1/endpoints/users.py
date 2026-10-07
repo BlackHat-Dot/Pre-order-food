@@ -15,6 +15,7 @@ from pydantic import (
     EmailStr,
     Field,
     field_validator,
+    model_validator,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -135,14 +136,22 @@ class ProfileUpdate(BaseModel):
 
 class PasswordUpdate(BaseModel):
     current_password: str = Field(
-        min_length=8,
+        min_length=6,
         max_length=128,
     )
 
     new_password: str = Field(
-        min_length=8,
+        min_length=6,
         max_length=128,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_old_password_alias(cls, data: object) -> object:
+        if isinstance(data, dict):
+            if "old_password" in data and "current_password" not in data:
+                data["current_password"] = data["old_password"]
+        return data
 
 
 # ─────────────────────────────────────────────────────────────
@@ -601,6 +610,7 @@ async def update_profile(
 # ─────────────────────────────────────────────────────────────
 
 @router.patch("/me/password")
+@router.put("/me/password")
 async def update_password(
     payload: PasswordUpdate,
     db: Annotated[

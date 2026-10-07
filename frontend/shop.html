@@ -3,508 +3,159 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kitchen Dossier — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+  <title>Kitchen — preorder</title>
+  <link rel="stylesheet" href="/css/system.css">
+  <style>
+    .banner{height:clamp(160px,28vw,340px);background:var(--line) center/cover}
+    .shop-head{padding:clamp(32px,5vw,64px) 0 32px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
+    .meta{display:flex;flex-wrap:wrap;gap:6px 28px;margin-top:20px;font-size:.92rem;color:var(--ink-2)}
+    .sticky{position:sticky;top:64px;z-index:40;background:var(--bg)}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:clamp(32px,6vw,80px);align-items:start;padding-bottom:96px}
+    .group h2{margin:44px 0 14px}
+    .dish{grid-template-columns:minmax(0,1fr) auto;gap:6px 24px;align-items:start}
+    .dish .name{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.25rem;letter-spacing:-.02em}
+    .dish .desc{grid-column:1;color:var(--ink-2);font-size:.95rem;max-width:60ch}
+    .dish .buy{grid-column:2;grid-row:1/3;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .sig{font-size:.75rem;font-weight:700;background:var(--saffron);padding:2px 8px;border-radius:99px;font-family:var(--body);letter-spacing:0}
+    .sold{opacity:.5}
+    .reviews{position:sticky;top:140px}
+    .score{font-family:var(--display);font-weight:800;font-size:3.4rem;letter-spacing:-.05em;line-height:1}
+    .rev{padding:14px 0;border-bottom:1px solid var(--line-2)}
+    @media (max-width:900px){.layout{grid-template-columns:1fr}.reviews{position:static}.shop-head{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <!-- Kitchen Dossier Header -->
-  <section style="background: var(--bg-surface); border-bottom: 1px solid var(--border-medium); padding: 48px 0 32px;">
-    <div class="app-container">
-      <div id="shop-header-container" style="display: flex; flex-direction: column; gap: 16px;">
-        <div class="mono-meta" style="color: var(--text-tertiary);">[ SYNCHRONIZING DOSSIER TELEMETRY... ]</div>
-      </div>
+  <div id="site-header"></div>
+  <main>
+    <div class="banner" id="banner" hidden></div>
+    <div class="wrap">
+      <div class="shop-head" id="head"><p class="muted">Loading kitchen…</p></div>
     </div>
-  </section>
+    <div class="sticky"><div class="wrap"><div class="tabs" id="cats" role="tablist"></div></div></div>
 
-  <!-- Sticky Category Navigation Bar -->
-  <div style="position: sticky; top: 64px; z-index: 90; background: rgba(8, 9, 12, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border-subtle); padding: 12px 0;">
-    <div class="app-container" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; overflow-x: auto;">
-      <div class="category-capsules" id="menu-category-tabs">
-        <button class="category-capsule active" data-cat="">ALL ITEMS</button>
-      </div>
-      <div class="mono-meta" id="menu-items-count" style="white-space: nowrap;">0 DISHES ON TICKET</div>
-    </div>
-  </div>
-
-  <!-- Menu Content & Reviews Grid -->
-  <main class="app-container" style="padding: 40px var(--container-padding) 80px;">
-    <div style="display: grid; grid-template-columns: 1fr 340px; gap: 40px; align-items: start;" id="shop-main-layout">
-      <!-- Dishes Grid Column -->
-      <div>
-        <div id="dishes-container">
-          <div style="padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ RETRIEVING CULINARY CATALOG... ]
-          </div>
-        </div>
-      </div>
-
-      <!-- Reviews & Ledger Sidebar -->
-      <aside style="display: flex; flex-direction: column; gap: 24px;">
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 24px;">
-          <div class="eyebrow">VERIFIED REVIEWS</div>
-          <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;">
-            <span class="headline-1" id="sidebar-rating-val" style="color: var(--accent-ember-hover);">—</span>
-            <span class="mono-meta" id="sidebar-review-count">0 reviews</span>
-          </div>
-
-          <div id="reviews-list" style="display: flex; flex-direction: column; gap: 14px; max-height: 400px; overflow-y: auto; padding-right: 4px;">
-            <div class="mono-meta" style="color: var(--text-tertiary);">No verified diner reviews recorded yet.</div>
-          </div>
-
-          <div style="margin-top: 20px; border-top: 1px dashed var(--border-subtle); padding-top: 16px;">
-            <button class="btn btn-secondary btn-sm" id="open-review-modal-btn" style="width: 100%;">
-              SUBMIT DINER REVIEW
-            </button>
-          </div>
-        </div>
-
-        <div style="border: 1px solid var(--border-subtle); background: var(--bg-surface-subtle); border-radius: var(--radius-sm); padding: 20px;">
-          <div class="mono-meta" style="color: var(--accent-ember); font-weight: 700; margin-bottom: 6px;">[ ZERO-QUEUE GUARANTEE ]</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;">
-            Every order placed on PreOrder is synchronized to kitchen prep slots. If your food is not ready within 5 minutes of your arrival slot, loyalty reward points are credited automatically.
-          </p>
-        </div>
+    <div class="wrap layout">
+      <div id="menu"></div>
+      <aside class="reviews">
+        <h2 class="h2" style="margin-top:44px">Diner reviews</h2>
+        <div style="display:flex;align-items:baseline;gap:12px;margin:14px 0 8px"><span class="score" id="score">—</span><span class="muted small" id="rcount"></span></div>
+        <div id="reviews" style="max-height:340px;overflow:auto"></div>
+        <button class="btn line sm" id="write" style="margin-top:16px">Write a review</button>
       </aside>
     </div>
   </main>
 
-  <!-- Variant Selection Modal -->
-  <div class="modal-backdrop" id="variant-modal-backdrop">
-    <div class="modal-sheet" id="variant-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">CUSTOMIZE DISH</div>
-          <h3 class="headline-3" id="modal-dish-title">Select Variant</h3>
-        </div>
-        <button class="drawer-close" id="close-variant-modal">&times;</button>
-      </div>
-      <div class="modal-body" id="variant-options-body">
-        <!-- Variant radios inserted dynamically -->
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-variant-btn">CANCEL</button>
-        <button class="btn btn-primary" id="confirm-variant-btn">ADD TO ORDER TICKET</button>
-      </div>
-    </div>
-  </div>
+  <dialog id="vd"><form method="dialog">
+    <h2 class="h2" id="vd-title" style="margin-bottom:6px"></h2>
+    <p class="muted small" style="margin-bottom:18px">Choose an option.</p>
+    <div id="vd-opts"></div>
+    <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="vd-add" value="add">Add to order</button></div>
+  </form></dialog>
 
-  <!-- Review Submission Modal -->
-  <div class="modal-backdrop" id="review-modal-backdrop">
-    <div class="modal-sheet" id="review-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">DINER FEEDBACK</div>
-          <h3 class="headline-3">Submit Verified Review</h3>
-        </div>
-        <button class="drawer-close" id="close-review-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">RATING (1 TO 5 STARS)</label>
-          <select id="review-rating-select" class="select-input">
-            <option value="5">5 ★ — Exceptional Culinary Quality</option>
-            <option value="4">4 ★ — Very Good Experience</option>
-            <option value="3">3 ★ — Average Prep / Standard</option>
-            <option value="2">2 ★ — Subpar Texture or Delay</option>
-            <option value="1">1 ★ — Unsatisfactory</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">VERIFIED COMMENT</label>
-          <textarea id="review-comment-input" class="textarea-input" placeholder="Document flavor profile, thermal freshness, or packaging quality..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-review-btn">CANCEL</button>
-        <button class="btn btn-primary" id="submit-review-btn">TRANSMIT REVIEW</button>
-      </div>
-    </div>
-  </div>
+  <dialog id="rd"><form method="dialog">
+    <h2 class="h2" style="margin-bottom:18px">Review this kitchen</h2>
+    <div class="field"><label for="rate">Rating</label>
+      <select class="input" id="rate"><option value="5">5 — Excellent</option><option value="4">4 — Good</option><option value="3">3 — Okay</option><option value="2">2 — Poor</option><option value="1">1 — Bad</option></select></div>
+    <div class="field"><label for="rtext">Comment (optional)</label><textarea class="input" id="rtext" placeholder="How was the food and the wait?"></textarea></div>
+    <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="r-send" value="send">Post review</button></div>
+  </form></dialog>
 
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
+  <div id="site-footer"></div>
 
-  <!-- Scripts -->
   <script type="module">
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { cart } from '/js/cart.js';
     import { toast } from '/js/toast.js';
-    import { formatPrice } from '/js/app.js';
+    import { esc, formatPrice } from '/js/shell.js';
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shopId = urlParams.get('id');
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) location.href = '/index.html';
+    let shop, menu = [], active = '', pending = null;
+    const $ = s => document.getElementById(s);
 
-    if (!shopId) {
-      window.location.href = '/index.html';
+    try {
+      [shop, menu] = await Promise.all([api.getShop(id), api.getMenuItems(id)]);
+    } catch {
+      $('head').innerHTML = `<div><h1 class="h1">Kitchen not found</h1><p class="muted" style="margin:10px 0 20px">It may have closed or the link is wrong.</p><a class="btn" href="/index.html">Browse kitchens</a></div>`;
+      throw 0;
     }
+    document.title = `${shop.name} — preorder`;
+    const open = shop.is_open && shop.is_accepting_orders;
+    if (shop.banner_url) { $('banner').hidden = false; $('banner').style.backgroundImage = `url("${shop.banner_url.replace(/"/g, '%22')}")`; }
+    $('head').innerHTML = `
+      <div><h1 class="display" style="font-size:clamp(2.4rem,6vw,4.8rem)">${esc(shop.name)}</h1>
+        <p class="lede" style="margin-top:14px">${esc(shop.description || '')}</p>
+        <div class="meta"><span>${esc(shop.category || 'Kitchen')}</span><span>${esc(shop.address_line || '')}, ${esc(shop.city || '')} ${esc(shop.pincode || '')}</span><span>${esc(shop.opening_hours || '10:00–22:00')}</span><span>${esc(shop.phone || '')}</span></div></div>
+      <span class="status ${open ? 'open' : 'shut'}">${open ? 'Taking orders' : 'Paused right now'}</span>`;
 
-    let shopData = null;
-    let menuItems = [];
-    let selectedItemForVariant = null;
-    let selectedVariantId = null;
-    let activeCategory = '';
-
-    async function initShop() {
-      try {
-        shopData = await api.getShop(shopId);
-        menuItems = await api.getMenuItems(shopId);
-
-        renderShopHeader();
-        buildCategoryTabs();
-        renderDishes();
-        loadReviews();
-      } catch (err) {
-        console.error('Failed to load shop:', err);
-        document.getElementById('shop-header-container').innerHTML = `
-          <div style="padding: 32px; border: 1px solid var(--status-danger-border); background: var(--status-danger-bg); border-radius: var(--radius-sm);">
-            <div class="mono-meta" style="color: var(--status-danger);">[ DOSSIER ERROR ]</div>
-            <p style="margin-top: 6px;">Kitchen outlet not found or telemetry inactive.</p>
-            <a href="/index.html" class="btn btn-secondary btn-sm" style="margin-top: 12px;">RETURN TO MARKETPLACE</a>
-          </div>
-        `;
-      }
-    }
-
-    function renderShopHeader() {
-      const container = document.getElementById('shop-header-container');
-      const isOpen = shopData.is_open && shopData.is_accepting_orders;
-      const rating = (shopData.rating_avg && shopData.rating_avg > 0) ? `${Number(shopData.rating_avg).toFixed(1)} ★` : 'NEW';
-
-      container.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
-          <div>
-            <div class="eyebrow">OUTLET DOSSIER // ID: ${shopData.id.slice(0, 8)}</div>
-            <h1 class="headline-1" style="margin: 4px 0 10px;">${shopData.name}</h1>
-            <p class="subheadline" style="max-width: 70ch;">${shopData.description || 'Verified culinary partner with synchronized preparation dispatch.'}</p>
-          </div>
-
-          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-            <span class="telemetry-badge ${isOpen ? 'live' : 'closed'}">
-              ${isOpen ? 'ACCEPTING PRE-ORDERS' : 'KITCHEN PAUSED'}
-            </span>
-            <div class="mono-meta" style="font-size: 0.85rem; color: var(--accent-ember-hover); font-weight: 700;">
-              [ SCORE: ${rating} ]
-            </div>
-          </div>
-        </div>
-
-        <div class="hairline-divider" style="margin: 12px 0;"></div>
-
-        <div style="display: flex; flex-wrap: wrap; gap: 24px; font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-secondary);">
-          <div><strong style="color: var(--text-tertiary);">CATEGORY:</strong> ${shopData.category || 'Gourmet'}</div>
-          <div><strong style="color: var(--text-tertiary);">LOCATION:</strong> ${shopData.address_line}, ${shopData.city} ${shopData.pincode}</div>
-          <div><strong style="color: var(--text-tertiary);">HOURS:</strong> ${shopData.opening_hours || '10:00 - 22:00'}</div>
-          <div><strong style="color: var(--text-tertiary);">DIRECT PHONE:</strong> ${shopData.phone}</div>
-        </div>
-      `;
-    }
-
-    function buildCategoryTabs() {
-      const categories = ['ALL ITEMS'];
-      menuItems.forEach(item => {
-        if (item.category && !categories.includes(item.category.toUpperCase())) {
-          categories.push(item.category.toUpperCase());
-        }
-      });
-
-      const tabsContainer = document.getElementById('menu-category-tabs');
-      tabsContainer.innerHTML = categories.map(cat => `
-        <button class="category-capsule ${cat === 'ALL ITEMS' ? 'active' : ''}" data-cat="${cat === 'ALL ITEMS' ? '' : cat}">
-          ${cat}
-        </button>
-      `).join('');
-
-      tabsContainer.addEventListener('click', (e) => {
-        const btn = e.target.closest('.category-capsule');
-        if (!btn) return;
-        document.querySelectorAll('#menu-category-tabs .category-capsule').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeCategory = btn.dataset.cat;
-        renderDishes();
-      });
-    }
-
-    function renderDishes() {
-      const container = document.getElementById('dishes-container');
-      const countEl = document.getElementById('menu-items-count');
-
-      const filtered = menuItems.filter(item => {
-        if (!activeCategory) return true;
-        return (item.category || '').toUpperCase() === activeCategory;
-      });
-
-      if (countEl) {
-        countEl.textContent = `${filtered.length} DISHES AVAILABLE`;
-      }
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div style="padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ ∅ NO DISHES CONFIGURED IN THIS CATEGORY ]
-          </div>
-        `;
-        return;
-      }
-
-      // Group by category
-      const groups = {};
-      filtered.forEach(item => {
-        const cat = item.category || 'Specialties';
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(item);
-      });
-
-      let html = '';
-      for (const [catName, items] of Object.entries(groups)) {
-        html += `
-          <section class="menu-section">
-            <div class="menu-section-header">
-              <h2 class="menu-section-title">${catName}</h2>
-              <span class="mono-meta">[ ${items.length} ITEMS ]</span>
-            </div>
-            <div class="dishes-grid">
-              ${items.map(dish => renderDishCard(dish)).join('')}
-            </div>
-          </section>
-        `;
-      }
-
-      container.innerHTML = html;
-      bindDishActionButtons();
-    }
-
-    function renderDishCard(dish) {
-      const hasVariants = dish.variants && dish.variants.length > 0;
-      const isAvailable = dish.is_available !== false;
-      const lowestPrice = hasVariants ? Math.min(...dish.variants.map(v => v.price), dish.price) : dish.price;
-
-      return `
-        <div class="dish-card" data-dish-id="${dish.id}">
-          <div class="dish-card-header">
-            <div class="dish-title-wrap">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="dietary-tag ${dish.dietary_type || 'veg'}">${dish.dietary_type || 'veg'}</span>
-                ${dish.is_featured ? '<span class="telemetry-badge accent" style="padding: 1px 5px; font-size: 0.65rem;">SIGNATURE</span>' : ''}
-              </div>
-              <h3 class="dish-title">${dish.name}</h3>
-            </div>
-            <div class="dish-price">
-              ${hasVariants ? `<span style="font-size:0.75rem; color:var(--text-tertiary); font-weight:normal;">FROM </span>` : ''}
-              ${formatPrice(lowestPrice)}
-            </div>
-          </div>
-
-          <p class="dish-desc">${dish.description || 'Prepared fresh with high-grade ingredients to preserve flavor integrity.'}</p>
-
-          <div class="dish-footer">
-            <div class="mono-meta">[ PREP: ~${dish.prep_time_minutes || 15}M ]</div>
-            <div>
-              ${!isAvailable ? `
-                <span class="telemetry-badge closed">SOLD OUT</span>
-              ` : hasVariants ? `
-                <button class="btn btn-secondary btn-sm select-variant-btn" data-id="${dish.id}">
-                  CUSTOMIZE &rarr;
-                </button>
-              ` : `
-                <button class="btn btn-primary btn-sm add-direct-btn" data-id="${dish.id}">
-                  + ADD TO TICKET
-                </button>
-              `}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function bindDishActionButtons() {
-      // Direct Add Buttons
-      document.querySelectorAll('.add-direct-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const dishId = e.currentTarget.dataset.id;
-          const dish = menuItems.find(d => d.id === dishId);
-          if (!dish) return;
-
-          cart.addItem({
-            shopId: shopData.id,
-            shopName: shopData.name,
-            itemId: dish.id,
-            variantId: null,
-            name: dish.name,
-            variantName: null,
-            price: dish.price,
-            dietaryType: dish.dietary_type,
-            prepMinutes: dish.prep_time_minutes
-          });
-        });
-      });
-
-      // Customize Variant Buttons
-      document.querySelectorAll('.select-variant-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const dishId = e.currentTarget.dataset.id;
-          const dish = menuItems.find(d => d.id === dishId);
-          if (!dish) return;
-          openVariantModal(dish);
-        });
-      });
-    }
-
-    function openVariantModal(dish) {
-      selectedItemForVariant = dish;
-      selectedVariantId = null;
-
-      document.getElementById('modal-dish-title').textContent = dish.name;
-      const body = document.getElementById('variant-options-body');
-
-      let optionsHtml = `
-        <div style="margin-bottom: 12px; font-size: 0.82rem; color: var(--text-secondary);">
-          Select your customized configuration for this dish:
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-      `;
-
-      // Base option
-      optionsHtml += `
-        <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-xs); cursor: pointer; background: var(--bg-surface-elevated);">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <input type="radio" name="dish-variant" value="" checked>
-            <span style="font-weight: 600; font-size: 0.9rem;">Standard Base Formulation</span>
-          </div>
-          <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember);">${formatPrice(dish.price)}</span>
-        </label>
-      `;
-
-      // Variants
-      if (dish.variants && dish.variants.length > 0) {
-        dish.variants.forEach(v => {
-          optionsHtml += `
-            <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-xs); cursor: pointer; background: var(--bg-surface-elevated);">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="dish-variant" value="${v.id}">
-                <div>
-                  <div style="font-weight: 600; font-size: 0.9rem;">${v.name}</div>
-                  <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">PREP: ~${v.prep_time_minutes || dish.prep_time_minutes}M</div>
-                </div>
-              </div>
-              <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember);">${formatPrice(v.price)}</span>
-            </label>
-          `;
-        });
-      }
-
-      optionsHtml += `</div>`;
-      body.innerHTML = optionsHtml;
-
-      document.getElementById('variant-modal-backdrop').classList.add('active');
-    }
-
-    function closeVariantModal() {
-      document.getElementById('variant-modal-backdrop').classList.remove('active');
-      selectedItemForVariant = null;
-      selectedVariantId = null;
-    }
-
-    document.getElementById('close-variant-modal')?.addEventListener('click', closeVariantModal);
-    document.getElementById('cancel-variant-btn')?.addEventListener('click', closeVariantModal);
-
-    document.getElementById('confirm-variant-btn')?.addEventListener('click', () => {
-      if (!selectedItemForVariant) return;
-
-      const checked = document.querySelector('input[name="dish-variant"]:checked');
-      const vId = checked ? checked.value : null;
-
-      let chosenName = selectedItemForVariant.name;
-      let chosenVariantName = null;
-      let chosenPrice = selectedItemForVariant.price;
-      let chosenPrep = selectedItemForVariant.prep_time_minutes;
-
-      if (vId) {
-        const variantObj = selectedItemForVariant.variants.find(v => v.id === vId);
-        if (variantObj) {
-          chosenVariantName = variantObj.name;
-          chosenPrice = variantObj.price;
-          chosenPrep = variantObj.prep_time_minutes || chosenPrep;
-        }
-      }
-
-      cart.addItem({
-        shopId: shopData.id,
-        shopName: shopData.name,
-        itemId: selectedItemForVariant.id,
-        variantId: vId || null,
-        name: chosenName,
-        variantName: chosenVariantName,
-        price: chosenPrice,
-        dietaryType: selectedItemForVariant.dietary_type,
-        prepMinutes: chosenPrep
-      });
-
-      closeVariantModal();
+    const cats = [...new Set(menu.map(m => m.category || 'Specialties'))];
+    $('cats').innerHTML = [''].concat(cats).map(c => `<button role="tab" aria-selected="${c === ''}" data-c="${esc(c)}">${c || 'Everything'}</button>`).join('');
+    $('cats').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.querySelectorAll('#cats button').forEach(x => x.setAttribute('aria-selected', x === b));
+      active = b.dataset.c; render();
     });
 
-    // Reviews Loading & Submission
+    function render() {
+      const items = menu.filter(m => !active || (m.category || 'Specialties') === active);
+      if (!items.length) { $('menu').innerHTML = `<p class="empty">This kitchen hasn't published a menu yet.</p>`; return; }
+      const g = {}; items.forEach(m => (g[m.category || 'Specialties'] ||= []).push(m));
+      $('menu').innerHTML = Object.entries(g).map(([c, list]) => `
+        <section class="group"><h2 class="h2">${esc(c)}</h2><ul class="rows">${list.map(dish).join('')}</ul></section>`).join('');
+    }
+
+    function dish(d) {
+      const vs = d.variants || [], avail = d.is_available !== false;
+      const from = vs.length ? Math.min(d.price, ...vs.map(v => v.price)) : d.price;
+      return `<li class="row dish ${avail ? '' : 'sold'}">
+        <div class="name"><span class="diet ${esc(d.dietary_type || 'veg')}" title="${esc((d.dietary_type || 'veg').replace('_', '-'))}"></span>${esc(d.name)}${d.is_featured ? '<span class="sig">Signature</span>' : ''}</div>
+        <p class="desc">${esc(d.description || '')} <span class="faint num">About ${d.prep_time_minutes || 15} min</span></p>
+        <div class="buy"><span class="num"><strong>${vs.length ? '<span class="faint small">from </span>' : ''}${formatPrice(from)}</strong></span>
+          ${!avail ? '<span class="status shut">Sold out</span>' : `<button class="btn ${vs.length ? 'line' : 'accent'} sm" data-id="${esc(d.id)}">${vs.length ? 'Choose' : 'Add'}</button>`}</div></li>`;
+    }
+
+    $('menu').addEventListener('click', e => {
+      const b = e.target.closest('button[data-id]'); if (!b) return;
+      const d = menu.find(m => m.id === b.dataset.id); if (!d) return;
+      if (d.variants?.length) return openVariants(d);
+      add(d, null);
+    });
+
+    function add(d, v) {
+      cart.addItem({ shopId: shop.id, shopName: shop.name, itemId: d.id, variantId: v?.id || null, name: d.name, variantName: v?.name || null,
+        price: v ? v.price : d.price, dietaryType: d.dietary_type, prepMinutes: v?.prep_time_minutes || d.prep_time_minutes });
+    }
+
+    function openVariants(d) {
+      pending = d; $('vd-title').textContent = d.name;
+      $('vd-opts').innerHTML = [{ id: '', name: 'Regular', price: d.price }, ...d.variants].map((v, i) => `
+        <label class="choice"><span><input type="radio" name="v" value="${esc(v.id)}" ${i ? '' : 'checked'}>${esc(v.name)}</span><strong class="num">${formatPrice(v.price)}</strong></label>`).join('');
+      $('vd').showModal();
+    }
+    $('vd-add').addEventListener('click', () => {
+      const val = document.querySelector('input[name=v]:checked')?.value;
+      add(pending, val ? pending.variants.find(x => x.id === val) : null);
+    });
+
     async function loadReviews() {
-      const listEl = document.getElementById('reviews-list');
-      const scoreEl = document.getElementById('sidebar-rating-val');
-      const countEl = document.getElementById('sidebar-review-count');
-
       try {
-        const reviews = await api.getShopReviews(shopId);
-        if (scoreEl) scoreEl.textContent = (shopData.rating_avg && shopData.rating_avg > 0) ? `${Number(shopData.rating_avg).toFixed(1)} ★` : '—';
-        if (countEl) countEl.textContent = `${reviews.length} reviews`;
-
-        if (reviews.length === 0) {
-          listEl.innerHTML = '<div class="mono-meta" style="color: var(--text-tertiary);">No verified diner reviews recorded yet.</div>';
-          return;
-        }
-
-        listEl.innerHTML = reviews.map(r => `
-          <div style="border-bottom: 1px dashed var(--border-subtle); padding-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember-hover);">${r.rating} ★</span>
-              <span class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">${r.customer ? (r.customer.name || 'Verified Diner') : 'Verified Diner'}</span>
-            </div>
-            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
-              ${r.comment || 'Order fulfilled on time. Excellent preparation and packaging.'}
-            </p>
-          </div>
-        `).join('');
-      } catch (err) {
-        console.error('Failed to load reviews:', err);
-      }
+        const rs = await api.getShopReviews(id);
+        $('score').textContent = shop.rating_avg > 0 ? Number(shop.rating_avg).toFixed(1) : '—';
+        $('rcount').textContent = rs.length ? `${rs.length} review${rs.length > 1 ? 's' : ''}` : '';
+        $('reviews').innerHTML = rs.length ? rs.map(r => `<div class="rev"><strong class="num">${r.rating}★</strong> <span class="faint small">${esc(r.customer?.name || 'Diner')}</span>${r.comment ? `<p class="muted small" style="margin-top:4px">${esc(r.comment)}</p>` : ''}</div>`).join('')
+          : `<p class="muted small">No reviews yet. Be the first after your order.</p>`;
+      } catch { $('reviews').innerHTML = `<p class="muted small">Reviews could not be loaded.</p>`; }
     }
 
-    // Review Modal Events
-    const reviewBackdrop = document.getElementById('review-modal-backdrop');
-    document.getElementById('open-review-modal-btn')?.addEventListener('click', () => {
-      if (!auth.requireAuth()) return;
-      reviewBackdrop.classList.add('active');
-    });
-
-    const closeReviewModal = () => reviewBackdrop.classList.remove('active');
-    document.getElementById('close-review-modal')?.addEventListener('click', closeReviewModal);
-    document.getElementById('cancel-review-btn')?.addEventListener('click', closeReviewModal);
-
-    document.getElementById('submit-review-btn')?.addEventListener('click', async () => {
-      const rating = Number(document.getElementById('review-rating-select').value);
-      const comment = document.getElementById('review-comment-input').value.trim();
-
+    $('write').addEventListener('click', () => auth.requireAuth() && $('rd').showModal());
+    $('r-send').addEventListener('click', async () => {
       try {
-        await api.createShopReview(shopId, { rating, comment });
-        toast.success('Verified review recorded');
-        closeReviewModal();
-        loadReviews();
-      } catch (err) {
-        toast.error(err.message || 'Failed to submit review');
-      }
+        await api.createShopReview(id, { rating: Number($('rate').value), comment: $('rtext').value.trim() });
+        toast.success('Review posted'); $('rtext').value = ''; loadReviews();
+      } catch (err) { toast.error(err.message || 'Review could not be posted'); }
     });
 
-    initShop();
+    render(); loadReviews();
   </script>
 </body>
 </html>

@@ -1,191 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification & Platform Console — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
-      <div>
-        <div class="eyebrow">ENTERPRISE ADMINISTRATION</div>
-        <h1 class="headline-1">Platform Control Console</h1>
-        <p class="subheadline">System metrics, high-concurrency order monitoring, and kitchen compliance verification.</p>
-      </div>
-
-      <span class="telemetry-badge accent" style="padding: 6px 12px; font-size: 0.8rem;">
-        PRIVILEGE: SUPERADMIN ACCESS
-      </span>
-    </div>
-
-    <!-- Platform Stats Ribbon -->
-    <div class="metrics-ribbon" style="border-radius: var(--radius-sm); border: 1px solid var(--border-medium); margin-bottom: 40px;">
-      <div class="metric-cell">
-        <span class="metric-tag">[ REGISTERED OPERATORS ]</span>
-        <span class="metric-val" id="stat-users-val">—</span>
-        <span class="metric-desc">Verified customer & owner accounts</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ KITCHEN OUTLETS ]</span>
-        <span class="metric-val" id="stat-shops-val">—</span>
-        <span class="metric-desc">Culinary nodes on network</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ CUMULATIVE ORDERS ]</span>
-        <span class="metric-val" id="stat-orders-val">—</span>
-        <span class="metric-desc">Dispatched scheduling tickets</span>
-      </div>
-      <div class="metric-cell">
-        <span class="metric-tag">[ GROSS PLATFORM GMV ]</span>
-        <span class="metric-val" id="stat-gmv-val" style="color: var(--accent-ember-hover);">₹0.00</span>
-        <span class="metric-desc">Total processed culinary value</span>
-      </div>
-    </div>
-
-    <!-- Kitchen Outlets Compliance Table -->
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
-        <div>
-          <div class="eyebrow">COMPLIANCE LEDGER</div>
-          <h2 class="headline-3">Kitchen Outlets & Verification</h2>
-        </div>
-        <div class="mono-meta" id="shops-count-meta">0 REGISTERED OUTLETS</div>
-      </div>
-
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>OUTLET ID</th>
-              <th>NAME</th>
-              <th>CITY / STATE</th>
-              <th>PHONE</th>
-              <th>CATEGORY</th>
-              <th>COMPLIANCE STATUS</th>
-              <th>ACTION</th>
-            </tr>
-          </thead>
-          <tbody id="admin-shops-body">
-            <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
-                [ CONNECTING TO ENTERPRISE REGISTRY... ]
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </main>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-    import { formatPrice } from '/js/app.js';
-
-    if (!auth.requireAdmin()) {
-      // Handled by guard
-    }
-
-    async function initAdmin() {
-      try {
-        loadStats();
-        loadAdminShops();
-      } catch (err) {
-        console.error('Admin init failure:', err);
-      }
-    }
-
-    async function loadStats() {
-      try {
-        const stats = await api.getAdminStats();
-        document.getElementById('stat-users-val').textContent = stats.total_users || 0;
-        document.getElementById('stat-shops-val').textContent = stats.total_shops || 0;
-        document.getElementById('stat-orders-val').textContent = stats.total_orders || 0;
-        document.getElementById('stat-gmv-val').textContent = formatPrice(stats.total_gmv || 0);
-      } catch (err) {
-        console.warn('Failed to load stats:', err);
-      }
-    }
-
-    async function loadAdminShops() {
-      const tbody = document.getElementById('admin-shops-body');
-      const countMeta = document.getElementById('shops-count-meta');
-
-      try {
-        const shops = await api.getAdminShops(1, 50);
-        if (countMeta) countMeta.textContent = `${shops.length} OUTLETS`;
-
-        if (shops.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
-                [ ∅ NO KITCHEN OUTLETS REGISTERED ]
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        tbody.innerHTML = shops.map(s => {
-          const isVerified = Boolean(s.is_verified);
-          return `
-            <tr>
-              <td class="mono-cell" style="font-size: 0.76rem; color: var(--text-secondary);">${s.id.slice(0, 8)}...</td>
-              <td style="font-weight: 700;">${s.name}</td>
-              <td>${s.city || '—'}, ${s.state || '—'}</td>
-              <td class="mono-cell">${s.phone}</td>
-              <td class="mono-cell" style="text-transform: uppercase;">${s.category || 'Gourmet'}</td>
-              <td>
-                <span class="telemetry-badge ${isVerified ? 'live' : 'waiting'}">
-                  ${isVerified ? 'VERIFIED' : 'PENDING REVIEW'}
-                </span>
-              </td>
-              <td>
-                <button class="btn ${isVerified ? 'btn-ghost' : 'btn-primary'} btn-sm toggle-verify-btn" data-id="${s.id}" data-verified="${isVerified}">
-                  ${isVerified ? 'REVOKE STATUS' : 'GRANT VERIFICATION'}
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        document.querySelectorAll('.toggle-verify-btn').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const id = e.currentTarget.dataset.id;
-            const current = e.currentTarget.dataset.verified === 'true';
-
-            try {
-              await api.verifyAdminShop(id, !current);
-              toast.success(`Outlet verification ${!current ? 'granted' : 'revoked'}`);
-              loadAdminShops();
-            } catch (err) {
-              toast.error(err.message || 'Verification update failed');
-            }
-          });
-        });
-      } catch (err) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; color: var(--status-danger); padding: 32px;">
-              Failed to load outlet registry.
-            </td>
-          </tr>
-        `;
-      }
-    }
-
-    initAdmin();
-  </script>
-</body>
-</html>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head"><div><h1 class="h1">Platform admin</h1><p class="muted">Usage totals and kitchen verification.</p></div></div>
+  <div class="stats"><div><b id="u">—</b><span>Accounts</span></div><div><b id="k">—</b><span>Kitchens</span></div><div><b id="o">—</b><span>Orders</span></div><div><b id="g">—</b><span>Order value</span></div></div>
+  <h2 class="h2" style="margin-bottom:6px">Kitchens</h2><p class="muted small" id="count" style="margin-bottom:16px"></p>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Kitchen</th><th>Location</th><th>Phone</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="body"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody></table></div>
+</div></main>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireAdmin()) throw 0;
+api.getAdminStats().then(s => { $('u').textContent = s.total_users || 0; $('k').textContent = s.total_shops || 0; $('o').textContent = s.total_orders || 0; $('g').textContent = formatPrice(s.total_gmv || 0); }).catch(() => toast.error('Totals could not be loaded'));
+async function shops() {
+  try {
+    const list = await api.getAdminShops(1, 50); $('count').textContent = `${list.length} kitchens`;
+    $('body').innerHTML = list.length ? list.map(s => { const v = !!s.is_verified; return `<tr>
+      <td><strong>${esc(s.name)}</strong><div class="hint num">${esc(s.id.slice(0, 8))}</div></td><td>${esc(s.city || '—')}, ${esc(s.state || '—')}</td><td class="num">${esc(s.phone)}</td><td>${esc(s.category || 'Gourmet')}</td>
+      <td><span class="status ${v ? 'open' : ''}">${v ? 'Verified' : 'Pending review'}</span></td>
+      <td><button class="btn ${v ? 'line' : 'accent'} sm" data-id="${esc(s.id)}" data-v="${v}">${v ? 'Revoke' : 'Verify'}</button></td></tr>`; }).join('')
+      : `<tr><td colspan="6" class="empty">No kitchens registered yet.</td></tr>`;
+  } catch { $('body').innerHTML = `<tr><td colspan="6" class="empty">Kitchens could not be loaded.</td></tr>`; }
+}
+$('body').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-id]'); if (!b) return; const now = b.dataset.v !== 'true';
+  try { await api.verifyAdminShop(b.dataset.id, now); toast.success(now ? 'Kitchen verified' : 'Verification revoked'); shops(); }
+  catch (err) { toast.error(err.message || 'Could not update verification'); }
+});
+shops();
+</script></body></html>

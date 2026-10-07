@@ -1,146 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Active Order Ticket Manifest — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your order — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <div style="margin-bottom: 32px;">
-      <div class="eyebrow">DISPATCH ASSEMBLY</div>
-      <h1 class="headline-1">Active Ticket Manifest</h1>
-      <p class="subheadline">Review selected dishes and variant configurations before proceeding to checkout and scheduling.</p>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: start;" id="cart-main-grid">
-      <!-- Items List -->
-      <div>
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 24px;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
-            <div class="headline-3" id="cart-page-shop">Target Kitchen: —</div>
-            <button class="btn btn-ghost btn-sm" id="clear-ticket-btn" style="color: var(--status-danger);">CLEAR TICKET</button>
-          </div>
-
-          <div id="cart-page-items" style="display: flex; flex-direction: column; gap: 14px;">
-            <!-- Cart items -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Ticket Totals & Dispatch -->
-      <aside style="border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 28px;">
-        <div class="eyebrow">ORDER SUMMARY</div>
-        <h2 class="headline-3" style="margin: 4px 0 20px;">Subtotal & Timing</h2>
-
-        <div style="display: flex; flex-direction: column; gap: 12px; font-family: var(--font-mono); font-size: 0.84rem;">
-          <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
-            <span>TOTAL ITEMS:</span>
-            <span id="cart-page-count" style="color: var(--text-primary); font-weight: 600;">0</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
-            <span>PEAK PREP DURATION:</span>
-            <span id="cart-page-prep" style="color: var(--accent-ember-hover); font-weight: 600;">0 MIN</span>
-          </div>
-          <div class="hairline-divider" style="margin: 8px 0;"></div>
-          <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
-            <span>SUBTOTAL:</span>
-            <span id="cart-page-subtotal" style="color: var(--accent-ember-hover);">₹0.00</span>
-          </div>
-        </div>
-
-        <div style="margin-top: 28px; display: flex; flex-direction: column; gap: 10px;">
-          <a href="/checkout.html" class="btn btn-primary btn-lg" id="cart-page-checkout-btn" style="width: 100%; text-align: center;">
-            PROCEED TO SETTLEMENT &rarr;
-          </a>
-          <a href="/index.html" class="btn btn-secondary btn-sm" style="width: 100%; text-align: center;">
-            &larr; EXPLORE MORE KITCHENS
-          </a>
-        </div>
-      </aside>
-    </div>
-  </main>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { cart } from '/js/cart.js';
-    import { formatPrice } from '/js/app.js';
-    import { toast } from '/js/toast.js';
-
-    function renderCartPage() {
-      const state = cart.getCart();
-      const shopTitle = document.getElementById('cart-page-shop');
-      const itemsContainer = document.getElementById('cart-page-items');
-      const countEl = document.getElementById('cart-page-count');
-      const prepEl = document.getElementById('cart-page-prep');
-      const subtotalEl = document.getElementById('cart-page-subtotal');
-      const checkoutBtn = document.getElementById('cart-page-checkout-btn');
-
-      if (state.items.length === 0) {
-        shopTitle.textContent = 'Target Kitchen: None';
-        itemsContainer.innerHTML = `
-          <div style="padding: 48px; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ ∅ TICKET IS CURRENTLY EMPTY ]
-          </div>
-        `;
-        countEl.textContent = '0';
-        prepEl.textContent = '0 MIN';
-        subtotalEl.textContent = '₹0.00';
-        checkoutBtn.classList.add('disabled');
-        return;
-      }
-
-      checkoutBtn.classList.remove('disabled');
-      shopTitle.textContent = `Target Kitchen: ${state.shopName || 'Partner Outpost'}`;
-      countEl.textContent = cart.getItemsCount();
-      prepEl.textContent = `${cart.getMaxPrepMinutes()} MIN`;
-      subtotalEl.textContent = formatPrice(cart.getSubtotal());
-
-      itemsContainer.innerHTML = state.items.map(item => `
-        <div style="border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); padding: 16px; border-radius: var(--radius-xs); display: flex; justify-content: space-between; align-items: center; gap: 16px;">
-          <div>
-            <div style="font-weight: 600; font-size: 0.92rem; color: var(--text-primary);">${item.name}</div>
-            ${item.variantName ? `<div class="mono-meta" style="color: var(--accent-ember); font-size: 0.72rem;">[ ${item.variantName} ]</div>` : ''}
-            <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-tertiary); margin-top: 2px;">
-              Unit: ${formatPrice(item.price)} &bull; Prep: ~${item.prepMinutes || 15}M
-            </div>
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 16px;">
-            <div class="qty-stepper">
-              <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, -1)">-</button>
-              <span class="qty-val">${item.quantity}</span>
-              <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, 1)">+</button>
-            </div>
-            <div class="mono-meta" style="font-weight: 700; min-width: 70px; text-align: right;">
-              ${formatPrice(item.price * item.quantity)}
-            </div>
-            <button class="btn btn-ghost btn-sm" onclick="window.cart.removeItem('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'})" style="color: var(--status-danger); padding: 4px 8px;">
-              &times;
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('clear-ticket-btn')?.addEventListener('click', () => {
-      if (cart.getItemsCount() === 0) return;
-      if (window.confirm('Clear all items from active order ticket?')) {
-        cart.clear();
-        toast.info('Order ticket cleared');
-      }
-    });
-
-    cart.subscribe(() => renderCartPage());
-    renderCartPage();
-  </script>
-</body>
-</html>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head"><div><h1 class="h1">Your order</h1><p class="muted" id="shop">Nothing selected yet.</p></div>
+    <button class="btn quiet" id="clear">Clear order</button></div>
+  <div class="split">
+    <ul class="rows" id="items"></ul>
+    <aside class="panel aside">
+      <h2 class="h2">Summary</h2>
+      <dl><div class="kv"><dt>Items</dt><dd class="num" id="n">0</dd></div>
+      <div class="kv"><dt>Longest cook time</dt><dd class="num" id="prep">0 min</dd></div>
+      <div class="kv total"><dt>Subtotal</dt><dd class="num" id="sub">₹0</dd></div></dl>
+      <a class="btn accent lg" id="go" href="/checkout.html" style="width:100%;margin-top:20px">Choose arrival &amp; pay</a>
+      <a class="btn quiet" href="/index.html" style="width:100%;margin-top:6px">Add from another kitchen</a>
+    </aside>
+  </div>
+</div></main>
+<div id="site-footer"></div>
+<script type="module">
+import { cart } from '/js/cart.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+$('items').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const { item, variant, act } = b.dataset, v = variant || null;
+  act === 'remove' ? cart.removeItem(item, v) : cart.updateQuantity(item, v, act === 'inc' ? 1 : -1);
+});
+$('clear').addEventListener('click', () => { if (cart.getItemsCount() && confirm('Remove everything from your order?')) { cart.clear(); toast.info('Order cleared'); } });
+cart.subscribe(s => {
+  const n = cart.getItemsCount();
+  $('shop').textContent = s.shopName ? `From ${s.shopName}` : 'Nothing selected yet.';
+  $('n').textContent = n; $('prep').textContent = `${cart.getMaxPrepMinutes()} min`; $('sub').textContent = formatPrice(cart.getSubtotal());
+  $('go').classList.toggle('disabled', !n);
+  $('items').innerHTML = n ? s.items.map(i => { const d = `data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}"`; return `
+    <li class="row" style="grid-template-columns:1fr auto auto auto;gap:20px">
+      <div><strong class="h3" style="font-family:var(--display)">${esc(i.name)}</strong>${i.variantName ? `<div class="small muted">${esc(i.variantName)}</div>` : ''}<div class="small faint">${formatPrice(i.price)} each · about ${i.prepMinutes || 15} min</div></div>
+      <div class="step"><button data-act="dec" ${d} aria-label="One less">−</button><span>${i.quantity}</span><button data-act="inc" ${d} aria-label="One more">+</button></div>
+      <strong class="num">${formatPrice(i.price * i.quantity)}</strong>
+      <button class="btn quiet sm" data-act="remove" ${d}>Remove</button></li>`; }).join('')
+    : `<li class="empty">Your order is empty. <a href="/index.html"><strong>Browse kitchens</strong></a></li>`;
+});
+</script></body></html>

@@ -11,18 +11,21 @@ export const auth = {
   saveTokens(tokens) {
     if (tokens.access_token) {
       localStorage.setItem(TOKEN_KEY, tokens.access_token);
+      localStorage.setItem('pof_access_token', tokens.access_token);
+      localStorage.setItem('auth_token', tokens.access_token);
     }
     if (tokens.refresh_token) {
       localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+      localStorage.setItem('pof_refresh_token', tokens.refresh_token);
     }
   },
 
   getToken() {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('pof_access_token') || localStorage.getItem('auth_token');
   },
 
   getRefreshToken() {
-    return localStorage.getItem(REFRESH_KEY);
+    return localStorage.getItem(REFRESH_KEY) || localStorage.getItem('pof_refresh_token');
   },
 
   setUser(user) {
@@ -60,6 +63,10 @@ export const auth = {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('pof_access_token');
+    localStorage.removeItem('pof_refresh_token');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
     window.location.href = '/login.html';
   },
 

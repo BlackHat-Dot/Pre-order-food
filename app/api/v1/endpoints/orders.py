@@ -799,6 +799,11 @@ async def customer_orders(
     "/shops/{shop_id}",
     response_model=list[OrderOut],
 )
+@router.get(
+    "/shop/{shop_id}",
+    response_model=list[OrderOut],
+    include_in_schema=False,
+)
 async def shop_orders(
     shop_id: str,
     db: Annotated[

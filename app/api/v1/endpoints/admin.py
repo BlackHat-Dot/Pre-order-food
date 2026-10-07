@@ -13,6 +13,7 @@ from fastapi import (
     HTTPException,
     Query,
 )
+from pydantic import BaseModel
 from sqlalchemy import (
     Integer,
     case,
@@ -301,10 +302,13 @@ async def count_shops(
     }
 
 
+class VerifyShopPayload(BaseModel):
+    verified: bool = True
+
+
 @router.patch("/shops/{shop_id}/verify")
 async def verify_shop(
     shop_id: str,
-    verified: bool,
     db: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -313,7 +317,10 @@ async def verify_shop(
         User,
         Depends(require_roles("admin")),
     ],
+    verified: bool | None = Query(None),
+    payload: VerifyShopPayload | None = None,
 ):
+    is_verified = verified if verified is not None else (payload.verified if payload else True)
     shop = await db.get(
         Shop,
         shop_id,
@@ -325,13 +332,13 @@ async def verify_shop(
             detail="Shop not found",
         )
 
-    shop.is_verified = verified
+    shop.is_verified = is_verified
 
     if shop.owner_id:
-        title = "Shop Verified" if verified else "Verification Removed"
+        title = "Shop Verified" if is_verified else "Verification Removed"
         message = (
             f"Your shop '{shop.name}' has been successfully verified by an administrator."
-            if verified
+            if is_verified
             else f"Verification for your shop '{shop.name}' has been removed by an administrator."
         )
         await create_notification(
@@ -592,6 +599,9 @@ async def admin_global_status_override(
 @router.get(
     "/analytics/overview"
 )
+@router.get(
+    "/stats"
+)
 async def analytics_overview(
     db: Annotated[
         AsyncSession,
@@ -798,14 +808,17 @@ async def analytics_overview(
 
     result = {
         "users": int(users),
+        "total_users": int(users),
         "active_users": int(
             active_users
         ),
         "shops": int(shops),
+        "total_shops": int(shops),
         "verified_shops": int(
             verified_shops
         ),
         "orders": int(orders),
+        "total_orders": int(orders),
         "today_orders": int(
             today_orders
         ),
@@ -816,6 +829,9 @@ async def analytics_overview(
             cancelled
         ),
         "total_revenue": float(
+            total_revenue
+        ),
+        "total_gmv": float(
             total_revenue
         ),
         "month_revenue": float(

@@ -1,832 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kitchen Control Desk — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
-  <style>
-    .order-ticket-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-medium);
-      border-radius: var(--radius-sm);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      position: relative;
-      transition: border-color var(--transition-fast);
-    }
-    .order-ticket-card:hover {
-      border-color: var(--border-strong);
-    }
-    .order-ticket-card.cancel-pending {
-      border-color: var(--status-danger);
-      background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-surface) 100%);
-    }
-    .switch-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      user-select: none;
-    }
-    .tab-btn {
-      padding: 8px 16px;
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      background: transparent;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-      border-radius: var(--radius-xs);
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: all var(--transition-fast);
-    }
-    .tab-btn:hover {
-      border-color: var(--border-medium);
-      color: var(--text-primary);
-    }
-    .tab-btn.active {
-      background: var(--accent-ember-soft);
-      border-color: var(--accent-ember-border);
-      color: var(--accent-ember-hover);
-      font-weight: 700;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kitchen desk — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 40px var(--container-padding) 80px;">
-    <!-- Top Control Bar -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border-medium);">
-      <div>
-        <div class="eyebrow">CHEF COMMAND MATRIX</div>
-        <h1 class="headline-1" id="desk-title">Kitchen Control Desk</h1>
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 6px;">
-          <select id="shop-selector" class="select-input" style="width: 260px; padding: 6px 12px; font-size: 0.85rem;">
-            <option value="">Locating your kitchens...</option>
-          </select>
-          <button class="btn btn-secondary btn-sm" id="create-shop-btn">+ NEW OUTLET</button>
-        </div>
-      </div>
-
-      <!-- Telemetry Status Toggles -->
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
-        <div style="display: flex; gap: 16px; background: var(--bg-surface); border: 1px solid var(--border-medium); padding: 10px 16px; border-radius: var(--radius-xs);">
-          <label class="switch-label">
-            <input type="checkbox" id="toggle-is-open">
-            <span id="label-is-open" style="color: var(--text-secondary);">KITCHEN CLOSED</span>
-          </label>
-          <div style="width: 1px; height: 18px; background: var(--border-medium);"></div>
-          <label class="switch-label">
-            <input type="checkbox" id="toggle-accepting-orders">
-            <span id="label-accepting" style="color: var(--text-secondary);">ORDERS PAUSED</span>
-          </label>
-        </div>
-        <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-tertiary);">
-          POLLING FEED ACTIVE &bull; REFRESH: 6S
-        </div>
-      </div>
-    </div>
-
-    <!-- Navigation Tabs: Order Board vs Menu Studio -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-      <div style="display: flex; gap: 8px;">
-        <button class="tab-btn active" id="tab-orders">LIVE TICKET BOARD (<span id="active-orders-count">0</span>)</button>
-        <button class="tab-btn" id="tab-menu">MENU STUDIO</button>
-      </div>
-
-      <div id="orders-filter-container" style="display: flex; gap: 6px;">
-        <button class="category-capsule active" data-status="">ALL</button>
-        <button class="category-capsule" data-status="pending">PENDING</button>
-        <button class="category-capsule" data-status="accepted">ACCEPTED</button>
-        <button class="category-capsule" data-status="preparing">PREPARING</button>
-        <button class="category-capsule" data-status="ready">READY</button>
-        <button class="category-capsule" data-status="completed">COMPLETED</button>
-      </div>
-
-      <div id="menu-actions-container" style="display: none;">
-        <button class="btn btn-primary btn-sm" id="open-add-dish-btn">+ ADD CULINARY DISH</button>
-      </div>
-    </div>
-
-    <!-- View 1: Orders Board -->
-    <div id="view-orders-board">
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 24px;" id="order-tickets-grid">
-        <div style="grid-column: 1 / -1; padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-          [ SYNCHRONIZING KITCHEN TICKETS... ]
-        </div>
-      </div>
-    </div>
-
-    <!-- View 2: Menu Studio -->
-    <div id="view-menu-studio" style="display: none;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px;" id="menu-studio-grid">
-        <!-- Dish items populated dynamically -->
-      </div>
-    </div>
-  </main>
-
-  <!-- Add Dish Modal -->
-  <div class="modal-backdrop" id="dish-modal-backdrop">
-    <div class="modal-sheet" id="dish-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">MENU STUDIO</div>
-          <h3 class="headline-3">Create Menu Item</h3>
-        </div>
-        <button class="drawer-close" id="close-dish-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">DISH TITLE</label>
-          <input type="text" id="dish-name-input" class="input-text" placeholder="e.g. Sourdough Truffle Tartine">
-        </div>
-        <div class="form-group">
-          <label class="form-label">GASTRONOMIC DESCRIPTION</label>
-          <textarea id="dish-desc-input" class="textarea-input" placeholder="Ingredients, preparation technique, flavor profile..."></textarea>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">BASE PRICE (₹)</label>
-            <input type="number" id="dish-price-input" class="input-text" step="0.5" placeholder="e.g. 280">
-          </div>
-          <div class="form-group">
-            <label class="form-label">PREPARATION (MIN)</label>
-            <input type="number" id="dish-prep-input" class="input-text" value="15" min="1" max="180">
-          </div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">CATEGORY</label>
-            <input type="text" id="dish-category-input" class="input-text" placeholder="e.g. Mains, Bakery, Beverages">
-          </div>
-          <div class="form-group">
-            <label class="form-label">DIETARY PROFILE</label>
-            <select id="dish-diet-select" class="select-input">
-              <option value="veg">VEGETARIAN</option>
-              <option value="non_veg">NON-VEGETARIAN</option>
-              <option value="vegan">STRICT VEGAN</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-dish-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-dish-btn">SAVE DISH</button>
-      </div>
-    </div>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head">
+    <div><h1 class="h1" id="title">Kitchen desk</h1>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><select class="input" id="shops" style="width:260px" aria-label="Kitchen"></select><button class="btn line" id="new-shop">Add kitchen</button></div></div>
+    <div class="panel" style="padding:14px 20px;display:flex;gap:24px;flex-wrap:wrap">
+      <label class="sw"><input type="checkbox" id="is-open"><span id="l-open">Closed</span></label>
+      <label class="sw"><input type="checkbox" id="is-acc"><span id="l-acc">Orders paused</span></label></div>
   </div>
-
-  <!-- Add Variant Modal -->
-  <div class="modal-backdrop" id="variant-modal-backdrop">
-    <div class="modal-sheet" id="variant-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">VARIANT CREATION</div>
-          <h3 class="headline-3" id="variant-parent-title">Add Dish Variant</h3>
-        </div>
-        <button class="drawer-close" id="close-var-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">VARIANT SPECIFICATION</label>
-          <input type="text" id="var-name-input" class="input-text" placeholder="e.g. Large / Extra Truffle / Oat Milk">
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">VARIANT PRICE (₹)</label>
-            <input type="number" id="var-price-input" class="input-text" step="0.5" placeholder="e.g. 340">
-          </div>
-          <div class="form-group">
-            <label class="form-label">PREPARATION (MIN)</label>
-            <input type="number" id="var-prep-input" class="input-text" value="15" min="1" max="180">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-var-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-var-btn">ATTACH VARIANT</button>
-      </div>
-    </div>
+  <div class="toolbar">
+    <div class="tabs" id="tabs" role="tablist" style="border:0"><button role="tab" aria-selected="true" data-t="orders">Orders (<span id="active-n">0</span>)</button><button role="tab" aria-selected="false" data-t="menu">Menu</button></div>
+    <div class="tabs" id="filters" style="border:0"><button aria-selected="true" data-s="">All</button><button aria-selected="false" data-s="pending">New</button><button aria-selected="false" data-s="accepted">Accepted</button><button aria-selected="false" data-s="preparing">Cooking</button><button aria-selected="false" data-s="ready">Ready</button><button aria-selected="false" data-s="completed">Done</button></div>
+    <button class="btn accent" id="add-dish" hidden>Add dish</button>
   </div>
-
-  <!-- Create Shop Modal -->
-  <div class="modal-backdrop" id="shop-modal-backdrop">
-    <div class="modal-sheet" id="shop-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">ONBOARDING</div>
-          <h3 class="headline-3">Register New Kitchen Outpost</h3>
-        </div>
-        <button class="drawer-close" id="close-shop-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">OUTLET NAME</label>
-          <input type="text" id="new-shop-name" class="input-text" placeholder="e.g. Atelier Botanique">
-        </div>
-        <div class="form-group">
-          <label class="form-label">DIRECT OUTLET PHONE</label>
-          <input type="tel" id="new-shop-phone" class="input-text" placeholder="+919876543210">
-        </div>
-        <div class="form-group">
-          <label class="form-label">DESCRIPTION</label>
-          <textarea id="new-shop-desc" class="textarea-input" placeholder="Culinary philosophy, specialties..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">ADDRESS LINE</label>
-          <input type="text" id="new-shop-addr" class="input-text" placeholder="12 Craft Lane, Arts District">
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-          <div class="form-group">
-            <label class="form-label">CITY</label>
-            <input type="text" id="new-shop-city" class="input-text" placeholder="Bangalore">
-          </div>
-          <div class="form-group">
-            <label class="form-label">STATE</label>
-            <input type="text" id="new-shop-state" class="input-text" placeholder="Karnataka">
-          </div>
-          <div class="form-group">
-            <label class="form-label">PINCODE</label>
-            <input type="text" id="new-shop-pincode" class="input-text" placeholder="560001">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">CATEGORY</label>
-          <input type="text" id="new-shop-cat" class="input-text" placeholder="Cafe, Bakery, Gourmet">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-shop-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-shop-btn">REGISTER KITCHEN</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
-
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { toast } from '/js/toast.js';
-    import { formatPrice, formatDate } from '/js/app.js';
-
-    if (!auth.requireOwner()) {
-      // Stopped by guard
-    }
-
-    let myShops = [];
-    let selectedShop = null;
-    let shopOrders = [];
-    let shopMenu = [];
-    let activeStatusFilter = '';
-    let currentTab = 'orders';
-    let pollInterval = null;
-    let targetDishForVariant = null;
-
-    async function initDesk() {
-      try {
-        myShops = await api.getMyShops();
-        const selector = document.getElementById('shop-selector');
-
-        if (myShops.length === 0) {
-          selector.innerHTML = '<option value="">No outlets registered</option>';
-          document.getElementById('desk-title').textContent = 'No Outlets Found';
-          toast.info('Please create a kitchen outpost to begin.');
-          document.getElementById('shop-modal-backdrop').classList.add('active');
-          return;
-        }
-
-        selector.innerHTML = myShops.map(s => `
-          <option value="${s.id}">${s.name} (${s.city})</option>
-        `).join('');
-
-        selectedShop = myShops[0];
-        updateShopStatusControls();
-
-        selector.addEventListener('change', async (e) => {
-          selectedShop = myShops.find(s => s.id === e.target.value);
-          updateShopStatusControls();
-          loadDeskData();
-        });
-
-        loadDeskData();
-        startPolling();
-      } catch (err) {
-        console.error('Failed to init desk:', err);
-        toast.error('Failed to load owner kitchens');
-      }
-    }
-
-    function updateShopStatusControls() {
-      if (!selectedShop) return;
-
-      const openToggle = document.getElementById('toggle-is-open');
-      const openLabel = document.getElementById('label-is-open');
-      const acceptToggle = document.getElementById('toggle-accepting-orders');
-      const acceptLabel = document.getElementById('label-accepting');
-
-      openToggle.checked = Boolean(selectedShop.is_open);
-      openLabel.textContent = selectedShop.is_open ? 'KITCHEN OPEN' : 'KITCHEN CLOSED';
-      openLabel.style.color = selectedShop.is_open ? 'var(--status-open)' : 'var(--text-secondary)';
-
-      acceptToggle.checked = Boolean(selectedShop.is_accepting_orders);
-      acceptLabel.textContent = selectedShop.is_accepting_orders ? 'ACCEPTING ORDERS' : 'ORDERS PAUSED';
-      acceptLabel.style.color = selectedShop.is_accepting_orders ? 'var(--status-open)' : 'var(--text-secondary)';
-    }
-
-    // Toggle handlers
-    document.getElementById('toggle-is-open')?.addEventListener('change', async (e) => {
-      if (!selectedShop) return;
-      try {
-        const updated = await api.updateShopStatus(selectedShop.id, {
-          is_open: e.target.checked,
-          is_accepting_orders: selectedShop.is_accepting_orders
-        });
-        selectedShop.is_open = updated.is_open;
-        updateShopStatusControls();
-        toast.success(`Kitchen status updated: ${updated.is_open ? 'OPEN' : 'CLOSED'}`);
-      } catch (err) {
-        e.target.checked = !e.target.checked;
-        toast.error(err.message || 'Failed to update kitchen status');
-      }
-    });
-
-    document.getElementById('toggle-accepting-orders')?.addEventListener('change', async (e) => {
-      if (!selectedShop) return;
-      try {
-        const updated = await api.updateShopStatus(selectedShop.id, {
-          is_open: selectedShop.is_open,
-          is_accepting_orders: e.target.checked
-        });
-        selectedShop.is_accepting_orders = updated.is_accepting_orders;
-        updateShopStatusControls();
-        toast.success(`Order intake updated: ${updated.is_accepting_orders ? 'ACTIVE' : 'PAUSED'}`);
-      } catch (err) {
-        e.target.checked = !e.target.checked;
-        toast.error(err.message || 'Failed to update order acceptance');
-      }
-    });
-
-    async function loadDeskData() {
-      if (!selectedShop) return;
-
-      if (currentTab === 'orders') {
-        try {
-          shopOrders = await api.getShopOrders(selectedShop.id, { page: 1, page_size: 50 });
-          renderOrdersBoard();
-        } catch (err) {
-          console.error('Failed to load shop orders:', err);
-        }
-      } else {
-        try {
-          shopMenu = await api.getMenuItems(selectedShop.id);
-          renderMenuStudio();
-        } catch (err) {
-          console.error('Failed to load menu items:', err);
-        }
-      }
-    }
-
-    function renderOrdersBoard() {
-      const container = document.getElementById('order-tickets-grid');
-      const countEl = document.getElementById('active-orders-count');
-
-      const activeList = shopOrders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status));
-      if (countEl) countEl.textContent = activeList.length;
-
-      const filtered = shopOrders.filter(o => {
-        if (!activeStatusFilter) return true;
-        return o.status === activeStatusFilter;
-      });
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ ∅ NO TICKETS IN QUEUE FOR THIS FILTER ]
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = filtered.map(order => {
-        const isCancelReq = order.status === 'cancel_requested' || order.is_cancellation_pending;
-        const orderNum = order.order_number ? `#${order.order_number}` : `#${order.id.slice(0, 8).toUpperCase()}`;
-
-        return `
-          <div class="order-ticket-card ${isCancelReq ? 'cancel-pending' : ''}">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <span class="mono-meta" style="color: var(--text-tertiary);">TICKET</span>
-                <div class="headline-3" style="color: var(--accent-ember-hover);">${orderNum}</div>
-                <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-secondary);">
-                  ${formatDate(order.created_at)} &bull; ${order.order_type === 'delivery' ? 'COURIER' : 'COUNTER'}
-                </div>
-              </div>
-              <span class="telemetry-badge ${order.status === 'completed' ? 'live' : order.status === 'cancelled' ? 'closed' : 'waiting'}">
-                ${order.status.toUpperCase()}
-              </span>
-            </div>
-
-            <!-- Customer Details -->
-            <div style="background: var(--bg-surface-elevated); padding: 10px 14px; border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: 0.76rem;">
-              <div><strong style="color:var(--text-tertiary);">CUSTOMER:</strong> ${order.customer ? (order.customer.name || 'Diner') : 'Diner'} (${order.customer ? (order.customer.phone || '') : ''})</div>
-              ${order.delivery_address_id ? `<div style="margin-top:2px;"><strong style="color:var(--text-tertiary);">DISPATCH DESTINATION:</strong> ${order.delivery_address_id}</div>` : ''}
-            </div>
-
-            <!-- Chef Instructions Alert -->
-            ${order.instructions ? `
-              <div style="background: var(--accent-ember-soft); border: 1px solid var(--accent-ember-border); padding: 8px 12px; border-radius: var(--radius-xs); font-size: 0.8rem; color: var(--accent-ember-hover);">
-                <strong>CHEF NOTE:</strong> ${order.instructions}
-              </div>
-            ` : ''}
-
-            <!-- Items Manifest -->
-            <div style="display: flex; flex-direction: column; gap: 6px; padding: 6px 0;">
-              ${(order.items || []).map(i => {
-                const name = i.item_name_snapshot || i.item_name || 'Dish';
-                const variant = i.variant_name_snapshot || i.variant_name || null;
-                const lineTotal = i.total_price || (i.unit_price * i.quantity);
-                return `
-                <div style="display: flex; justify-content: space-between; font-size: 0.84rem;">
-                  <span><strong>${i.quantity} &times;</strong> ${name} ${variant ? `<span class="mono-meta" style="color:var(--accent-ember);">[${variant}]</span>` : ''}</span>
-                  <span class="mono-meta">${formatPrice(lineTotal)}</span>
-                </div>
-              `;
-              }).join('')}
-            </div>
-
-            <div class="hairline-divider"></div>
-
-            <div style="display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono);">
-              <span class="mono-meta">SETTLEMENT (${order.payment_method || 'COD'}):</span>
-              <strong style="font-size: 1rem; color: var(--text-primary);">${formatPrice(order.total_price || order.total_amount)}</strong>
-            </div>
-
-            <!-- Cancellation Banner & Actions -->
-            ${isCancelReq ? `
-              <div style="background: var(--status-danger-bg); border: 1px solid var(--status-danger-border); padding: 10px 12px; border-radius: var(--radius-xs);">
-                <div class="mono-meta" style="color: var(--status-danger); font-weight: 700;">CUSTOMER REQUESTS CANCELLATION</div>
-                <p style="font-size: 0.78rem; margin: 4px 0 8px;">${order.cancellation_reason || 'No cancellation reason provided.'}</p>
-                <div style="display: flex; gap: 8px;">
-                  <button class="btn btn-danger btn-sm cancel-approve-btn" data-id="${order.id}">APPROVE CANCELLATION</button>
-                  <button class="btn btn-secondary btn-sm cancel-resume-btn" data-id="${order.id}">RESUME PREP</button>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- State Transition Control Buttons -->
-            ${!isCancelReq && order.status !== 'completed' && order.status !== 'cancelled' ? `
-              <div style="display: flex; gap: 8px; margin-top: auto;">
-                ${order.status === 'pending' ? `
-                  <button class="btn btn-primary btn-sm status-trans-btn" data-id="${order.id}" data-to="accepted" style="flex:1;">ACCEPT TICKET</button>
-                  <button class="btn btn-danger btn-sm status-trans-btn" data-id="${order.id}" data-to="cancelled">DECLINE</button>
-                ` : order.status === 'accepted' ? `
-                  <button class="btn btn-primary btn-sm status-trans-btn" data-id="${order.id}" data-to="preparing" style="flex:1;">START PREP &rarr;</button>
-                ` : order.status === 'preparing' ? `
-                  <button class="btn btn-primary btn-sm status-trans-btn" data-id="${order.id}" data-to="ready" style="flex:1;">MARK READY &check;</button>
-                ` : order.status === 'ready' ? `
-                  ${order.payment_status !== 'paid' ? `
-                    <button class="btn btn-secondary btn-sm status-trans-btn" data-id="${order.id}" data-to="mark_as_paid">COLLECT CASH &check;</button>
-                  ` : ''}
-                  <button class="btn btn-primary btn-sm status-trans-btn" data-id="${order.id}" data-to="completed" style="flex:1;">COMPLETE & DISPATCH &check;</button>
-                ` : ''}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }).join('');
-
-      bindOrderActionButtons();
-    }
-
-    function bindOrderActionButtons() {
-      // Status Transition Buttons
-      document.querySelectorAll('.status-trans-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          const toStatus = e.currentTarget.dataset.to;
-
-          try {
-            if (toStatus === 'completed') {
-              // If completing and payment is pending, mark as paid first
-              try {
-                await api.updateOrderStatus(id, { status: 'mark_as_paid' });
-              } catch (e) {
-                // Ignore if already paid
-              }
-            }
-            await api.updateOrderStatus(id, { status: toStatus });
-            toast.success(`Order advanced to [ ${toStatus.toUpperCase()} ]`);
-            loadDeskData();
-          } catch (err) {
-            toast.error(err.message || 'Status transition failed');
-          }
-        });
-      });
-
-      // Cancellation Approve / Resume
-      document.querySelectorAll('.cancel-approve-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          try {
-            await api.updateOrderStatus(id, { status: 'cancelled', reason: 'Owner approved diner cancellation' });
-            toast.success('Order cancelled and voided');
-            loadDeskData();
-          } catch (err) {
-            toast.error(err.message || 'Failed to approve cancellation');
-          }
-        });
-      });
-
-      document.querySelectorAll('.cancel-resume-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          try {
-            await api.updateOrderStatus(id, { status: 'resume_order' });
-            toast.success('Cancellation rejected; order resumed');
-            loadDeskData();
-          } catch (err) {
-            toast.error(err.message || 'Failed to resume order');
-          }
-        });
-      });
-    }
-
-    // ── Menu Studio ──
-    function renderMenuStudio() {
-      const container = document.getElementById('menu-studio-grid');
-
-      if (shopMenu.length === 0) {
-        container.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
-            [ ∅ NO DISHES CURRENTLY CONFIGURED IN MENU STUDIO ]
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = shopMenu.map(dish => {
-        const isAvail = dish.is_available !== false;
-        const variants = dish.variants || [];
-
-        return `
-          <div class="dish-card">
-            <div class="dish-card-header">
-              <div class="dish-title-wrap">
-                <div style="display: flex; gap: 6px;">
-                  <span class="dietary-tag ${dish.dietary_type || 'veg'}">${dish.dietary_type || 'veg'}</span>
-                  <span class="telemetry-badge ${isAvail ? 'live' : 'closed'}">
-                    ${isAvail ? 'IN STOCK' : 'SOLD OUT'}
-                  </span>
-                </div>
-                <h3 class="dish-title">${dish.name}</h3>
-              </div>
-              <div class="dish-price">${formatPrice(dish.price)}</div>
-            </div>
-
-            <p class="dish-desc">${dish.description || 'No description provided.'}</p>
-
-            <!-- Variants List -->
-            <div style="margin: 6px 0;">
-              <div class="mono-meta" style="color: var(--text-tertiary); margin-bottom: 4px;">VARIANTS (${variants.length}):</div>
-              ${variants.map(v => `
-                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.75rem; color:var(--text-secondary); border-bottom:1px dashed var(--border-subtle); padding:2px 0;">
-                  <span>${v.name}</span>
-                  <span style="color:var(--accent-ember-hover);">${formatPrice(v.price)}</span>
-                </div>
-              `).join('')}
-            </div>
-
-            <div class="dish-footer" style="flex-wrap: wrap; gap: 8px;">
-              <button class="btn btn-secondary btn-sm toggle-stock-btn" data-id="${dish.id}" data-avail="${isAvail}">
-                ${isAvail ? 'MARK SOLD OUT' : 'MARK IN STOCK'}
-              </button>
-              <button class="btn btn-ghost btn-sm add-variant-btn" data-id="${dish.id}" data-name="${dish.name}">
-                + VARIANT
-              </button>
-              <button class="btn btn-danger btn-sm delete-dish-btn" data-id="${dish.id}">
-                DELETE
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      bindMenuStudioButtons();
-    }
-
-    function bindMenuStudioButtons() {
-      // Toggle In Stock / Sold Out
-      document.querySelectorAll('.toggle-stock-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          const currentAvail = e.currentTarget.dataset.avail === 'true';
-
-          try {
-            await api.updateMenuItem(id, { is_available: !currentAvail });
-            toast.success(`Dish marked as ${!currentAvail ? 'IN STOCK' : 'SOLD OUT'}`);
-            loadDeskData();
-          } catch (err) {
-            toast.error(err.message || 'Failed to update stock status');
-          }
-        });
-      });
-
-      // Add Variant
-      document.querySelectorAll('.add-variant-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const id = e.currentTarget.dataset.id;
-          const name = e.currentTarget.dataset.name;
-          targetDishForVariant = id;
-
-          document.getElementById('variant-parent-title').textContent = `Add Variant for "${name}"`;
-          document.getElementById('variant-modal-backdrop').classList.add('active');
-        });
-      });
-
-      // Delete Dish
-      document.querySelectorAll('.delete-dish-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.dataset.id;
-          if (!window.confirm('Confirm deletion of this culinary dish?')) return;
-
-          try {
-            await api.deleteMenuItem(id);
-            toast.success('Dish removed from menu catalog');
-            loadDeskData();
-          } catch (err) {
-            toast.error(err.message || 'Failed to delete dish');
-          }
-        });
-      });
-    }
-
-    // Tab Switching
-    document.getElementById('tab-orders')?.addEventListener('click', () => {
-      currentTab = 'orders';
-      document.getElementById('tab-orders').classList.add('active');
-      document.getElementById('tab-menu').classList.remove('active');
-      document.getElementById('view-orders-board').style.display = 'block';
-      document.getElementById('view-menu-studio').style.display = 'none';
-      document.getElementById('orders-filter-container').style.display = 'flex';
-      document.getElementById('menu-actions-container').style.display = 'none';
-      loadDeskData();
-    });
-
-    document.getElementById('tab-menu')?.addEventListener('click', () => {
-      currentTab = 'menu';
-      document.getElementById('tab-menu').classList.add('active');
-      document.getElementById('tab-orders').classList.remove('active');
-      document.getElementById('view-orders-board').style.display = 'none';
-      document.getElementById('view-menu-studio').style.display = 'block';
-      document.getElementById('orders-filter-container').style.display = 'none';
-      document.getElementById('menu-actions-container').style.display = 'block';
-      loadDeskData();
-    });
-
-    // Orders Filter Capsules
-    document.getElementById('orders-filter-container')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('.category-capsule');
-      if (!btn) return;
-      document.querySelectorAll('#orders-filter-container .category-capsule').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeStatusFilter = btn.dataset.status;
-      renderOrdersBoard();
-    });
-
-    // Add Dish Modal
-    const dishBackdrop = document.getElementById('dish-modal-backdrop');
-    document.getElementById('open-add-dish-btn')?.addEventListener('click', () => dishBackdrop.classList.add('active'));
-    const closeDishModal = () => dishBackdrop.classList.remove('active');
-    document.getElementById('close-dish-modal')?.addEventListener('click', closeDishModal);
-    document.getElementById('cancel-dish-btn')?.addEventListener('click', closeDishModal);
-
-    document.getElementById('save-dish-btn')?.addEventListener('click', async () => {
-      if (!selectedShop) return;
-      const name = document.getElementById('dish-name-input').value.trim();
-      const description = document.getElementById('dish-desc-input').value.trim();
-      const price = Number(document.getElementById('dish-price-input').value);
-      const prep_time_minutes = Number(document.getElementById('dish-prep-input').value);
-      const category = document.getElementById('dish-category-input').value.trim();
-      const dietary_type = document.getElementById('dish-diet-select').value;
-
-      if (!name || price <= 0) {
-        toast.error('Dish title and positive price required');
-        return;
-      }
-
-      try {
-        await api.createMenuItem(selectedShop.id, {
-          name,
-          description: description || null,
-          price,
-          prep_time_minutes,
-          category: category || null,
-          dietary_type
-        });
-        toast.success(`Dish "${name}" added to catalog`);
-        closeDishModal();
-        loadDeskData();
-      } catch (err) {
-        toast.error(err.message || 'Failed to create dish');
-      }
-    });
-
-    // Add Variant Modal
-    const varBackdrop = document.getElementById('variant-modal-backdrop');
-    const closeVarModal = () => {
-      varBackdrop.classList.remove('active');
-      targetDishForVariant = null;
-    };
-    document.getElementById('close-var-modal')?.addEventListener('click', closeVarModal);
-    document.getElementById('cancel-var-btn')?.addEventListener('click', closeVarModal);
-
-    document.getElementById('save-var-btn')?.addEventListener('click', async () => {
-      if (!targetDishForVariant) return;
-      const name = document.getElementById('var-name-input').value.trim();
-      const price = Number(document.getElementById('var-price-input').value);
-      const prep_time_minutes = Number(document.getElementById('var-prep-input').value);
-
-      if (!name || price <= 0) {
-        toast.error('Variant title and positive price required');
-        return;
-      }
-
-      try {
-        await api.createVariant(targetDishForVariant, {
-          name,
-          price,
-          prep_time_minutes
-        });
-        toast.success(`Variant "${name}" attached`);
-        closeVarModal();
-        loadDeskData();
-      } catch (err) {
-        toast.error(err.message || 'Failed to attach variant');
-      }
-    });
-
-    // Create Shop Modal
-    const shopBackdrop = document.getElementById('shop-modal-backdrop');
-    document.getElementById('create-shop-btn')?.addEventListener('click', () => shopBackdrop.classList.add('active'));
-    const closeShopModal = () => shopBackdrop.classList.remove('active');
-    document.getElementById('close-shop-modal')?.addEventListener('click', closeShopModal);
-    document.getElementById('cancel-shop-btn')?.addEventListener('click', closeShopModal);
-
-    document.getElementById('save-shop-btn')?.addEventListener('click', async () => {
-      const name = document.getElementById('new-shop-name').value.trim();
-      const phone = document.getElementById('new-shop-phone').value.trim();
-      const description = document.getElementById('new-shop-desc').value.trim();
-      const address_line = document.getElementById('new-shop-addr').value.trim();
-      const city = document.getElementById('new-shop-city').value.trim();
-      const state = document.getElementById('new-shop-state').value.trim();
-      const pincode = document.getElementById('new-shop-pincode').value.trim();
-      const category = document.getElementById('new-shop-cat').value.trim();
-
-      if (!name || !phone || !address_line || !city || !pincode) {
-        toast.error('Please complete all mandatory outlet fields');
-        return;
-      }
-
-      try {
-        const created = await api.createShop({
-          name,
-          phone,
-          description: description || null,
-          address_line,
-          city,
-          state: state || city,
-          pincode,
-          category: category || 'Gourmet'
-        });
-        toast.success(`Kitchen "${created.name}" onboarded`);
-        closeShopModal();
-        initDesk();
-      } catch (err) {
-        toast.error(err.message || 'Failed to register kitchen outlet');
-      }
-    });
-
-    function startPolling() {
-      if (pollInterval) clearInterval(pollInterval);
-      pollInterval = setInterval(() => {
-        if (currentTab === 'orders' && selectedShop) {
-          loadDeskData();
-        }
-      }, 6000);
-    }
-
-    initDesk();
-  </script>
-</body>
-</html>
+  <p class="hint" style="margin:-12px 0 20px" id="live">Orders refresh every 6 seconds.</p>
+  <div class="board" id="board"></div>
+  <div class="board" id="menu" hidden></div>
+</div></main>
+
+<dialog id="dd"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">New dish</h2>
+  <div class="field"><label for="d-n">Name</label><input class="input" id="d-n"></div>
+  <div class="field"><label for="d-d">Description</label><textarea class="input" id="d-d"></textarea></div>
+  <div class="grid2"><div class="field"><label for="d-p">Price (₹)</label><input class="input" id="d-p" type="number" step="0.5"></div><div class="field"><label for="d-t">Cook time (min)</label><input class="input" id="d-t" type="number" value="15" min="1" max="180"></div></div>
+  <div class="grid2"><div class="field"><label for="d-c">Category</label><input class="input" id="d-c" placeholder="Mains, Bakery…"></div><div class="field"><label for="d-v">Diet</label><select class="input" id="d-v"><option value="veg">Vegetarian</option><option value="non_veg">Non-vegetarian</option><option value="vegan">Vegan</option></select></div></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="d-save" value="s">Save dish</button></div></form></dialog>
+<dialog id="vd"><form method="dialog"><h2 class="h2" id="v-h" style="margin-bottom:18px">Add option</h2>
+  <div class="field"><label for="v-n">Option name</label><input class="input" id="v-n" placeholder="Large, Extra cheese…"></div>
+  <div class="grid2"><div class="field"><label for="v-p">Price (₹)</label><input class="input" id="v-p" type="number" step="0.5"></div><div class="field"><label for="v-t">Cook time (min)</label><input class="input" id="v-t" type="number" value="15" min="1" max="180"></div></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="v-save" value="s">Add option</button></div></form></dialog>
+<dialog id="sd"><form method="dialog"><h2 class="h2" style="margin-bottom:18px">Add a kitchen</h2>
+  <div class="field"><label for="s-n">Name</label><input class="input" id="s-n"></div>
+  <div class="field"><label for="s-ph">Phone</label><input class="input" id="s-ph" type="tel" placeholder="+919876543210"></div>
+  <div class="field"><label for="s-d">Description</label><textarea class="input" id="s-d"></textarea></div>
+  <div class="field"><label for="s-a">Address</label><input class="input" id="s-a"></div>
+  <div class="grid3"><div class="field"><label for="s-c">City</label><input class="input" id="s-c"></div><div class="field"><label for="s-s">State</label><input class="input" id="s-s"></div><div class="field"><label for="s-z">Pincode</label><input class="input" id="s-z"></div></div>
+  <div class="field"><label for="s-k">Category</label><input class="input" id="s-k" placeholder="Cafe, Bakery, Fast Food…"></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="s-save" value="s">Add kitchen</button></div></form></dialog>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice, formatDate } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireOwner()) throw 0;
+let shops = [], shop = null, orders = [], menu = [], tab = 'orders', filt = '', dishFor = null, timer;
+const NEXT = { pending: ['accepted', 'Accept order'], accepted: ['preparing', 'Start cooking'], preparing: ['ready', 'Mark ready'], ready: ['completed', 'Hand over'] };
+const LABEL = { pending: 'New', accepted: 'Accepted', preparing: 'Cooking', ready: 'Ready', completed: 'Done', cancelled: 'Cancelled', cancel_requested: 'Cancel requested' };
+
+async function init() {
+  try {
+    shops = await api.getMyShops();
+    if (!shops.length) { $('shops').innerHTML = '<option>No kitchens yet</option>'; $('title').textContent = 'Add your first kitchen'; $('sd').showModal(); return; }
+    $('shops').innerHTML = shops.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.city)})</option>`).join('');
+    shop = shops[0]; switches(); load();
+    clearInterval(timer); timer = setInterval(() => tab === 'orders' && shop && load(), 6000);
+  } catch { toast.error('Your kitchens could not be loaded'); }
+}
+$('shops').addEventListener('change', e => { shop = shops.find(s => s.id === e.target.value); switches(); load(); });
+function switches() {
+  $('is-open').checked = !!shop.is_open; $('l-open').textContent = shop.is_open ? 'Open' : 'Closed';
+  $('is-acc').checked = !!shop.is_accepting_orders; $('l-acc').textContent = shop.is_accepting_orders ? 'Taking orders' : 'Orders paused';
+}
+async function setStatus(open, acc, input, key) {
+  try { const u = await api.updateShopStatus(shop.id, { is_open: open, is_accepting_orders: acc }); shop.is_open = u.is_open; shop.is_accepting_orders = u.is_accepting_orders; switches(); toast.success(key ? (u[key] ? 'Now on' : 'Now off') : 'Updated'); }
+  catch (e) { input.checked = !input.checked; toast.error(e.message || 'Could not update status'); }
+}
+$('is-open').addEventListener('change', e => shop && setStatus(e.target.checked, shop.is_accepting_orders, e.target, 'is_open'));
+$('is-acc').addEventListener('change', e => shop && setStatus(shop.is_open, e.target.checked, e.target, 'is_accepting_orders'));
+
+async function load() {
+  if (!shop) return;
+  try { if (tab === 'orders') { orders = await api.getShopOrders(shop.id, { page: 1, page_size: 50 }); board(); } else { menu = await api.getMenuItems(shop.id); dishes(); } }
+  catch { toast.error('Could not refresh'); }
+}
+function board() {
+  $('active-n').textContent = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
+  const rows = orders.filter(o => !filt || o.status === filt);
+  $('board').innerHTML = rows.length ? rows.map(o => {
+    const hold = o.status === 'cancel_requested' || o.is_cancellation_pending, n = NEXT[o.status];
+    const num = o.order_number ? `#${o.order_number}` : `#${o.id.slice(0, 8).toUpperCase()}`;
+    return `<article class="ticket ${hold ? 'hold' : o.status === 'completed' ? 'done' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:12px"><div><h3 class="h2">${esc(num)}</h3><div class="small muted">${formatDate(o.created_at)} · ${o.order_type === 'delivery' ? 'Delivery' : 'Counter'}</div></div><span class="status">${LABEL[o.status] || esc(o.status)}</span></div>
+      <div class="small"><strong>${esc(o.customer?.name || 'Diner')}</strong> <span class="muted">${esc(o.customer?.phone || '')}</span></div>
+      ${o.instructions ? `<div class="note"><strong>Note:</strong> ${esc(o.instructions)}</div>` : ''}
+      <div>${(o.items || []).map(i => `<div class="kv"><dt><strong>${i.quantity}×</strong> ${esc(i.item_name_snapshot || i.item_name || 'Dish')}${(i.variant_name_snapshot || i.variant_name) ? ` <span class="muted">(${esc(i.variant_name_snapshot || i.variant_name)})</span>` : ''}</dt><dd class="num">${formatPrice(i.total_price || i.unit_price * i.quantity)}</dd></div>`).join('')}</div>
+      <div class="totals"><span class="small muted">${esc((o.payment_method || 'cod').toUpperCase())} · ${esc(o.payment_status || 'unpaid')}</span><span class="num">${formatPrice(o.total_price || o.total_amount)}</span></div>
+      ${hold ? `<div class="banner-note"><strong>Diner wants to cancel.</strong><br>${esc(o.cancellation_reason || 'No reason given.')}</div>
+        <div class="acts"><button class="btn danger" data-a="cancel" data-id="${esc(o.id)}">Approve cancellation</button><button class="btn line" data-a="resume" data-id="${esc(o.id)}">Keep cooking</button></div>`
+      : n ? `<div class="acts"><button class="btn accent" data-a="go" data-to="${n[0]}" data-id="${esc(o.id)}">${n[1]}</button>
+        ${o.status === 'pending' ? `<button class="btn danger" data-a="go" data-to="cancelled" data-id="${esc(o.id)}">Decline</button>` : ''}
+        ${o.status === 'ready' && o.payment_status !== 'paid' ? `<button class="btn line" data-a="paid" data-id="${esc(o.id)}">Cash collected</button>` : ''}</div>` : ''}
+    </article>`; }).join('') : `<p class="empty" style="grid-column:1/-1">No orders in this view.</p>`;
+}
+$('board').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const { a, id, to } = b.dataset;
+  try {
+    if (a === 'go') { if (to === 'completed') { try { await api.updateOrderStatus(id, { status: 'mark_as_paid' }); } catch {} } await api.updateOrderStatus(id, { status: to }); toast.success(`Order ${LABEL[to].toLowerCase()}`); }
+    if (a === 'paid') { await api.updateOrderStatus(id, { status: 'mark_as_paid' }); toast.success('Payment recorded'); }
+    if (a === 'cancel') { await api.updateOrderStatus(id, { status: 'cancelled', reason: 'Owner approved diner cancellation' }); toast.success('Order cancelled'); }
+    if (a === 'resume') { await api.updateOrderStatus(id, { status: 'resume_order' }); toast.success('Order resumed'); }
+    load();
+  } catch (err) { toast.error(err.message || 'That change could not be made'); }
+});
+
+function dishes() {
+  $('menu').innerHTML = menu.length ? menu.map(d => { const av = d.is_available !== false; return `<article class="ticket" style="border-top-color:${av ? 'var(--leaf)' : 'var(--chili)'}">
+    <div style="display:flex;justify-content:space-between;gap:12px"><div><span class="diet ${esc(d.dietary_type || 'veg')}"></span> <h3 class="h3" style="display:inline">${esc(d.name)}</h3></div><strong class="num">${formatPrice(d.price)}</strong></div>
+    <p class="small muted">${esc(d.description || 'No description.')}</p>
+    ${(d.variants || []).length ? `<div>${d.variants.map(v => `<div class="kv"><dt>${esc(v.name)}</dt><dd class="num">${formatPrice(v.price)}</dd></div>`).join('')}</div>` : ''}
+    <div class="acts"><button class="btn line sm" data-m="stock" data-id="${esc(d.id)}" data-av="${av}">${av ? 'Mark sold out' : 'Back in stock'}</button><button class="btn quiet sm" data-m="var" data-id="${esc(d.id)}" data-name="${esc(d.name)}">Add option</button><button class="btn danger sm" data-m="del" data-id="${esc(d.id)}">Delete</button></div></article>`; }).join('')
+    : `<p class="empty" style="grid-column:1/-1">No dishes yet. Add your first one.</p>`;
+}
+$('menu').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-m]'); if (!b) return; const { m, id } = b.dataset;
+  try {
+    if (m === 'stock') { await api.updateMenuItem(id, { is_available: b.dataset.av !== 'true' }); toast.success('Stock updated'); }
+    if (m === 'del') { if (!confirm('Delete this dish? This cannot be undone.')) return; await api.deleteMenuItem(id); toast.success('Dish deleted'); }
+    if (m === 'var') { dishFor = id; $('v-h').textContent = `Add option to ${b.dataset.name}`; return $('vd').showModal(); }
+    load();
+  } catch (err) { toast.error(err.message || 'That change could not be made'); }
+});
+
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; tab = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+  const o = tab === 'orders'; $('board').hidden = !o; $('menu').hidden = o; $('filters').hidden = !o; $('add-dish').hidden = o; $('live').hidden = !o; load();
+});
+$('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#filters button').forEach(x => x.setAttribute('aria-selected', x === b)); filt = b.dataset.s; board(); });
+$('add-dish').addEventListener('click', () => $('dd').showModal());
+$('new-shop').addEventListener('click', () => $('sd').showModal());
+
+const guard = (e, ok, msg) => { if (!ok) { e.preventDefault(); toast.error(msg); } return ok; };
+$('d-save').addEventListener('click', async e => {
+  const name = $('d-n').value.trim(), price = Number($('d-p').value);
+  if (!guard(e, name && price > 0, 'Add a name and a price above zero')) return;
+  try { await api.createMenuItem(shop.id, { name, description: $('d-d').value.trim() || null, price, prep_time_minutes: Number($('d-t').value), category: $('d-c').value.trim() || null, dietary_type: $('d-v').value }); toast.success(`${name} added`); load(); }
+  catch (err) { toast.error(err.message || 'Dish could not be added'); }
+});
+$('v-save').addEventListener('click', async e => {
+  const name = $('v-n').value.trim(), price = Number($('v-p').value);
+  if (!guard(e, name && price > 0, 'Add an option name and a price above zero')) return;
+  try { await api.createVariant(dishFor, { name, price, prep_time_minutes: Number($('v-t').value) }); toast.success('Option added'); load(); }
+  catch (err) { toast.error(err.message || 'Option could not be added'); }
+});
+$('s-save').addEventListener('click', async e => {
+  const v = k => $(k).value.trim(), city = v('s-c');
+  if (!guard(e, v('s-n') && v('s-ph') && v('s-a') && city && v('s-z'), 'Fill in name, phone, address, city and pincode')) return;
+  try { const c = await api.createShop({ name: v('s-n'), phone: v('s-ph'), description: v('s-d') || null, address_line: v('s-a'), city, state: v('s-s') || city, pincode: v('s-z'), category: v('s-k') || 'Gourmet' }); toast.success(`${c.name} added`); init(); }
+  catch (err) { toast.error(err.message || 'Kitchen could not be added'); }
+});
+init();
+</script></body></html>

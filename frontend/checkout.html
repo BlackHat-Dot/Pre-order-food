@@ -1,470 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Dispatch & Settlement — PREORDER</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — preorder</title>
+<link rel="stylesheet" href="/css/system.css">
 </head>
 <body>
-  <!-- Global Architectural Header -->
-  <div id="global-header"></div>
-
-  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
-    <div style="margin-bottom: 32px;">
-      <div class="eyebrow">FINAL DISPATCH ASSEMBLY</div>
-      <h1 class="headline-1">Review & Confirm Order Ticket</h1>
-      <p class="subheadline">Verify item customization, arrival schedule, and billing settlement prior to kitchen transmission.</p>
+<div id="site-header"></div>
+<main class="page"><div class="wrap">
+  <div class="page-head"><div><h1 class="h1">Checkout</h1><p class="muted">Ordering from <strong id="shop">—</strong></p></div></div>
+  <div class="split">
+    <div>
+      <section class="panel"><h2 class="h3">How will you get it?</h2>
+        <div class="grid2">
+          <label class="choice" style="margin:0"><span><input type="radio" name="ot" value="table_booking" checked>Pick up at counter</span></label>
+          <label class="choice" style="margin:0"><span><input type="radio" name="ot" value="delivery">Delivery</span></label>
+        </div>
+        <div id="addr" hidden style="margin-top:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label class="small" style="font-weight:600" for="addr-sel">Delivery address</label><button class="btn quiet sm" id="addr-new" type="button">Add address</button></div>
+          <select class="input" id="addr-sel"></select>
+        </div>
+      </section>
+      <section class="panel"><h2 class="h3">Note for the kitchen</h2>
+        <textarea class="input" id="notes" placeholder="Allergies, spice level, when you'll arrive…"></textarea></section>
+      <section class="panel"><h2 class="h3">Payment</h2>
+        <label class="choice"><span><input type="radio" name="pm" value="cod" checked>Pay at counter or on delivery</span><span class="faint small">No fee</span></label>
+        <label class="choice"><span><input type="radio" name="pm" value="online">UPI or net banking</span></label>
+        <label class="choice"><span><input type="radio" name="pm" value="coupon">Voucher from rewards</span></label>
+      </section>
     </div>
-
-    <div style="display: grid; grid-template-columns: 1.25fr 0.95fr; gap: 40px; align-items: start;" id="checkout-grid">
-      <!-- Left Column: Form & Configuration -->
-      <div style="display: flex; flex-direction: column; gap: 28px;">
-        <!-- Kitchen Dossier Banner -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 20px 24px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div class="mono-meta" style="color: var(--text-tertiary);">TARGET OUTLET</div>
-            <div class="headline-3" id="target-shop-name" style="margin-top: 2px;">—</div>
-          </div>
-          <span class="telemetry-badge live">DISPATCH PROTOCOL ACTIVE</span>
-        </div>
-
-        <!-- Order Type / Fulfillment Method -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 24px; border-radius: var(--radius-sm);">
-          <div class="form-label" style="margin-bottom: 12px;">FULFILLMENT METHOD</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <label style="border: 1px solid var(--border-subtle); padding: 14px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 10px; background: var(--bg-surface-elevated);" id="order-type-pickup-label">
-              <input type="radio" name="order-type" value="table_booking" checked id="type-pickup">
-              <div>
-                <div style="font-weight: 600; font-size: 0.88rem;">Counter Pre-Order</div>
-                <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">Direct pickup at outlet</div>
-              </div>
-            </label>
-
-            <label style="border: 1px solid var(--border-subtle); padding: 14px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 10px; background: var(--bg-surface-elevated);" id="order-type-delivery-label">
-              <input type="radio" name="order-type" value="delivery" id="type-delivery">
-              <div>
-                <div style="font-weight: 600; font-size: 0.88rem;">Courier Delivery</div>
-                <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">Dispatch to your address</div>
-              </div>
-            </label>
-          </div>
-
-          <!-- Delivery Address Block (Hidden by default for pickup) -->
-          <div id="address-section" style="margin-top: 20px; display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <label class="form-label">DELIVERY DESTINATION ADDRESS</label>
-              <button class="btn btn-ghost btn-sm" id="new-address-btn" style="padding: 2px 6px; font-size: 0.72rem;">+ ADD NEW</button>
-            </div>
-            <select id="delivery-address-select" class="select-input">
-              <option value="">Loading saved addresses...</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Special Instructions Box -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 24px; border-radius: var(--radius-sm);">
-          <div class="form-label" style="margin-bottom: 8px;">
-            <span>CHEF TELEMETRY INSTRUCTIONS</span>
-            <span class="form-label-hint">Allergens, packaging, timing notes</span>
-          </div>
-          <textarea id="order-instructions" class="textarea-input" placeholder="e.g. Mild spice, pack cutlery, arrival scheduled for exactly 1:15 PM..."></textarea>
-        </div>
-
-        <!-- Settlement Options -->
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 24px; border-radius: var(--radius-sm);">
-          <div class="form-label" style="margin-bottom: 12px;">SETTLEMENT METHOD</div>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <label style="border: 1px solid var(--border-subtle); padding: 12px 14px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated);">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment-method" value="cod" checked>
-                <div>
-                  <div style="font-weight: 600; font-size: 0.88rem;">Cash / Card on Fulfillment (COD)</div>
-                  <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">Settle balance at counter or delivery drop</div>
-                </div>
-              </div>
-              <span class="telemetry-badge">ZERO FEE</span>
-            </label>
-
-            <label style="border: 1px solid var(--border-subtle); padding: 12px 14px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated);">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment-method" value="online">
-                <div>
-                  <div style="font-weight: 600; font-size: 0.88rem;">Instant Digital UPI / NetBanking</div>
-                  <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">Direct cryptographic bank clearance</div>
-                </div>
-              </div>
-              <span class="telemetry-badge accent">INSTANT</span>
-            </label>
-
-            <label style="border: 1px solid var(--border-subtle); padding: 12px 14px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated);">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment-method" value="coupon">
-                <div>
-                  <div style="font-weight: 600; font-size: 0.88rem;">PreOrder Loyalty Vault / Voucher</div>
-                  <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">Apply minted voucher for 100% discount</div>
-                </div>
-              </div>
-              <span class="telemetry-badge">VAULT</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Column: Ticket Breakdown & Discounter -->
-      <aside style="display: flex; flex-direction: column; gap: 24px; position: sticky; top: 88px;">
-        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); padding: 24px; border-radius: var(--radius-sm);">
-          <div class="eyebrow">ORDER MANIFEST</div>
-          <h2 class="headline-3" style="margin-bottom: 16px;">Itemized Breakdown</h2>
-
-          <div id="checkout-items-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; margin-bottom: 20px; padding-right: 4px;">
-            <!-- Cart items inserted dynamically -->
-          </div>
-
-          <div class="hairline-divider" style="margin: 16px 0;"></div>
-
-          <!-- Coupon Validation Box -->
-          <div style="margin-bottom: 16px;">
-            <label class="form-label">PROMOTIONAL VOUCHER CODE</label>
-            <div style="display: flex; gap: 8px; margin-top: 6px;">
-              <input type="text" id="coupon-code-input" class="input-text" placeholder="e.g. SHOP-ABC123" style="text-transform: uppercase;">
-              <button class="btn btn-secondary btn-sm" id="apply-coupon-btn">APPLY</button>
-            </div>
-            <div id="coupon-feedback" style="margin-top: 6px; font-family: var(--font-mono); font-size: 0.72rem; display: none;"></div>
-          </div>
-
-          <!-- Loyalty Redemption Block -->
-          <div style="margin-bottom: 20px; border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-xs);">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <span class="mono-meta" style="color: var(--text-secondary);">LOYALTY VAULT BALANCE</span>
-              <span class="mono-meta" id="loyalty-balance-display" style="color: var(--accent-ember-hover); font-weight: 700;">0 PTS</span>
-            </div>
-            <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-              <input type="number" id="redeem-points-input" class="input-text" min="0" value="0" style="width: 100px; padding: 6px 10px; font-family: var(--font-mono); font-size: 0.85rem;">
-              <span class="mono-meta" id="points-discount-label" style="font-size: 0.72rem; color: var(--text-tertiary);">= ₹0.00 OFF</span>
-            </div>
-          </div>
-
-          <div class="hairline-divider" style="margin: 16px 0;"></div>
-
-          <!-- Totals Ledger -->
-          <div style="display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 0.82rem;">
-            <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
-              <span>SUBTOTAL</span>
-              <span id="summary-subtotal">₹0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; color: var(--veg-color);" id="summary-coupon-row" style="display: none;">
-              <span>COUPON DISCOUNT</span>
-              <span id="summary-coupon-val">-₹0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; color: var(--accent-ember-hover);" id="summary-loyalty-row">
-              <span>POINTS REDEEMED</span>
-              <span id="summary-loyalty-val">-₹0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
-              <span>ESTIMATED TAX & PROTOCOL</span>
-              <span>₹0.00</span>
-            </div>
-            <div class="hairline-divider" style="margin: 6px 0;"></div>
-            <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
-              <span>FINAL SETTLEMENT</span>
-              <span id="summary-final-total" style="color: var(--accent-ember-hover);">₹0.00</span>
-            </div>
-          </div>
-
-          <!-- Submit Order Button -->
-          <div style="margin-top: 24px;">
-            <button class="btn btn-primary btn-lg" id="submit-order-btn" style="width: 100%;">
-              TRANSMIT ORDER TICKET &rarr;
-            </button>
-          </div>
-        </div>
-      </aside>
-    </div>
-  </main>
-
-  <!-- Add New Address Modal -->
-  <div class="modal-backdrop" id="address-modal-backdrop">
-    <div class="modal-sheet" id="address-modal">
-      <div class="modal-header">
-        <div>
-          <div class="eyebrow" style="margin-bottom: 2px;">LOGISTICS ADDRESS</div>
-          <h3 class="headline-3">Register Delivery Address</h3>
-        </div>
-        <button class="drawer-close" id="close-address-modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">ADDRESS TITLE</label>
-          <input type="text" id="new-addr-title" class="input-text" placeholder="e.g. Headquarters / Studio / Home">
-        </div>
-        <div class="form-group">
-          <label class="form-label">STREET ADDRESS & SUITE</label>
-          <input type="text" id="new-addr-line" class="input-text" placeholder="e.g. 402 Horizon Tower, Innovation Park">
-        </div>
-        <div class="form-group">
-          <label class="form-label">LANDMARK</label>
-          <input type="text" id="new-addr-landmark" class="input-text" placeholder="e.g. Near West Gate entrance">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancel-addr-btn">CANCEL</button>
-        <button class="btn btn-primary" id="save-addr-btn">SAVE ADDRESS</button>
-      </div>
-    </div>
+    <aside class="panel aside">
+      <h2 class="h2">Your order</h2>
+      <div id="lines"></div>
+      <div class="field" style="margin-top:20px"><label for="code">Voucher code</label>
+        <div style="display:flex;gap:8px"><input class="input" id="code" placeholder="SHOP-ABC123" style="text-transform:uppercase"><button class="btn line sm" id="apply" type="button">Apply</button></div>
+        <div class="fb" id="cfb" hidden></div></div>
+      <div class="field"><label for="pts">Use reward points <span class="faint" id="bal" style="font-weight:400"></span></label>
+        <div style="display:flex;align-items:center;gap:12px"><input class="input" id="pts" type="number" min="0" value="0" style="width:110px"><span class="small muted num" id="ptsv">= ₹0 off</span></div></div>
+      <dl><div class="kv"><dt>Subtotal</dt><dd class="num" id="sub">₹0</dd></div>
+      <div class="kv" id="cr" hidden><dt>Voucher</dt><dd class="num" id="cv"></dd></div>
+      <div class="kv" id="pr" hidden><dt>Points</dt><dd class="num" id="pv"></dd></div>
+      <div class="kv total"><dt>Total</dt><dd class="num" id="tot">₹0</dd></div></dl>
+      <button class="btn accent lg" id="send" style="width:100%;margin-top:20px">Place order</button>
+    </aside>
   </div>
+</div></main>
 
-  <!-- Global Footer -->
-  <div id="global-footer"></div>
+<dialog id="ad"><form method="dialog">
+  <h2 class="h2" style="margin-bottom:18px">New address</h2>
+  <div class="field"><label for="a-t">Label</label><input class="input" id="a-t" placeholder="Home, Office…"></div>
+  <div class="field"><label for="a-l">Street address</label><input class="input" id="a-l" required></div>
+  <div class="field"><label for="a-m">Landmark</label><input class="input" id="a-m"></div>
+  <div class="actions"><button class="btn quiet" value="x">Cancel</button><button class="btn accent" id="a-save" value="s">Save address</button></div>
+</form></dialog>
+<div id="site-footer"></div>
+<script type="module">
+import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { cart } from '/js/cart.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice } from '/js/shell.js';
+const $ = id => document.getElementById(id);
+if (!auth.requireAuth()) throw 0;
+const s = cart.getCart();
+if (!s.shopId || !s.items.length) { toast.info('Your order is empty.'); setTimeout(() => location.href = '/index.html', 700); throw 0; }
+const RATE = 0.1; let coupon = null, points = 0;
+$('shop').textContent = s.shopName || 'this kitchen';
+$('lines').innerHTML = s.items.map(i => `<div class="kv"><dt>${i.quantity} × ${esc(i.name)}${i.variantName ? ` (${esc(i.variantName)})` : ''}</dt><dd class="num">${formatPrice(i.price * i.quantity)}</dd></div>`).join('');
 
-  <!-- Scripts -->
-  <script type="module">
-    import { api } from '/js/api.js';
-    import { auth } from '/js/auth.js';
-    import { cart } from '/js/cart.js';
-    import { toast } from '/js/toast.js';
-    import { formatPrice } from '/js/app.js';
+function totals() {
+  const sub = cart.getSubtotal(), c = coupon ? Number(coupon.discount_value) || 0 : 0, p = Number($('pts').value || 0) * RATE;
+  $('sub').textContent = formatPrice(sub);
+  $('cr').hidden = !c; $('cv').textContent = `−${formatPrice(c)}`;
+  $('pr').hidden = !p; $('pv').textContent = `−${formatPrice(p)}`;
+  $('ptsv').textContent = `= ${formatPrice(p)} off`;
+  $('tot').textContent = formatPrice(Math.max(0, sub - c - p));
+}
+$('pts').addEventListener('input', e => { e.target.value = Math.min(Math.max(0, Number(e.target.value) || 0), points); totals(); });
+$('apply').addEventListener('click', async () => {
+  const code = $('code').value.trim(); if (!code) return toast.info('Enter a voucher code');
+  const fb = $('cfb'); fb.hidden = false;
+  try { coupon = await api.validateCoupon(code, s.shopId); fb.className = 'fb ok'; fb.textContent = `Voucher applied: ${formatPrice(coupon.discount_value)} off`; }
+  catch (e) { coupon = null; fb.className = 'fb bad'; fb.textContent = e.message || "This voucher can't be used at this kitchen"; }
+  totals();
+});
+document.querySelectorAll('input[name=ot]').forEach(r => r.addEventListener('change', e => $('addr').hidden = e.target.value !== 'delivery'));
 
-    if (!auth.requireAuth()) {
-      // Stopped by guard
-    }
+async function addrs() {
+  try {
+    const a = await api.getAddresses();
+    $('addr-sel').innerHTML = a.length ? a.map(x => `<option value="${esc(x.id)}" ${x.is_default ? 'selected' : ''}>${x.title ? esc(x.title) + ': ' : ''}${esc(x.address_line)}${x.landmark ? ` (${esc(x.landmark)})` : ''}</option>`).join('') : '<option value="">No saved addresses. Add one.</option>';
+  } catch { $('addr-sel').innerHTML = '<option value="">Addresses could not be loaded</option>'; }
+}
+$('addr-new').addEventListener('click', () => $('ad').showModal());
+$('a-save').addEventListener('click', async e => {
+  const line = $('a-l').value.trim(); if (!line) { e.preventDefault(); return toast.error('Street address is required'); }
+  try { await api.createAddress({ title: $('a-t').value.trim(), address_line: line, landmark: $('a-m').value.trim() }); toast.success('Address saved'); addrs(); }
+  catch (err) { toast.error(err.message || 'Address could not be saved'); }
+});
 
-    const cartState = cart.getCart();
-    if (!cartState.shopId || cartState.items.length === 0) {
-      toast.info('Your order ticket is empty. Directing to kitchen roster.');
-      setTimeout(() => { window.location.href = '/index.html'; }, 800);
-    }
+$('send').addEventListener('click', async () => {
+  const b = $('send'), type = document.querySelector('input[name=ot]:checked').value;
+  const addr = type === 'delivery' ? $('addr-sel').value : null;
+  if (type === 'delivery' && !addr) return toast.error('Choose or add a delivery address');
+  b.disabled = true; b.textContent = 'Placing order…';
+  try {
+    const o = await api.createOrder({
+      shop_id: s.shopId, items: s.items.map(i => ({ item_id: i.itemId, variant_id: i.variantId || null, quantity: i.quantity })),
+      order_type: type, payment_method: document.querySelector('input[name=pm]:checked').value,
+      instructions: $('notes').value.trim() || null, redeem_loyalty_points: Number($('pts').value || 0),
+      coupon_id: coupon ? coupon.id : null, delivery_address_id: addr });
+    toast.success(`Order #${o.order_number || o.id.slice(0, 8)} placed`);
+    cart.clear(); setTimeout(() => location.href = `/orders.html?id=${o.id}`, 600);
+  } catch (err) { toast.error(err.message || 'The order could not be placed'); b.disabled = false; b.textContent = 'Place order'; }
+});
 
-    let appliedCoupon = null;
-    let availablePoints = 0;
-    let pointsDiscountRate = 0.1; // Default 1 pt = 0.10 currency
-    let userAddresses = [];
-
-    async function initCheckout() {
-      document.getElementById('target-shop-name').textContent = cartState.shopName || 'Kitchen Outpost';
-      renderCheckoutItems();
-      calculateTotals();
-
-      // Load Loyalty Account Balance
-      if (cartState.shopId) {
-        try {
-          const loyalty = await api.getLoyaltyAccount(cartState.shopId);
-          availablePoints = loyalty.points_balance || 0;
-          document.getElementById('loyalty-balance-display').textContent = `${availablePoints} PTS AVAILABLE`;
-          document.getElementById('redeem-points-input').max = availablePoints;
-        } catch (err) {
-          console.warn('Loyalty balance unavailable:', err);
-        }
-      }
-
-      // Load Addresses
-      loadAddresses();
-    }
-
-    function renderCheckoutItems() {
-      const container = document.getElementById('checkout-items-list');
-      if (cartState.items.length === 0) {
-        container.innerHTML = '<div class="mono-meta">Ticket is empty.</div>';
-        return;
-      }
-
-      container.innerHTML = cartState.items.map(item => `
-        <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 8px;">
-          <div>
-            <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">${item.name}</div>
-            ${item.variantName ? `<div class="mono-meta" style="font-size: 0.72rem; color: var(--accent-ember);">[ ${item.variantName} ]</div>` : ''}
-            <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-tertiary);">${item.quantity} &times; ${formatPrice(item.price)}</div>
-          </div>
-          <div class="mono-meta" style="font-weight: 700; color: var(--text-primary);">
-            ${formatPrice(item.price * item.quantity)}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function calculateTotals() {
-      const subtotal = cart.getSubtotal();
-      let couponDiscount = 0;
-      if (appliedCoupon && appliedCoupon.discount_value) {
-        couponDiscount = Number(appliedCoupon.discount_value);
-      }
-
-      const pointsInput = Number(document.getElementById('redeem-points-input').value || 0);
-      const pointsDiscount = pointsInput * pointsDiscountRate;
-
-      const totalDiscount = couponDiscount + pointsDiscount;
-      const finalTotal = Math.max(0, subtotal - totalDiscount);
-
-      document.getElementById('summary-subtotal').textContent = formatPrice(subtotal);
-
-      const couponRow = document.getElementById('summary-coupon-row');
-      const couponVal = document.getElementById('summary-coupon-val');
-      if (couponDiscount > 0) {
-        couponRow.style.display = 'flex';
-        couponVal.textContent = `-${formatPrice(couponDiscount)}`;
-      } else {
-        couponRow.style.display = 'none';
-      }
-
-      document.getElementById('summary-loyalty-val').textContent = `-${formatPrice(pointsDiscount)}`;
-      document.getElementById('points-discount-label').textContent = `= ${formatPrice(pointsDiscount)} OFF`;
-      document.getElementById('summary-final-total').textContent = formatPrice(finalTotal);
-    }
-
-    // Redeem points listener
-    document.getElementById('redeem-points-input')?.addEventListener('input', (e) => {
-      let val = Number(e.target.value);
-      if (val > availablePoints) {
-        val = availablePoints;
-        e.target.value = val;
-      }
-      if (val < 0) {
-        val = 0;
-        e.target.value = 0;
-      }
-      calculateTotals();
-    });
-
-    // Coupon Validation
-    document.getElementById('apply-coupon-btn')?.addEventListener('click', async () => {
-      const code = document.getElementById('coupon-code-input').value.trim();
-      const feedback = document.getElementById('coupon-feedback');
-
-      if (!code) {
-        toast.info('Please enter a voucher code');
-        return;
-      }
-
-      try {
-        const coupon = await api.validateCoupon(code, cartState.shopId);
-        appliedCoupon = coupon;
-        feedback.style.display = 'block';
-        feedback.style.color = 'var(--status-open)';
-        feedback.textContent = `[ VALID VOUCHER APPLIED: ${formatPrice(coupon.discount_value)} DISCOUNT ]`;
-        toast.success(`Coupon ${coupon.code} verified!`);
-        calculateTotals();
-      } catch (err) {
-        appliedCoupon = null;
-        feedback.style.display = 'block';
-        feedback.style.color = 'var(--status-danger)';
-        feedback.textContent = `[ INVALID VOUCHER: ${err.message || 'Cannot apply to this outlet'} ]`;
-        calculateTotals();
-      }
-    });
-
-    // Fulfillment Switcher
-    const addrSection = document.getElementById('address-section');
-    document.querySelectorAll('input[name="order-type"]').forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        if (e.target.value === 'delivery') {
-          addrSection.style.display = 'block';
-        } else {
-          addrSection.style.display = 'none';
-        }
-      });
-    });
-
-    // Addresses Management
-    async function loadAddresses() {
-      const select = document.getElementById('delivery-address-select');
-      try {
-        userAddresses = await api.getAddresses();
-        if (userAddresses.length === 0) {
-          select.innerHTML = '<option value="">No addresses found. Click "+ ADD NEW" above.</option>';
-          return;
-        }
-
-        select.innerHTML = userAddresses.map(addr => `
-          <option value="${addr.id}" ${addr.is_default ? 'selected' : ''}>
-            ${addr.title ? `[${addr.title}] ` : ''}${addr.address_line} ${addr.landmark ? `(${addr.landmark})` : ''}
-          </option>
-        `).join('');
-      } catch (err) {
-        select.innerHTML = '<option value="">Failed to retrieve addresses.</option>';
-      }
-    }
-
-    // New Address Modal
-    const addrBackdrop = document.getElementById('address-modal-backdrop');
-    document.getElementById('new-address-btn')?.addEventListener('click', () => addrBackdrop.classList.add('active'));
-    const closeAddrModal = () => addrBackdrop.classList.remove('active');
-    document.getElementById('close-address-modal')?.addEventListener('click', closeAddrModal);
-    document.getElementById('cancel-addr-btn')?.addEventListener('click', closeAddrModal);
-
-    document.getElementById('save-addr-btn')?.addEventListener('click', async () => {
-      const title = document.getElementById('new-addr-title').value.trim();
-      const address_line = document.getElementById('new-addr-line').value.trim();
-      const landmark = document.getElementById('new-addr-landmark').value.trim();
-
-      if (!address_line) {
-        toast.error('Address line is required');
-        return;
-      }
-
-      try {
-        await api.createAddress({ title, address_line, landmark });
-        toast.success('Address saved to address book');
-        closeAddrModal();
-        loadAddresses();
-      } catch (err) {
-        toast.error(err.message || 'Failed to save address');
-      }
-    });
-
-    // Order Transmission
-    document.getElementById('submit-order-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('submit-order-btn');
-      btn.disabled = true;
-      btn.textContent = 'TRANSMITTING ORDER TELEMETRY...';
-
-      const orderType = document.querySelector('input[name="order-type"]:checked').value;
-      const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
-      const instructions = document.getElementById('order-instructions').value.trim();
-      const redeemPoints = Number(document.getElementById('redeem-points-input').value || 0);
-
-      let deliveryAddressId = null;
-      if (orderType === 'delivery') {
-        deliveryAddressId = document.getElementById('delivery-address-select').value;
-        if (!deliveryAddressId) {
-          toast.error('Please configure or select a delivery address');
-          btn.disabled = false;
-          btn.textContent = 'TRANSMIT ORDER TICKET →';
-          return;
-        }
-      }
-
-      const orderPayload = {
-        shop_id: cartState.shopId,
-        items: cartState.items.map(item => ({
-          item_id: item.itemId,
-          variant_id: item.variantId || null,
-          quantity: item.quantity
-        })),
-        order_type: orderType,
-        payment_method: paymentMethod,
-        instructions: instructions || null,
-        redeem_loyalty_points: redeemPoints,
-        coupon_id: appliedCoupon ? appliedCoupon.id : null,
-        delivery_address_id: deliveryAddressId
-      };
-
-      try {
-        const createdOrder = await api.createOrder(orderPayload);
-        toast.success(`Order #${createdOrder.order_number || createdOrder.id.slice(0, 8)} transmitted!`);
-        cart.clear();
-        setTimeout(() => {
-          window.location.href = `/orders.html?id=${createdOrder.id}`;
-        }, 800);
-      } catch (err) {
-        console.error('Order creation error:', err);
-        toast.error(err.message || 'Failed to transmit order to kitchen');
-        btn.disabled = false;
-        btn.textContent = 'TRANSMIT ORDER TICKET →';
-      }
-    });
-
-    initCheckout();
-  </script>
-</body>
-</html>
+totals(); addrs();
+api.getLoyaltyAccount(s.shopId).then(l => { points = l.points_balance || 0; $('bal').textContent = `(${points} available)`; $('pts').max = points; }).catch(() => {});
+</script></body></html>
