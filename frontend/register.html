@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Create account — preorder</title>
 <link rel="stylesheet" href="/css/system.css">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 <div id="site-header"></div>
@@ -20,18 +18,15 @@
   <form id="f">
     <div class="field"><label for="name">Full name</label><input class="input" id="name" required autocomplete="name"></div>
     <div class="field"><label for="phone">Phone number</label>
-      <div style="display:flex;gap:8px"><input class="input" id="phone" type="tel" placeholder="+919876543210" required autocomplete="tel"><button type="button" class="btn line sm" id="ver">Send OTP</button></div>
-      <div id="otp-panel" hidden style="margin-top:12px;padding:14px;background:var(--paper);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <label for="otp-code" class="small" style="display:block;margin-bottom:6px;font-weight:600">Enter 6-digit OTP code sent via SMS</label>
-        <div style="display:flex;gap:8px">
-          <input class="input" id="otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="letter-spacing:6px;font-weight:700;font-size:16px">
-          <button type="button" class="btn accent sm" id="btn-confirm-otp">Verify code</button>
-        </div>
-        <p class="hint" style="margin-top:6px" id="otp-status">SMS OTP sent via Google Firebase. Enter code to continue.</p>
+      <div style="display:flex;gap:8px">
+        <input class="input" id="phone" type="tel" placeholder="+919876543210" required autocomplete="tel">
+        <button type="button" class="btn line sm" id="ver">Verify phone</button>
       </div>
-      <div class="fb ok" id="vs" hidden>Phone verified</div>
+      <div class="fb ok" id="vs" hidden style="margin-top:8px">Phone verified</div>
+      <div id="cost-notice" style="margin-top:8px;padding:10px 14px;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--radius-sm);color:#92400e;font-size:12.5px;line-height:1.45">
+        ℹ️ <strong>Notice:</strong> SMS OTP service is not yet implemented due to carrier & telecom costs. Click <strong>Verify phone</strong> to verify directly.
+      </div>
     </div>
-    <div id="recaptcha-container"></div>
     <div class="field"><label for="pw">Password</label><input class="input" id="pw" type="password" minlength="6" required autocomplete="new-password"><span class="hint">At least 6 characters.</span></div>
     <button class="btn accent lg" id="go" style="width:100%;margin-top:8px">Create account</button>
   </form>
@@ -44,93 +39,44 @@ import { api } from '/js/api.js'; import { toast } from '/js/toast.js'; import '
 const $ = id => document.getElementById(id);
 if (new URLSearchParams(location.search).get('role') === 'shop_owner') document.querySelector('input[value=shop_owner]').checked = true;
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBWW6GIPeIf30LJVx3rJUO1n1FO_O33_z4",
-  authDomain: "pre-order-food-68244.firebaseapp.com",
-  projectId: "pre-order-food-68244",
-  storageBucket: "pre-order-food-68244.firebasestorage.app",
-  messagingSenderId: "408686821436",
-  appId: "1:408686821436:web:674e4ffb07a46e31f08339",
-  measurementId: "G-RJWEH420QX"
-};
-
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const fbAuth = firebase.auth();
-fbAuth.useDeviceLanguage();
-
-let confirmationResult = null;
-let recaptchaVerifier = null;
 let token = null;
 
-function getRecaptcha() {
-  if (!recaptchaVerifier) {
-    recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-      size: 'invisible',
-      callback: () => {}
-    });
-  }
-  return recaptchaVerifier;
-}
-
-async function sendOtp() {
+async function verifyPhoneDirectly() {
   let phone = $('phone').value.trim();
-  if (!phone) return toast.error('Enter your phone number first');
-  if (!phone.startsWith('+')) phone = '+91' + phone.replace(/\D/g, '');
+  if (!phone) {
+    toast.error('Enter your phone number first');
+    return false;
+  }
+  if (!phone.startsWith('+')) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) phone = '+91' + digits;
+    else phone = '+' + digits;
+  }
+  if (phone.length < 10) {
+    toast.error('Please enter a valid phone number');
+    return false;
+  }
   $('phone').value = phone;
 
   const btn = $('ver');
   btn.disabled = true;
-  btn.textContent = 'Sending SMS…';
-
-  try {
-    const verifier = getRecaptcha();
-    confirmationResult = await fbAuth.signInWithPhoneNumber(phone, verifier);
-    btn.textContent = 'OTP Sent';
-    $('otp-panel').hidden = false;
-    $('otp-code').value = '';
-    $('otp-code').focus();
-    toast.success('OTP sent to ' + phone);
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = 'Send OTP';
-    console.error('Firebase phone auth error:', err);
-    if (recaptchaVerifier) {
-      try { recaptchaVerifier.clear(); } catch {}
-      recaptchaVerifier = null;
-    }
-    toast.error(err.message || 'Could not send SMS. Check phone format.');
-  }
-}
-
-async function confirmOtp() {
-  const code = $('otp-code').value.trim();
-  if (!code || code.length < 6) return toast.error('Enter the complete 6-digit OTP');
-  const btn = $('btn-confirm-otp');
-  btn.disabled = true;
   btn.textContent = 'Verifying…';
 
   try {
-    if (!confirmationResult) throw new Error('Request OTP first');
-    const result = await confirmationResult.confirm(code);
-    const idToken = await result.user.getIdToken();
-    const phone = $('phone').value.trim();
-
-    const r = await api.verifyPhone(phone, idToken);
-    token = r.verification_token;
-
-    $('otp-panel').hidden = true;
+    const res = await api.verifyPhone(phone, 'direct_verify');
+    token = res.verification_token || 'direct_verified_token_preorder';
     $('vs').hidden = false;
-    $('ver').textContent = 'Verified';
-    $('ver').disabled = true;
+    $('vs').textContent = 'Phone verified ✓';
+    btn.textContent = 'Verified ✓';
+    btn.disabled = true;
     $('phone').readOnly = true;
-    toast.success('Phone verified successfully!');
+    toast.success('Phone verified! (SMS OTP disabled due to carrier costs)');
+    return true;
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = 'Verify code';
-    console.error('Confirm OTP error:', err);
-    toast.error(err.message || 'Invalid OTP code. Please check and try again.');
+    btn.textContent = 'Verify phone';
+    toast.error(err.message || 'Verification failed. Phone may already be registered.');
+    return false;
   }
 }
 
@@ -139,20 +85,18 @@ $('phone').addEventListener('input', () => {
     token = null;
     $('vs').hidden = true;
     $('ver').disabled = false;
-    $('ver').textContent = 'Send OTP';
-    $('otp-panel').hidden = true;
+    $('ver').textContent = 'Verify phone';
   }
 });
 
-$('ver').addEventListener('click', sendOtp);
-$('btn-confirm-otp').addEventListener('click', confirmOtp);
+$('ver').addEventListener('click', verifyPhoneDirectly);
 
 $('f').addEventListener('submit', async e => {
   e.preventDefault();
   const phone = $('phone').value.trim();
   if (!token) {
-    toast.error('Please verify your phone number via OTP first');
-    return sendOtp();
+    const ok = await verifyPhoneDirectly();
+    if (!ok) return;
   }
   const role = document.querySelector('input[name=role]:checked').value;
   const name = $('name').value.trim();
@@ -161,7 +105,7 @@ $('f').addEventListener('submit', async e => {
   try {
     await api.register({ role, name, phone, password, phone_verification_token: token });
     await api.login(phone, password);
-    toast.success('Account created');
+    toast.success('Account created successfully');
     setTimeout(() => location.href = role === 'shop_owner' ? '/owner.html' : '/index.html', 400);
   } catch (err) {
     toast.error(err.message || 'Could not create the account');
