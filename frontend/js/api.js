@@ -15,6 +15,9 @@ const BASE_URL = (() => {
     if (window.location.hostname.includes('railway.app')) {
       return `${window.location.origin}/api/v1`;
     }
+    if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '8000') {
+      return `${window.location.origin}/api/v1`;
+    }
   }
   return RAILWAY_API_URL;
 })();
@@ -72,8 +75,14 @@ async function request(endpoint, options = {}) {
 export const api = {
   // ── Authentication ──
   async login(phone, password) {
+    let p = String(phone || '').trim();
+    if (!p.startsWith('+')) {
+      const digits = p.replace(/\D/g, '');
+      if (digits.length === 10) p = '+91' + digits;
+      else if (digits.length > 0) p = '+' + digits;
+    }
     const formData = new URLSearchParams();
-    formData.append('username', phone);
+    formData.append('username', p);
     formData.append('password', password);
 
     const data = await request('/auth/login', {
@@ -88,7 +97,7 @@ export const api = {
     return { tokens: data, user };
   },
 
-  async verifyPhone(phone, accessToken = 'local_dev') {
+  async verifyPhone(phone, accessToken = 'direct_verify') {
     return request('/verify-msg91', {
       method: 'POST',
       body: JSON.stringify({
@@ -108,6 +117,10 @@ export const api = {
 
   async getMe() {
     return request('/auth/me');
+  },
+
+  async getCurrentUser() {
+    return this.getMe();
   },
 
   // ── Users ──

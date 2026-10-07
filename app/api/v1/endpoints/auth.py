@@ -100,6 +100,13 @@ async def authenticate_user(
 ) -> User:
     user = await get_user_by_phone(db, username)
 
+    if not user:
+        try:
+            norm = normalize_e164(username)
+            user = await get_user_by_phone(db, norm)
+        except Exception:
+            pass
+
     if not user and "@" in username:
         user = await get_user_by_email(db, username)
 

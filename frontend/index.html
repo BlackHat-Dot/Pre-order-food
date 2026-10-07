@@ -4,84 +4,97 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>preorder — order ahead, collect hot</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="/css/system.css">
   <style>
-    .hero{padding:clamp(48px,8vw,104px) 0 clamp(40px,6vw,72px)}
-    .hero .display{max-width:11ch}
-    .hero-foot{display:grid;grid-template-columns:1fr minmax(320px,520px);gap:clamp(32px,6vw,96px);align-items:end;margin-top:clamp(32px,5vw,64px)}
-    .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+    #gl{position:fixed;inset:0;width:100%;height:100%;z-index:-1;background:#000}
+    .mono{font-family:'Geist Mono',ui-monospace,monospace}
+    body.gated{overflow:hidden}
+    body.gated .site-header{opacity:0}
 
-    /* the one memorable element: the timing instrument */
-    .clock{background:var(--ink);color:var(--paper);border-radius:14px;padding:28px}
-    .clock p{color:rgba(247,248,244,.65);font-size:.88rem}
-    .clock .big{font-family:var(--display);font-weight:800;font-size:clamp(2rem,4vw,2.8rem);letter-spacing:-.04em;line-height:1;margin:6px 0 22px;color:var(--paper)}
-    .clock .big b{color:var(--saffron);font-weight:800}
-    .track{position:relative;height:44px;margin:8px 0 10px}
-    .track::before{content:'';position:absolute;left:0;right:0;top:20px;height:4px;background:rgba(247,248,244,.18);border-radius:4px}
-    .cook{position:absolute;top:20px;height:4px;background:var(--saffron);border-radius:4px;transition:left .3s var(--ease),width .3s var(--ease)}
-    .pin{position:absolute;top:0;transform:translateX(-50%);font-size:.76rem;white-space:nowrap;transition:left .3s var(--ease)}
-    .pin::after{content:'';display:block;width:2px;height:14px;background:currentColor;margin:3px auto 0;opacity:.6}
-    .pin.start{color:var(--saffron)}
-    .pin.end{top:auto;bottom:-2px;transform:translateX(-100%);text-align:right}
-    .pin.end::after{display:none}
-    .clock input[type=range]{width:100%;margin-top:22px;accent-color:var(--saffron)}
-    .clock .scale{display:flex;justify-content:space-between;font-size:.76rem;color:rgba(247,248,244,.5)}
+    /* gate: hold to light the burner. The world blooms outward from your touch. */
+    #gate{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .9s}
+    #gate.gone{opacity:0;pointer-events:none}
+    #hold{position:relative;width:128px;height:128px;border:0;background:none;color:var(--ink);cursor:pointer;touch-action:none;border-radius:50%}
+    #hold svg{position:absolute;inset:0;transform:rotate(-90deg)}
+    #hold circle{fill:none;stroke:var(--line);stroke-width:1.5}
+    #arcp{stroke:var(--saffron)!important;stroke-width:3!important;stroke-dasharray:100}
+    #pct{font-size:1.5rem;font-variant-numeric:tabular-nums}
+    #gate p{font-size:.85rem;color:var(--ink-2)}
+    #skip{position:absolute;right:var(--pad);bottom:28px;background:none;border:0;color:var(--ink-3);cursor:pointer;font-size:.8rem}
 
-    .sequence{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(24px,5vw,72px)}
-    .sequence h3{margin-bottom:10px}
+    /* the film: one continuous scroll */
+    .film{height:760vh;position:relative}
+    .stage{position:sticky;top:0;height:100svh;overflow:hidden}
+    .stage .wrap{height:100%;display:flex;flex-direction:column;justify-content:space-between;padding-top:clamp(84px,13vh,120px);padding-bottom:clamp(28px,5vh,56px)}
+    .clk{display:flex;justify-content:space-between;font-size:.9rem;color:var(--ink-2)}
+    #lbl{color:var(--saffron)}
+    .chaps{position:relative;height:clamp(230px,40vh,360px)}
+    .chap{position:absolute;left:0;bottom:0;max-width:min(640px,100%);opacity:0;transform:translateY(24px);transition:opacity .5s,transform .7s var(--ease);pointer-events:none}
+    .chap.on{opacity:1;transform:none;pointer-events:auto}
+    .chap h2{font-size:clamp(2rem,5vw,4.6rem);margin-bottom:16px}
+    .chap p{color:var(--ink-2);font-size:1.1rem;max-width:40ch}
+    .chap .btn{margin-top:22px}
+    #hi{margin-bottom:14px;color:var(--saffron);font-size:.9rem}
 
+    .kit,.thanks{background:rgba(10,18,20,.94);position:relative;padding:clamp(56px,8vw,104px) 0}
+    .kit .h1{font-size:clamp(2rem,4.4vw,3.6rem)}
     .finder{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:28px}
     .search{width:min(340px,100%)}
-    .kitchen{grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 56px}
-    .kitchen h3{font-size:1.5rem;margin-bottom:4px}
-    .kitchen p{font-size:.92rem;color:var(--ink-2);max-width:56ch;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-    .kitchen .rate{text-align:right;font-weight:700}
-    @media (max-width:860px){
-      .hero-foot,.sequence{grid-template-columns:1fr}
-      .kitchen{grid-template-columns:1fr auto;gap:8px 16px}
-      .kitchen .c2,.kitchen .c3{display:none}
-    }
+    .rail{display:flex;gap:14px;overflow-x:auto;padding:28px var(--pad) 8px;scroll-snap-type:x proximity;scrollbar-width:none;cursor:grab}
+    .rail.drag{cursor:grabbing;scroll-snap-type:none}
+    .tile{position:relative;flex:0 0 min(78vw,400px);aspect-ratio:3/4;scroll-snap-align:start;overflow:hidden;border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;padding:20px;text-decoration:none;background:#10191C;isolation:isolate}
+    .tp{position:absolute;inset:0;z-index:-2;background:center/cover;filter:saturate(.7) brightness(.72);transition:transform .9s var(--ease),filter .5s}
+    .tp.none{filter:none;background:radial-gradient(120% 70% at 30% 105%,rgba(255,176,32,.34),transparent 62%),#10191C}
+    .tile::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(to top,rgba(10,18,20,.94),rgba(10,18,20,0) 58%)}
+    .tile:hover .tp{transform:scale(1.07)}
+    .tile:hover .tp:not(.none){filter:saturate(1.1) brightness(.98)}
+    .ini{position:absolute;right:-.05em;top:12%;z-index:-1;font:800 clamp(9rem,26vw,14rem)/1 var(--display);font-stretch:125%;color:rgba(242,237,227,.06)}
+    .tile .top{display:flex;justify-content:space-between;align-items:center}
+    .tile h3{font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:8px}
+    .tile:hover h3{color:var(--saffron)}
+    .tile p{color:var(--ink-2);font-size:.9rem;line-height:1.4}
+    .empty{padding-inline:var(--pad)}
+    .thanks{border-top:1px solid var(--line)}
+    .thanks h2{font-size:clamp(2rem,4.4vw,3.6rem);max-width:18ch}
+    .thanks .two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,5vw,72px);margin-top:28px}
+    .thanks p{color:var(--ink-2);font-size:1.1rem;max-width:44ch}
+    .thanks a{color:var(--saffron)}
+    @media (max-width:760px){.thanks .two{grid-template-columns:1fr}}
   </style>
 </head>
-<body>
+<body class="gated">
+  <canvas id="gl" aria-hidden="true"></canvas>
+
+  <div id="gate" role="group" aria-label="Enter">
+    <button id="hold" aria-label="Hold to light the burner. Press and hold Enter or Space, or use Skip.">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"/><circle id="arcp" cx="60" cy="60" r="54" pathLength="100"/></svg>
+      <span id="pct" class="mono">0</span>
+    </button>
+    <p class="mono">Hold to light the burner</p>
+    <button id="skip" class="mono">skip</button>
+  </div>
+
   <div id="site-header"></div>
 
   <main>
-    <section class="hero">
-      <div class="wrap">
-        <h1 class="display">Hot food, no counter queue.</h1>
-        <div class="hero-foot">
-          <div>
-            <p class="lede">Choose a dish before you leave. The kitchen starts cooking so it finishes when you walk in.</p>
-            <div class="cta">
-              <a class="btn accent lg" href="#kitchens">Find a kitchen</a>
-            </div>
-          </div>
-
-          <div class="clock" aria-label="Example of how arrival time sets the cooking start">
-            <p>Example: a dish that takes 12 minutes</p>
-            <div class="big">You arrive in <b id="eta">25</b> min.<br>Cooking starts in <b id="fire">13</b>.</div>
-            <div class="track" id="track">
-              <span class="cook" id="cook"></span>
-              <span class="pin start" id="pin-start">Cooking starts</span>
-              <span class="pin end" id="pin-end">You arrive</span>
-            </div>
-            <input type="range" id="eta-range" min="12" max="45" value="25" aria-label="Minutes until you arrive">
-            <div class="scale"><span>Now</span><span>+45 min</span></div>
-          </div>
+    <section class="film" id="film" aria-label="How one order unfolds">
+      <div class="stage"><div class="wrap">
+        <div class="clk mono"><span id="clk">--:--</span><span id="lbl"></span></div>
+        <div class="chaps">
+          <div class="chap"><p class="mono" id="hi">order ahead, collect hot</p><h2>Ready when you walk in.</h2><p>Keep scrolling. We'll follow one order from the moment you place it.</p></div>
+          <div class="chap"><h2>Hot food waits for nobody.</h2><p>Order at the counter and you stand there. Order early and it goes cold.</p></div>
+          <div class="chap"><h2>So we start the clock for you.</h2><p>Tell the kitchen when you'll arrive. This dish takes 12 minutes and you're 25 away.</p></div>
+          <div class="chap"><h2>It fires at exactly the right minute.</h2><p>Cooking begins 13 minutes from now, so it finishes as you reach the counter.</p></div>
+          <div class="chap"><h2>Walk in.</h2><p>Give your order number and go. Every order earns points at that kitchen.</p><a class="btn accent" href="#kitchens">Find a kitchen</a></div>
         </div>
-      </div>
+      </div></div>
     </section>
 
-    <hr class="rule">
-
-    <section class="section" id="kitchens">
+    <section class="kit" id="kitchens">
       <div class="wrap">
         <div class="finder">
-          <div>
-            <h2 class="h1">Kitchens</h2>
-            <p class="muted" id="count" aria-live="polite">Loading kitchens…</p>
-          </div>
+          <div><h2 class="h1">Kitchens</h2><p class="muted" id="count" aria-live="polite">Loading kitchens…</p></div>
           <input class="input search" id="q" type="search" placeholder="Search by name, cuisine or city" aria-label="Search kitchens">
         </div>
         <div class="tabs" id="cats" role="tablist">
@@ -91,19 +104,16 @@
           <button role="tab" aria-selected="false" data-c="Fast Food">Quick bites</button>
           <button role="tab" aria-selected="false" data-c="Fine Dining">Fine dining</button>
         </div>
-        <ul class="rows" id="list" style="margin-top:0;border-top:0"></ul>
       </div>
+      <div class="rail" id="list"></div>
     </section>
 
-    <hr class="rule">
-
-    <section class="section">
+    <section class="thanks">
       <div class="wrap">
-        <h2 class="h1" style="max-width:16ch;margin-bottom:48px">Three steps, one walk.</h2>
-        <div class="sequence">
-          <div><h3 class="h2">Choose</h3><p class="muted">Pick dishes and options from a kitchen's live menu. Pay at the counter, online, or with rewards.</p></div>
-          <div><h3 class="h2">Leave</h3><p class="muted">The kitchen sees your order and cooks it to be ready when you arrive. Track every stage on your phone.</p></div>
-          <div><h3 class="h2">Collect</h3><p class="muted">Show your order number at the counter and go. Every order earns points at that kitchen.</p></div>
+        <h2 id="ty">Thank you for eating with us.</h2>
+        <div class="two">
+          <p>For choosing a kitchen near you and walking in just as it comes off the heat.</p>
+          <p>To every kitchen on preorder: thank you for feeding people well. <a href="/register.html?role=shop_owner">Open your kitchen to diners.</a></p>
         </div>
       </div>
     </section>
@@ -111,25 +121,129 @@
 
   <div id="site-footer"></div>
 
+  <script>
+    /* One shader, one timeline. S (scroll) moves a single dish through: warm, cold, clock ring, ignition, then a tunnel of plate rims. `open` blooms the world from your touch. */
+    const FS = `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+    #else
+    precision mediump float;
+    #endif
+    uniform float t,heat,arc,z,open; uniform vec2 res,m,om;
+    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}
+    float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return s;}
+    void main(){
+      vec2 uv=gl_FragCoord.xy/res, asp=vec2(res.x/res.y,1.);
+      vec2 p=(uv-.5)*asp, mp=(m-.5)*asp;
+      bool wide=asp.x>1.2;
+      vec2 c=(wide?vec2(asp.x*.2,.02):vec2(0.,.17))*(1.-z);
+      float R=wide?.3:.24;
+      vec2 w=p; w.x+=.12*exp(-length(p-mp)*3.2)*sign(p.x-mp.x);
+      vec2 q=vec2(fbm(w*1.5+vec2(0.,-t*.12)),fbm(w*1.5+vec2(5.2,1.3)-t*.08));
+      float s=fbm(w*vec2(1.3,.9)+q*1.9+vec2(0.,-t*.22));
+      float cx=w.x-c.x, column=exp(-cx*cx*5.);
+      float above=smoothstep(c.y-.05,c.y+.15,w.y)*smoothstep(1.,.1,w.y);
+      float steam=smoothstep(.3,.82,s)*(column*above*(.5+.9*heat)+.18*smoothstep(.7,-.55,w.y))*(1.-z);
+      vec3 col=mix(vec3(.05,.075,.085),vec3(.025,.035,.04),uv.y);
+      vec2 pp=(p-c)/(1.+z*z*18.); float rr=length(pp);
+      col+=vec3(1.,.55,.2)*exp(-length(p-c)*2.6)*.14*(.4+heat);
+      float pl=smoothstep(R+.004,R-.004,rr);
+      float lit=.55+.45*dot(normalize(pp+.0001),vec2(-.6,.8))*smoothstep(.5*R,R,rr);
+      float well=smoothstep(R*.8,R*.76,rr);
+      vec3 cer=vec3(.8,.78,.72)*lit*(.5+.35*heat)*(1.-.25*well);
+      float fr=R*.68*(.9+.2*fbm(pp*6.));
+      float fd=smoothstep(fr,fr-.02,rr);
+      float a=fbm(pp*9.+3.), b=fbm(pp*15.+7.);
+      vec3 food=mix(vec3(.5,.14,.05),vec3(.96,.58,.14),a);
+      food=mix(food,vec3(.2,.46,.14),smoothstep(.6,.72,b));
+      food+=pow(max(a-.55,0.),2.)*2.;
+      food=mix(vec3(dot(food,vec3(.3,.6,.1))),food,.15+.85*heat)*(.3+.8*heat);
+      col=mix(col,mix(cer,food,fd*well),pl);
+      float ang=fract(atan(pp.x,pp.y)/6.2832);
+      col+=vec3(1.,.7,.25)*smoothstep(.005,0.,abs(rr-R*1.18))*step(ang,arc)*(1.-z);
+      col+=steam*mix(vec3(.28,.36,.38),vec3(1.,.74,.4),heat)*(.35+.65*heat);
+      col+=vec3(1.,.5,.1)*exp(-max(w.y+.58,0.)*3.2)*heat*(.18+.4*fbm(p*3.+t*.3));
+      float rz=length(p-c);
+      float k=fract(log(rz+.002)*1.5-z*7.);
+      col+=vec3(1.,.62,.2)*smoothstep(0.,.05,k)*smoothstep(.2,.06,k)*(.15+.85*exp(-rz*2.))*z+vec3(1.,.8,.5)*exp(-rz*5.)*z*z;
+      col+=(h(gl_FragCoord.xy+t)-.5)*.03;
+      col*=1.-.9*dot(uv-.5,uv-.5);
+      float dd=length((uv-om)*asp), e=open*2.2;
+      col*=1.-smoothstep(e-.3,e,dd);
+      col+=vec3(1.,.5,.1)*smoothstep(.1,0.,abs(dd-(e-.15)))*.6*(1.-step(1.,open));
+      gl_FragColor=vec4(col,1.);
+    }`;
+    const $ = id => document.getElementById(id);
+    const reduced = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const ARR = 25, T0 = Date.now(), L = (a, b, x) => Math.min(1, Math.max(0, (x - a) / (b - a)));
+    const at = m => new Date(T0 + m * 6e4).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const cv = $('gl'), gl = cv.getContext('webgl', { antialias: false, alpha: false });
+    let U = {};
+    if (gl) {
+      const mk = (ty, src) => { const o = gl.createShader(ty); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+      const pr = gl.createProgram();
+      gl.attachShader(pr, mk(gl.VERTEX_SHADER, 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+      gl.attachShader(pr, mk(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); gl.useProgram(pr);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const a = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+      ['t', 'heat', 'arc', 'z', 'open', 'res', 'm', 'om'].forEach(n => U[n] = gl.getUniformLocation(pr, n));
+      const size = () => { const s = Math.min(devicePixelRatio || 1, 2) * .6; cv.width = innerWidth * s; cv.height = innerHeight * s; gl.viewport(0, 0, cv.width, cv.height); };
+      size(); addEventListener('resize', size);
+    }
+
+    // gate
+    let hold = 0, holding = false, opened = false, openV = 0, om = [.5, .5];
+    const enter = () => { opened = true; $('gate').classList.add('gone'); document.body.classList.remove('gated'); $('hold').blur(); };
+    const press = e => { holding = true; if (e && e.clientX != null) om = [e.clientX / innerWidth, 1 - e.clientY / innerHeight]; };
+    $('hold').addEventListener('pointerdown', press);
+    addEventListener('pointerup', () => holding = false);
+    $('hold').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); press(); } });
+    $('hold').addEventListener('keyup', () => holding = false);
+    $('skip').addEventListener('click', () => { hold = 1; enter(); });
+    if (reduced || !gl) { hold = 1; enter(); }
+
+    const film = $('film'), chaps = [...document.querySelectorAll('.chap')];
+    const LB = ['', 'it waits', 'clock started', 'cooking', 'ready'];
+    let heat = .5, cur = -1, lastM = -1, mx = .5, my = .3, tx = .5, ty = .3;
+    addEventListener('pointermove', e => { tx = e.clientX / innerWidth; ty = 1 - e.clientY / innerHeight; });
+
+    function frame(now) {
+      if (!opened) {
+        hold = Math.min(1, Math.max(0, hold + (holding ? .011 : -.02)));
+        $('pct').textContent = Math.round(hold * 100); $('arcp').style.strokeDashoffset = 100 - hold * 100;
+        if (hold >= 1) enter();
+      }
+      openV += ((opened ? 1 : hold) - openV) * .12;
+      const r = film.getBoundingClientRect(), S = L(0, r.height - innerHeight, -r.top), m = S * ARR;
+      const ci = S < .12 ? 0 : S < .3 ? 1 : S < .5 ? 2 : S < .75 ? 3 : 4;
+      if (ci !== cur) { cur = ci; chaps.forEach((c, i) => c.classList.toggle('on', i === ci)); $('lbl').textContent = LB[ci]; }
+      const mm = Math.floor(m); if (mm !== lastM) { lastM = mm; $('clk').textContent = at(mm); }
+      heat += ((S < .3 ? .5 - .45 * L(.12, .3, S) : .05 + .95 * L(.5, .75, S)) - heat) * .08;
+      if (gl) {
+        mx += (tx - mx) * .06; my += (ty - my) * .06;
+        const zz = L(.75, 1, S), z = zz * zz * (3 - 2 * zz);
+        cv.style.opacity = r.bottom >= innerHeight ? 1 : Math.max(.2, r.bottom / innerHeight);
+        gl.uniform1f(U.t, reduced ? 3 : now / 1000); gl.uniform1f(U.heat, heat); gl.uniform1f(U.arc, L(.3, .5, S));
+        gl.uniform1f(U.z, z); gl.uniform1f(U.open, openV); gl.uniform2f(U.res, cv.width, cv.height);
+        gl.uniform2f(U.m, mx, my); gl.uniform2f(U.om, om[0], om[1]);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+
   <script type="module">
     import { api } from '/js/api.js';
     import { esc } from '/js/shell.js';
-
-    // timing instrument (illustrative; prep fixed at 12 min)
-    const PREP = 12, MAX = 45, r = document.getElementById('eta-range');
-    const sync = () => {
-      const eta = +r.value, fire = eta - PREP, pct = v => (v / MAX) * 100;
-      eta_.textContent = eta; fire_.textContent = fire === 0 ? 'now' : `${fire} min`;
-      cook.style.left = pct(fire) + '%'; cook.style.width = pct(PREP) + '%';
-      ps.style.left = pct(fire) + '%'; pe.style.left = pct(eta) + '%';
-    };
-    const eta_ = document.getElementById('eta'), fire_ = document.getElementById('fire'),
-          cook = document.getElementById('cook'), ps = document.getElementById('pin-start'), pe = document.getElementById('pin-end');
-    r.addEventListener('input', sync); sync();
-
-    // directory
+    import { auth } from '/js/auth.js';
+    const $ = id => document.getElementById(id);
     let shops = [], cat = '', q = '';
-    const list = document.getElementById('list'), count = document.getElementById('count');
+    const list = $('list'), count = $('count');
+    const u = auth.getUser(), nm = (u?.name || '').split(' ')[0], first = nm && nm[0].toUpperCase() + nm.slice(1).toLowerCase(), hr = new Date().getHours();
+    if (first) { $('hi').textContent = `Good ${hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : 'evening'}, ${first}`; $('ty').textContent = `Thank you, ${first}.`; }
 
     function render() {
       const s = q.toLowerCase();
@@ -137,33 +251,39 @@
         (!cat || (x.category || '').toLowerCase().includes(cat.toLowerCase())) &&
         (!s || [x.name, x.category, x.city, x.description].some(v => (v || '').toLowerCase().includes(s))));
       count.textContent = `${rows.length} of ${shops.length} kitchens`;
-      if (!rows.length) { list.innerHTML = `<li class="empty">No kitchens match. Try a different search or category.</li>`; return; }
+      if (!rows.length) { list.innerHTML = shops.length ? `<p class="empty">No kitchens match. Try a different search or category.</p>` : `<div class="empty"><h3 class="h2" style="margin-bottom:12px">The pass is quiet for now.</h3><p class="muted" style="max-width:46ch">No kitchens are taking orders yet. If you run one, we'd love to have you. <a href="/register.html?role=shop_owner" style="color:var(--saffron)">Open your kitchen.</a></p></div>`; return; }
       list.innerHTML = rows.map(x => {
         const open = x.is_open && x.is_accepting_orders;
         const rating = x.rating_avg > 0 ? `${Number(x.rating_avg).toFixed(1)}★` : 'New';
-        return `<li style="border-top:0"><a class="row kitchen" href="/shop.html?id=${encodeURIComponent(x.id)}">
-          <div><h3>${esc(x.name)}</h3><p>${esc(x.description || 'Takes orders ahead for counter pickup.')}</p></div>
-          <div class="c2 muted small">${esc(x.category || 'Kitchen')}<br>${esc(x.city || '')}</div>
-          <div class="c3 muted small num">~15 min</div>
-          <div><span class="status ${open ? 'open' : 'shut'}">${open ? 'Taking orders' : 'Closed right now'}</span></div>
-          <div class="rate num">${rating}</div>
-        </a></li>`;
+        return `<a class="tile" href="/shop.html?id=${encodeURIComponent(x.id)}" draggable="false">
+          <div class="tp${x.banner_url ? '' : ' none'}" data-img="${esc(x.banner_url || '')}"></div>
+          ${x.banner_url ? '' : `<span class="ini" aria-hidden="true">${esc((x.name || '?')[0])}</span>`}
+          <div class="top"><span class="status ${open ? 'open' : 'shut'}">${open ? 'Taking orders' : 'Closed right now'}</span><strong class="num">${rating}</strong></div>
+          <div><h3>${esc(x.name)}</h3><p>${esc(x.category || 'Kitchen')}<br>${esc(x.city || '')}</p></div>
+        </a>`;
       }).join('');
+      list.querySelectorAll('.tp[data-img]').forEach(el => { if (el.dataset.img) el.style.backgroundImage = `url("${el.dataset.img.replace(/"/g, '%22')}")`; });
     }
 
-    document.getElementById('cats').addEventListener('click', e => {
+    $('cats').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       document.querySelectorAll('#cats button').forEach(x => x.setAttribute('aria-selected', x === b));
       cat = b.dataset.c; render();
     });
-    let t; document.getElementById('q').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { q = e.target.value.trim(); render(); }, 200); });
+    let t; $('q').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { q = e.target.value.trim(); render(); }, 200); });
+
+    let down = false, moved = false, sx = 0, sl = 0;
+    list.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { down = true; moved = false; sx = e.clientX; sl = list.scrollLeft; } });
+    addEventListener('pointermove', e => { if (!down) return; if (Math.abs(e.clientX - sx) > 5) { moved = true; list.classList.add('drag'); } list.scrollLeft = sl - (e.clientX - sx); });
+    addEventListener('pointerup', () => { down = false; list.classList.remove('drag'); });
+    list.addEventListener('click', e => { if (moved) { e.preventDefault(); moved = false; } }, true);
 
     api.getShops({ page: 1, page_size: 50 }).then(res => {
-      shops = Array.isArray(res) ? res : (res.items || res.shops || []);
+      shops = Array.isArray(res) ? res : (res.items || res.shops || res.data || res.results || []);
       render();
     }).catch(() => {
       count.textContent = 'Kitchens could not be loaded.';
-      list.innerHTML = `<li class="empty">We couldn't reach the server. Check your connection and refresh.</li>`;
+      list.innerHTML = `<p class="empty">We couldn't reach the server. Check your connection and refresh.</p>`;
     });
   </script>
 </body>

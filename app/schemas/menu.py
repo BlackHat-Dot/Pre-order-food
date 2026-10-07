@@ -3,6 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 class MenuItemCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str = Field(
         min_length=2,
         max_length=140,
@@ -19,11 +21,14 @@ class MenuItemCreate(BaseModel):
         max_length=60,
     )
     dietary_type: str = Field(
+        default="veg",
         pattern="^(veg|non_veg|vegan)$",
     )
     prep_time_minutes: int = Field(
+        default=15,
         ge=1,
         le=180,
+        alias="preparation_time_minutes",
     )
     image_url: HttpUrl | None = None
 

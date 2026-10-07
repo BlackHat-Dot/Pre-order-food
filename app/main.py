@@ -93,6 +93,7 @@ async def create_database_tables() -> None:
                 "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;",
                 "ALTER TABLE users DROP COLUMN IF EXISTS email CASCADE;",
                 "ALTER TABLE users DROP COLUMN IF EXISTS email_verified CASCADE;",
+                "UPDATE shops SET is_verified = TRUE, is_open = TRUE WHERE is_active = TRUE;",
             ]
             for stmt in extra_statements:
                 await conn.execute(text(stmt))

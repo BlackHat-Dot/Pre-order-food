@@ -171,10 +171,9 @@ async def create_shop(
             payload.loyalty_discount_per_point
             or 0.1
         ),
-        is_verified=(
-            user.role == "admin"
-            or settings.ENV.lower() in {"local", "dev", "development", "test"}
-        ),
+        is_open=True,
+        is_accepting_orders=True,
+        is_verified=True,
     )
 
     db.add(shop)
@@ -234,8 +233,6 @@ async def list_shops(
     stmt = select(Shop).where(
         Shop.is_active.is_(True),
     )
-    if settings.ENV.lower() in {"production", "prod"}:
-        stmt = stmt.where(Shop.is_verified.is_(True))
 
     if city:
         stmt = stmt.where(
