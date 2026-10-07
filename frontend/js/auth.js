@@ -1,62 +1,93 @@
-/**
- * PreOrder Authentication State & Storage Manager
- */
+/* ============================================================================
+   PREORDER AUTHENTICATION & SESSION MANAGER
+   Session Token Storage & Role Access Guards
+   ============================================================================ */
 
-const Auth = {
+const TOKEN_KEY = 'preorder_token';
+const REFRESH_KEY = 'preorder_refresh';
+const USER_KEY = 'preorder_user';
+
+export const auth = {
+  saveTokens(tokens) {
+    if (tokens.access_token) {
+      localStorage.setItem(TOKEN_KEY, tokens.access_token);
+    }
+    if (tokens.refresh_token) {
+      localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+    }
+  },
+
   getToken() {
-    return window.tokenStore ? window.tokenStore.access : localStorage.getItem("pof_access_token");
+    return localStorage.getItem(TOKEN_KEY);
+  },
+
+  getRefreshToken() {
+    return localStorage.getItem(REFRESH_KEY);
+  },
+
+  setUser(user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
   getUser() {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
     try {
-      const data = localStorage.getItem("auth_user");
-      return data ? JSON.parse(data) : null;
+      return JSON.parse(raw);
     } catch {
       return null;
     }
   },
 
+  getRole() {
+    const user = this.getUser();
+    return user ? user.role : null;
+  },
+
   isLoggedIn() {
-    return !!this.getToken() && !!this.getUser();
+    return Boolean(this.getToken());
   },
 
-  async login(identifier, password) {
-    const user = await window.api.auth.login(identifier, password);
-    return user;
+  isOwner() {
+    return this.getRole() === 'shop_owner' || this.getRole() === 'admin';
   },
 
-  async register(payload) {
-    const res = await window.api.auth.register(payload);
-    return res;
-  },
-
-  async refresh() {
-    try {
-      if (this.getToken()) {
-        const me = await window.api.auth.getMe();
-        localStorage.setItem("auth_user", JSON.stringify(me));
-        return me;
-      }
-    } catch {
-      this.logout();
-    }
-    return null;
+  isAdmin() {
+    return this.getRole() === 'admin';
   },
 
   logout() {
-    if (window.tokenStore) window.tokenStore.clear();
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("pof_access_token");
-    localStorage.removeItem("pof_refresh_token");
-    localStorage.removeItem("auth_token");
-    window.location.href = "login.html";
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(USER_KEY);
+    window.location.href = '/login.html';
   },
 
-  getLandingPage(role) {
-    if (role === "admin") return "admin.html";
-    if (role === "shop_owner") return "owner.html";
-    return "orders.html";
+  requireAuth(redirectUrl = window.location.href) {
+    if (!this.isLoggedIn()) {
+      window.location.href = `/login.html?redirect=${encodeURIComponent(redirectUrl)}`;
+      return false;
+    }
+    return true;
   },
+
+  requireOwner() {
+    if (!this.requireAuth()) return false;
+    if (!this.isOwner()) {
+      window.location.href = '/index.html';
+      return false;
+    }
+    return true;
+  },
+
+  requireAdmin() {
+    if (!this.requireAuth()) return false;
+    if (!this.isAdmin()) {
+      window.location.href = '/index.html';
+      return false;
+    }
+    return true;
+  }
 };
 
-window.auth = Auth;
+window.auth = auth;

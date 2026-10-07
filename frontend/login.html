@@ -1,90 +1,105 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in — PreOrder</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Sign In — PREORDER</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
-  <!-- Exact Ambient Background -->
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
-    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
-  </div>
+<body style="min-height: 100vh; display: flex; flex-direction: column;">
+  <!-- Global Architectural Header -->
+  <div id="global-header"></div>
 
-  <div class="grid min-h-screen place-items-center px-4">
-    <div class="w-full max-w-sm">
-      <a href="index.html" class="mb-8 flex items-center justify-center gap-2 font-semibold text-foreground">
-        <span class="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground" style="background: var(--gradient-primary);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="m14 2 4 4"/><path d="M18 10v12"/><path d="M6 2v20"/><path d="M9 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/></svg>
-        </span>
-        <span class="text-lg">PreOrder</span>
-      </a>
+  <main class="app-container" style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px var(--container-padding);">
+    <div style="width: 100%; max-width: 440px; border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
+      <div style="margin-bottom: 28px;">
+        <div class="eyebrow">IDENTITY VERIFICATION</div>
+        <h1 class="headline-2" style="margin-top: 4px;">Access PreOrder</h1>
+        <p class="subheadline" style="font-size: 0.85rem; margin-top: 6px;">Sign in to manage active tickets, track orders, or access your kitchen control desk.</p>
+      </div>
 
-      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-[var(--shadow-elegant)]">
-        <div class="flex flex-col space-y-1.5 p-6 pb-2 text-left">
-          <h3 class="font-semibold tracking-tight text-2xl text-foreground">Sign in</h3>
-          <p class="text-sm text-muted-foreground">Welcome back. Enter your details.</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="login-phone">TELEPHONE NUMBER</label>
+          <input type="tel" id="login-phone" class="input-text" placeholder="+919876543210" required autocomplete="username">
         </div>
 
-        <div class="p-6 pt-0">
-          <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4 text-left">
-            <div class="space-y-2">
-              <label for="identifier" class="text-sm font-medium leading-none text-foreground">Email or phone</label>
-              <input id="identifier" type="text" required autocomplete="username" placeholder="name@example.com or +91..." class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
-            </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">AUTHENTICATION SECRET</label>
+          <input type="password" id="login-password" class="input-text" placeholder="••••••••••••" required autocomplete="current-password">
+        </div>
 
-            <div class="space-y-2">
-              <label for="password" class="text-sm font-medium leading-none text-foreground">Password</label>
-              <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
-            </div>
+        <div style="margin-top: 24px;">
+          <button type="submit" class="btn btn-primary btn-lg" id="submit-login-btn" style="width: 100%;">
+            SIGN IN TO NETWORK &rarr;
+          </button>
+        </div>
+      </form>
 
-            <button id="login-submit-btn" type="submit" class="w-full inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50">
-              Sign in
-            </button>
-          </form>
+      <div class="hairline-divider" style="margin: 28px 0 20px;"></div>
 
-          <p class="mt-6 text-center text-sm text-muted-foreground">
-            No account?
-            <a href="register.html" class="text-primary hover:underline">Create one</a>
-          </p>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 0.76rem;">
+        <span style="color: var(--text-tertiary);">NEW OPERATOR OR DINER?</span>
+        <a href="/register.html" style="color: var(--accent-ember-hover); text-decoration: none; font-weight: 600;">CREATE ACCOUNT &rarr;</a>
+      </div>
+
+      <!-- Developer Credentials Hint -->
+      <div style="margin-top: 24px; padding: 12px; background: var(--bg-surface-elevated); border: 1px dashed var(--border-subtle); border-radius: var(--radius-xs);">
+        <div class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">[ LOCAL DEV SEED HINT ]</div>
+        <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px;">
+          Customer: <code>+919876543210</code> / <code>Password123!</code><br>
+          Owner: <code>+919876543211</code> / <code>Password123!</code>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <script src="js/api.js"></script>
-  <script src="js/cart.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script>
-    async function handleLogin(e) {
+  <!-- Global Footer -->
+  <div id="global-footer"></div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { toast } from '/js/toast.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectUrl = urlParams.get('redirect') || '/index.html';
+
+    // If already logged in, redirect
+    if (auth.isLoggedIn()) {
+      window.location.href = redirectUrl;
+    }
+
+    const form = document.getElementById('login-form');
+    const submitBtn = document.getElementById('submit-login-btn');
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const identifier = document.getElementById("identifier").value.trim();
-      const password = document.getElementById("password").value;
-      const btn = document.getElementById("login-submit-btn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'AUTHENTICATING TOKEN...';
 
-      if (!identifier) {
-        window.toast.error("Email or phone is required.");
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = "Signing in…";
+      const phone = document.getElementById('login-phone').value.trim();
+      const password = document.getElementById('login-password').value;
 
       try {
-        const user = await window.auth.login(identifier, password);
-        window.toast.success(`Welcome back, ${user.name.split(" ")[0]}`);
+        const { user } = await api.login(phone, password);
+        toast.success(`Welcome back, ${user.name || 'Operator'}`);
+
         setTimeout(() => {
-          window.location.href = window.auth.getLandingPage(user.role);
-        }, 300);
+          if (user.role === 'shop_owner' && redirectUrl === '/index.html') {
+            window.location.href = '/owner.html';
+          } else {
+            window.location.href = redirectUrl;
+          }
+        }, 500);
       } catch (err) {
-        window.toast.error(err.message || "Sign in failed");
-        btn.disabled = false;
-        btn.textContent = "Sign in";
+        toast.error(err.message || 'Authentication credentials rejected');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'SIGN IN TO NETWORK →';
       }
-    }
+    });
   </script>
 </body>
 </html>

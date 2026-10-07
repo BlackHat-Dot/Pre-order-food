@@ -200,22 +200,26 @@ class Order(Base):
     shop = relationship(
         "Shop",
         back_populates="orders",
+        lazy="selectin",
     )
 
     customer = relationship(
         "User",
+        lazy="selectin",
     )
 
     items = relationship(
         "OrderItem",
         back_populates="order",
         cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     payments = relationship(
         "Payment",
         back_populates="order",
         cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 

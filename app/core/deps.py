@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
-from app.db.session import get_db
+from app.db.session import get_db, get_redis
 from app.models.user import User
 
 logger = logging.getLogger(__name__)

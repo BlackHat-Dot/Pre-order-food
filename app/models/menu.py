@@ -164,6 +164,7 @@ class MenuItem(Base):
         cascade=(
             "all, delete-orphan"
         ),
+        lazy="selectin",
     )
 
 

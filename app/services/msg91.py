@@ -35,7 +35,7 @@ def check_msg91_rate_limit(identifier: str) -> bool:
         return True
 
 
-async def verify_msg91_token(reqId: str, otp: str, phone: str) -> str:
+async def verify_msg91_token(access_token: str, phone: str, otp: str = "") -> str:
     """
     Verify a MSG91 widget access_token against the MSG91 API.
 
@@ -59,7 +59,7 @@ async def verify_msg91_token(reqId: str, otp: str, phone: str) -> str:
             resp = await client.post(
                 MSG91_VERIFY_URL,
                 json={
-                    "req_id": reqId,
+                    "req_id": access_token,
                     "otp": otp,
                     "authkey": settings.MSG91_AUTH_KEY,
         },

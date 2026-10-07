@@ -40,6 +40,12 @@ def main():
         ("shop_owner", owner_phone, "owner1231@example.com"),
         ("customer", customer_phone, "cust1232@example.com"),
     ]:
+        v_status, v_data = req(
+            "POST",
+            "/verify-msg91",
+            json={"access_token": "local_dev", "phone": phone, "purpose": "signup_phone"},
+        )
+        token = v_data.get("verification_token") if isinstance(v_data, dict) else ""
         status, _ = req(
             "POST",
             "/auth/register",
@@ -49,6 +55,7 @@ def main():
                 "phone": phone,
                 "email": email,
                 "password": password,
+                "phone_verification_token": token,
             },
         )
         print("register", role, status)
@@ -70,7 +77,7 @@ def main():
             "name": "Smoke Shop",
             "phone": "8111100999",
             "description": "smoke",
-            "address_line": "Main",
+            "address_line": "Main Street",
             "city": "Chennai",
             "state": "TN",
             "pincode": "600001",
@@ -81,6 +88,10 @@ def main():
     )
     print("create shop", status)
     shop_id = data.get("id") if isinstance(data, dict) else None
+    if not shop_id:
+        _, my_shops = req("GET", "/shops/my", headers=owner_headers)
+        if isinstance(my_shops, list) and my_shops:
+            shop_id = my_shops[0]["id"]
 
     item_id = None
     if shop_id:
@@ -108,6 +119,10 @@ def main():
         )
         print("create item", status)
         item_id = data.get("id") if isinstance(data, dict) else None
+        if not item_id:
+            _, menu = req("GET", f"/menu/shops/{shop_id}/items?page=1&page_size=20", headers=owner_headers)
+            if isinstance(menu, list) and menu:
+                item_id = menu[0]["id"]
 
     status, data = req(
         "POST",

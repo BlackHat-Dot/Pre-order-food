@@ -1,147 +1,141 @@
-/**
- * PreOrder Shopping Cart Manager
- * Compatible with order-delight-main cart schema (pof_cart_v1)
- */
+/* ============================================================================
+   PREORDER REACTIVE CART STORE
+   Single-Shop Order Assembly Engine
+   ============================================================================ */
 
-const KEY = "pof_cart_v1";
-const LEGACY_KEY = "preorder_cart";
+import { toast } from './toast.js';
 
-function readCart() {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return parsed.map((item) => ({
-      shop_id: item.shop_id,
-      item_id: item.item_id,
-      variant_id: item.variant_id ?? null,
-      name: item.name,
-      variant_name: item.variant_name ?? null,
-      unit_price: parseFloat(item.unit_price ?? item.price ?? 0),
-      price: parseFloat(item.unit_price ?? item.price ?? 0),
-      quantity: parseInt(item.quantity ?? 1, 10),
-      image_url: item.image_url ?? null,
-      notes: item.notes ?? "",
-    }));
-  } catch {
-    return [];
+const CART_KEY = 'preorder_active_cart';
+
+class CartStore {
+  constructor() {
+    this.cart = this.load();
+    this.listeners = [];
   }
-}
 
-function writeCart(lines) {
-  const normalized = lines.map((l) => ({
-    ...l,
-    price: l.unit_price,
-  }));
-  localStorage.setItem(KEY, JSON.stringify(normalized));
-  localStorage.setItem(LEGACY_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new CustomEvent("pof_cart", { detail: { lines: normalized } }));
-  window.dispatchEvent(new CustomEvent("cart-updated", { detail: { items: normalized } }));
-}
+  load() {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      if (!raw) return { shopId: null, shopName: null, items: [] };
+      return JSON.parse(raw);
+    } catch {
+      return { shopId: null, shopName: null, items: [] };
+    }
+  }
 
-const Cart = {
-  all: readCart,
-  getItems: readCart,
+  save() {
+    localStorage.setItem(CART_KEY, JSON.stringify(this.cart));
+    this.notify();
+  }
 
-  getShopId() {
-    const lines = readCart();
-    return lines.length > 0 ? lines[0].shop_id : null;
-  },
+  notify() {
+    window.dispatchEvent(new CustomEvent('preorder:cart-updated', { detail: this.cart }));
+    this.listeners.forEach(fn => fn(this.cart));
+  }
 
-  byShop(shopId) {
-    return readCart().filter((l) => l.shop_id === shopId);
-  },
+  subscribe(listener) {
+    this.listeners.push(listener);
+    listener(this.cart);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
 
-  add(line, forceClearConflict = false) {
-    const lines = readCart();
-    if (lines.length > 0 && lines[0].shop_id !== line.shop_id) {
-      if (!forceClearConflict) {
-        window.dispatchEvent(new CustomEvent("pof_cart_conflict", { detail: { pendingLine: line } }));
-        return { conflict: true, currentShopId: lines[0].shop_id };
-      }
+  getCart() {
+    return this.cart;
+  }
+
+  addItem(payload) {
+    const { shopId, shopName, itemId, variantId = null, name, variantName = null, price, dietaryType = 'veg', prepMinutes = 15 } = payload;
+
+    // Check if adding from another shop
+    if (this.cart.shopId && this.cart.shopId !== shopId && this.cart.items.length > 0) {
+      const confirmed = window.confirm(
+        `Your cart already contains items from "${this.cart.shopName || 'another kitchen'}". Empty cart and start an order with "${shopName}"?`
+      );
+      if (!confirmed) return false;
+      this.cart = { shopId, shopName, items: [] };
     }
 
-    const filtered = lines[0] && lines[0].shop_id !== line.shop_id ? [] : lines;
-    const existing = filtered.find(
-      (l) => l.item_id === line.item_id && l.variant_id === line.variant_id
+    this.cart.shopId = shopId;
+    this.cart.shopName = shopName || this.cart.shopName;
+
+    // Check if item + variant already in cart
+    const existingIndex = this.cart.items.findIndex(
+      item => item.itemId === itemId && (item.variantId || null) === (variantId || null)
     );
 
-    if (existing) {
-      existing.quantity += line.quantity;
+    if (existingIndex > -1) {
+      this.cart.items[existingIndex].quantity += 1;
     } else {
-      filtered.push({
-        shop_id: line.shop_id,
-        item_id: line.item_id,
-        variant_id: line.variant_id ?? null,
-        name: line.name,
-        variant_name: line.variant_name ?? null,
-        unit_price: parseFloat(line.unit_price ?? line.price ?? 0),
-        price: parseFloat(line.unit_price ?? line.price ?? 0),
-        quantity: line.quantity,
-        image_url: line.image_url ?? null,
-        notes: line.notes ?? "",
+      this.cart.items.push({
+        itemId,
+        variantId,
+        name,
+        variantName,
+        price: Number(price),
+        quantity: 1,
+        dietaryType,
+        prepMinutes: Number(prepMinutes)
       });
     }
 
-    writeCart(filtered);
-    return { conflict: false };
-  },
+    this.save();
+    toast.success(`Added ${name} to order ticket`);
+    return true;
+  }
 
-  addItem(item, variant = null, quantity = 1, forceClearConflict = false) {
-    const shopId = item.shop_id;
-    const unitPrice = variant ? parseFloat(variant.price) : parseFloat(item.price);
-    const line = {
-      shop_id: shopId,
-      item_id: item.id,
-      variant_id: variant?.id ?? null,
-      name: item.name,
-      variant_name: variant?.name ?? null,
-      unit_price: unitPrice,
-      price: unitPrice,
-      quantity,
-      image_url: item.image_url ?? null,
-    };
-    return this.add(line, forceClearConflict);
-  },
-
-  setQuantity(itemId, variantId, quantity) {
-    const lines = readCart()
-      .map((l) => (l.item_id === itemId && (l.variant_id ?? null) === (variantId ?? null) ? { ...l, quantity } : l))
-      .filter((l) => l.quantity > 0);
-    writeCart(lines);
-  },
-
-  updateQuantity(itemId, variantId, qty) {
-    this.setQuantity(itemId, variantId, qty);
-  },
-
-  remove(itemId, variantId = null) {
-    const lines = readCart().filter(
-      (l) => !(l.item_id === itemId && (l.variant_id ?? null) === (variantId ?? null))
+  updateQuantity(itemId, variantId, delta) {
+    const idx = this.cart.items.findIndex(
+      item => item.itemId === itemId && (item.variantId || null) === (variantId || null)
     );
-    writeCart(lines);
-  },
 
-  removeItem(itemId, variantId = null) {
-    this.remove(itemId, variantId);
-  },
+    if (idx === -1) return;
+
+    this.cart.items[idx].quantity += delta;
+    if (this.cart.items[idx].quantity <= 0) {
+      this.cart.items.splice(idx, 1);
+    }
+
+    if (this.cart.items.length === 0) {
+      this.cart.shopId = null;
+      this.cart.shopName = null;
+    }
+
+    this.save();
+  }
+
+  removeItem(itemId, variantId) {
+    this.cart.items = this.cart.items.filter(
+      item => !(item.itemId === itemId && (item.variantId || null) === (variantId || null))
+    );
+
+    if (this.cart.items.length === 0) {
+      this.cart.shopId = null;
+      this.cart.shopName = null;
+    }
+
+    this.save();
+  }
 
   clear() {
-    writeCart([]);
-  },
+    this.cart = { shopId: null, shopName: null, items: [] };
+    this.save();
+  }
 
-  getCount() {
-    return readCart().reduce((sum, item) => sum + item.quantity, 0);
-  },
+  getItemsCount() {
+    return this.cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  }
 
   getSubtotal() {
-    return readCart().reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
-  },
+    return this.cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  }
 
-  getTotal() {
-    return this.getSubtotal();
-  },
-};
+  getMaxPrepMinutes() {
+    if (this.cart.items.length === 0) return 0;
+    return Math.max(...this.cart.items.map(item => item.prepMinutes || 15));
+  }
+}
 
-window.cart = Cart;
+export const cart = new CartStore();
+window.cart = cart;

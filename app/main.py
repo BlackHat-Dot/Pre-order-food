@@ -81,6 +81,18 @@ async def create_database_tables() -> None:
                 """)
             )
 
+            extra_statements = [
+                "CREATE SEQUENCE IF NOT EXISTS orders_order_number_seq START WITH 1001;",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number INTEGER UNIQUE DEFAULT nextval('orders_order_number_seq');",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(30) NOT NULL DEFAULT 'delivery';",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address_id VARCHAR(255);",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id VARCHAR(36);",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount_applied FLOAT NOT NULL DEFAULT 0;",
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;",
+            ]
+            for stmt in extra_statements:
+                await conn.execute(text(stmt))
+
         logger.info(
             "Database schema ready"
         )
@@ -331,6 +343,12 @@ def create_app() -> FastAPI:
     # ─────────────────────────────────────────
 
     candidate_frontends = [
+        (
+            Path(__file__)
+            .resolve()
+            .parents[1]
+            / "frontend-vanilla"
+        ),
         (
             Path(__file__)
             .resolve()

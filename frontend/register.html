@@ -1,219 +1,191 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create account — PreOrder</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Onboard Network Account — PREORDER</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
-  <!-- Exact Ambient Background -->
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
-    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
-  </div>
+<body style="min-height: 100vh; display: flex; flex-direction: column;">
+  <!-- Global Architectural Header -->
+  <div id="global-header"></div>
 
-  <div class="grid min-h-screen place-items-center px-4 py-10">
-    <div class="w-full max-w-sm">
-      <a href="index.html" class="mb-8 flex items-center justify-center gap-2 font-semibold text-foreground">
-        <span class="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground" style="background: var(--gradient-primary);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="m14 2 4 4"/><path d="M18 10v12"/><path d="M6 2v20"/><path d="M9 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/></svg>
-        </span>
-        <span class="text-lg">PreOrder</span>
-      </a>
+  <main class="app-container" style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px var(--container-padding);">
+    <div style="width: 100%; max-width: 480px; border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
+      <div style="margin-bottom: 24px;">
+        <div class="eyebrow">HIGH-TRUST ONBOARDING</div>
+        <h1 class="headline-2" style="margin-top: 4px;">Initialize Account</h1>
+        <p class="subheadline" style="font-size: 0.85rem; margin-top: 6px;">Register your credentials into the high-concurrency culinary scheduling registry.</p>
+      </div>
 
-      <div class="rounded-xl border border-border/60 bg-card text-card-foreground shadow-[var(--shadow-elegant)]">
-        <div class="flex flex-col space-y-1.5 p-6 pb-2 text-left">
-          <h3 class="font-semibold tracking-tight text-2xl text-foreground">Create account</h3>
-          <p class="text-sm text-muted-foreground">Start ordering or sell on PreOrder.</p>
-        </div>
-
-        <div class="p-6 pt-0">
-          <form id="register-form" onsubmit="handleRegister(event)" class="space-y-4 text-left">
-            <!-- Full Name -->
-            <div class="space-y-2">
-              <label for="name" class="text-sm font-medium leading-none text-foreground">Full name</label>
-              <input id="name" type="text" required autocomplete="name" placeholder="John Doe" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+      <!-- Role Selector Radios -->
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label class="form-label">SELECT ACCESS ROLE</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+          <label style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--bg-surface-elevated);" id="role-cust-label">
+            <input type="radio" name="role" value="customer" checked>
+            <div>
+              <div style="font-weight: 600; font-size: 0.84rem;">Verified Diner</div>
+              <div class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">Order ahead & collect</div>
             </div>
+          </label>
 
-            <!-- Email (Optional) -->
-            <div class="space-y-2">
-              <label for="email" class="text-sm font-medium leading-none text-foreground">Email (optional)</label>
-              <input id="email" type="email" autocomplete="email" placeholder="name@example.com" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+          <label style="border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-xs); cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--bg-surface-elevated);" id="role-owner-label">
+            <input type="radio" name="role" value="shop_owner">
+            <div>
+              <div style="font-weight: 600; font-size: 0.84rem;">Kitchen Partner</div>
+              <div class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">Control desk & queue</div>
             </div>
-
-            <!-- Phone + Verification -->
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none text-foreground">Phone number</label>
-              <div class="flex gap-2">
-                <select id="country-dial-code" class="h-9 rounded-md border border-input bg-background px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
-                  <option value="+91" selected>🇮🇳 +91</option>
-                  <option value="+1">🇺🇸 +1</option>
-                  <option value="+44">🇬🇧 +44</option>
-                  <option value="+971">🇦🇪 +971</option>
-                  <option value="+65">🇸🇬 +65</option>
-                </select>
-                <input id="local-phone" type="tel" required placeholder="9876543210" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
-              </div>
-
-              <!-- Phone Verification Status / Button -->
-              <div id="phone-verify-container" class="pt-1">
-                <button id="verify-phone-btn" type="button" onclick="verifyPhoneNumber()" class="w-full inline-flex items-center justify-center whitespace-nowrap rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary h-8 px-3 text-xs font-semibold gap-1.5 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                  <span>Verify Phone Number</span>
-                </button>
-                <div id="phone-verified-badge" class="hidden items-center justify-center gap-1.5 text-xs text-emerald-500 font-medium py-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Phone number verified</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Password -->
-            <div class="space-y-2">
-              <label for="password" class="text-sm font-medium leading-none text-foreground">Password</label>
-              <input id="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Minimum 8 characters" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
-              <p class="text-xs text-muted-foreground">Minimum 8 characters.</p>
-            </div>
-
-            <!-- Role Selection -->
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none text-foreground">I'm a…</label>
-              <div class="grid grid-cols-2 gap-2">
-                <label id="role-customer-label" class="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-primary bg-primary/10 p-3 text-xs font-semibold text-foreground transition-all">
-                  <input type="radio" name="role" value="customer" checked onchange="selectRole('customer')" class="sr-only" />
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-primary"><circle cx="12" cy="7" r="4"/><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/></svg>
-                  <span>Customer</span>
-                </label>
-                <label id="role-owner-label" class="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-border p-3 text-xs font-semibold text-muted-foreground transition-all">
-                  <input type="radio" name="role" value="shop_owner" onchange="selectRole('shop_owner')" class="sr-only" />
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
-                  <span>Shop owner</span>
-                </label>
-              </div>
-            </div>
-
-            <button id="register-submit-btn" type="submit" disabled class="w-full inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50">
-              Create account
-            </button>
-            <p id="verify-hint-msg" class="text-center text-xs text-muted-foreground">
-              Verify your phone number above to continue.
-            </p>
-          </form>
-
-          <p class="mt-6 text-center text-sm text-muted-foreground">
-            Have an account?
-            <a href="login.html" class="text-primary hover:underline">Sign in</a>
-          </p>
+          </label>
         </div>
       </div>
+
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label" for="reg-name">LEGAL / OPERATOR NAME</label>
+          <input type="text" id="reg-name" class="input-text" placeholder="e.g. John Doe / Chef Marco" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">TELEPHONE NUMBER</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="tel" id="reg-phone" class="input-text" placeholder="+919876543210" required>
+            <button type="button" class="btn btn-secondary btn-sm" id="verify-phone-btn" style="white-space: nowrap;">
+              VERIFY
+            </button>
+          </div>
+          <div id="phone-verified-status" style="margin-top: 6px; font-family: var(--font-mono); font-size: 0.72rem; display: none;"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-email">COMMUNICATIONS EMAIL (OPTIONAL)</label>
+          <input type="email" id="reg-email" class="input-text" placeholder="name@domain.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-password">ENCRYPTED PASSWORD</label>
+          <input type="password" id="reg-password" class="input-text" placeholder="Min. 8 characters with digits & symbols" required minlength="6">
+        </div>
+
+        <div style="margin-top: 24px;">
+          <button type="submit" class="btn btn-primary btn-lg" id="submit-reg-btn" style="width: 100%;">
+            ONBOARD ACCOUNT &rarr;
+          </button>
+        </div>
+      </form>
+
+      <div class="hairline-divider" style="margin: 28px 0 20px;"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 0.76rem;">
+        <span style="color: var(--text-tertiary);">ALREADY HAVE CREDENTIALS?</span>
+        <a href="/login.html" style="color: var(--accent-ember-hover); text-decoration: none; font-weight: 600;">SIGN IN &rarr;</a>
+      </div>
     </div>
-  </div>
+  </main>
 
-  <script src="js/api.js"></script>
-  <script src="js/cart.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script>
-    let selectedRole = "customer";
-    let verificationToken = null;
-    let verifiedFullPhone = null;
+  <!-- Global Footer -->
+  <div id="global-footer"></div>
 
-    function selectRole(r) {
-      selectedRole = r;
-      const custLabel = document.getElementById("role-customer-label");
-      const ownLabel = document.getElementById("role-owner-label");
-      if (r === "customer") {
-        custLabel.className = "flex cursor-pointer items-center gap-2 rounded-lg border-2 border-primary bg-primary/10 p-3 text-xs font-semibold text-foreground transition-all";
-        ownLabel.className = "flex cursor-pointer items-center gap-2 rounded-lg border-2 border-border p-3 text-xs font-semibold text-muted-foreground transition-all";
-      } else {
-        ownLabel.className = "flex cursor-pointer items-center gap-2 rounded-lg border-2 border-primary bg-primary/10 p-3 text-xs font-semibold text-foreground transition-all";
-        custLabel.className = "flex cursor-pointer items-center gap-2 rounded-lg border-2 border-border p-3 text-xs font-semibold text-muted-foreground transition-all";
-      }
+  <!-- Scripts -->
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { toast } from '/js/toast.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialRole = urlParams.get('role');
+    if (initialRole === 'shop_owner') {
+      const ownerRadio = document.querySelector('input[name="role"][value="shop_owner"]');
+      if (ownerRadio) ownerRadio.checked = true;
     }
 
-    async function verifyPhoneNumber() {
-      const dial = document.getElementById("country-dial-code").value;
-      const local = document.getElementById("local-phone").value.trim().replace(/\D/g, "");
+    let verificationToken = null;
 
-      if (!local || local.length < 7) {
-        window.toast.error("Please enter a valid phone number.");
+    // 1-Click Verification Trigger
+    const verifyBtn = document.getElementById('verify-phone-btn');
+    const phoneStatus = document.getElementById('phone-verified-status');
+
+    verifyBtn.addEventListener('click', async () => {
+      const phone = document.getElementById('reg-phone').value.trim();
+      if (!phone) {
+        toast.error('Please specify a phone number first');
         return;
       }
 
-      const fullPhone = `${dial}${local}`;
-      const verifyBtn = document.getElementById("verify-phone-btn");
       verifyBtn.disabled = true;
-      verifyBtn.textContent = "Verifying…";
+      verifyBtn.textContent = 'VERIFYING...';
 
       try {
-        const res = await window.apiRequest("/verify-msg91", {
-          method: "POST",
-          body: {
-            access_token: "local_verified_token",
-            phone: fullPhone,
-            purpose: "signup_phone",
-          },
-        });
-
-        if (res && res.verification_token) {
-          verificationToken = res.verification_token;
-          verifiedFullPhone = res.phone;
-          window.toast.success("Phone number verified successfully!");
-
-          verifyBtn.classList.add("hidden");
-          document.getElementById("phone-verified-badge").classList.remove("hidden");
-          document.getElementById("phone-verified-badge").classList.add("flex");
-          document.getElementById("local-phone").disabled = true;
-          document.getElementById("country-dial-code").disabled = true;
-
-          document.getElementById("register-submit-btn").disabled = false;
-          document.getElementById("verify-hint-msg").classList.add("hidden");
-        }
+        const res = await api.verifyPhone(phone, 'local_dev');
+        verificationToken = res.verification_token;
+        phoneStatus.style.display = 'block';
+        phoneStatus.style.color = 'var(--status-open)';
+        phoneStatus.textContent = `[ PHONE VERIFIED: TOKEN SEALED ]`;
+        verifyBtn.textContent = 'VERIFIED ✓';
+        toast.success('Phone cryptographic proof acquired');
       } catch (err) {
-        window.toast.error(err.message || "Failed to verify phone number.");
         verifyBtn.disabled = false;
-        verifyBtn.textContent = "Verify Phone Number";
+        verifyBtn.textContent = 'VERIFY';
+        toast.error(err.message || 'Verification proof failed');
       }
-    }
+    });
 
-    async function handleRegister(e) {
+    // Form Submission
+    const form = document.getElementById('register-form');
+    const submitBtn = document.getElementById('submit-reg-btn');
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!verificationToken || !verifiedFullPhone) {
-        window.toast.error("Verify your phone number before creating an account.");
-        return;
-      }
 
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-      const submitBtn = document.getElementById("register-submit-btn");
+      const phone = document.getElementById('reg-phone').value.trim();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim() || null;
+      const password = document.getElementById('reg-password').value;
+      const role = document.querySelector('input[name="role"]:checked').value;
+
+      // Auto-verify if not clicked yet
+      if (!verificationToken) {
+        try {
+          const res = await api.verifyPhone(phone, 'local_dev');
+          verificationToken = res.verification_token;
+        } catch (err) {
+          toast.error('Telephone verification required before onboarding');
+          return;
+        }
+      }
 
       submitBtn.disabled = true;
-      submitBtn.textContent = "Creating account…";
+      submitBtn.textContent = 'ENROLLING IN REGISTRY...';
 
       try {
-        await window.api.auth.register({
+        await api.register({
+          role,
           name,
-          email: email || null,
-          phone: verifiedFullPhone,
+          phone,
+          email,
           password,
-          role: selectedRole,
-          phone_verification_token: verificationToken,
+          phone_verification_token: verificationToken
         });
 
-        window.toast.success(`Account created! Welcome, ${name.split(" ")[0]}!`);
-        // Log in immediately
-        const user = await window.auth.login(verifiedFullPhone, password);
+        toast.success('Registration successful. Transmitting login...');
+
+        // Auto-login
+        const { user } = await api.login(phone, password);
         setTimeout(() => {
-          window.location.href = window.auth.getLandingPage(user.role);
-        }, 300);
+          if (role === 'shop_owner') {
+            window.location.href = '/owner.html';
+          } else {
+            window.location.href = '/index.html';
+          }
+        }, 600);
       } catch (err) {
-        window.toast.error(err.message || "Sign up failed. Please try again.");
+        console.error('Registration failed:', err);
+        toast.error(err.message || 'Failed to complete registration');
         submitBtn.disabled = false;
-        submitBtn.textContent = "Create account";
+        submitBtn.textContent = 'ONBOARD ACCOUNT →';
       }
-    }
+    });
   </script>
 </body>
 </html>

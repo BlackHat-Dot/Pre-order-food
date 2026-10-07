@@ -290,6 +290,54 @@ async def list_shops(
 
 
 # ─────────────────────────────────────────────────────────────
+# My Shops
+# ─────────────────────────────────────────────────────────────
+
+@router.get(
+    "/my",
+    response_model=list[ShopOut],
+)
+@router.get(
+    "/me/list",
+    response_model=list[ShopOut],
+)
+async def my_shops(
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    user: Annotated[
+        User,
+        Depends(
+            require_roles(
+                "shop_owner",
+                "admin",
+            )
+        ),
+    ],
+) -> list[ShopOut]:
+
+    stmt = (
+        select(Shop)
+        .where(Shop.owner_id == user.id)
+        .order_by(
+            Shop.created_at.desc()
+        )
+    )
+
+    shops = (
+        await db.execute(stmt)
+    ).scalars().all()
+
+    return [
+        ShopOut.model_validate(
+            shop
+        )
+        for shop in shops
+    ]
+
+
+# ─────────────────────────────────────────────────────────────
 # Get Shop
 # ─────────────────────────────────────────────────────────────
 
@@ -336,50 +384,6 @@ async def get_shop(
     return ShopOut.model_validate(
         serialized
     )
-
-
-# ─────────────────────────────────────────────────────────────
-# My Shops
-# ─────────────────────────────────────────────────────────────
-
-@router.get(
-    "/me/list",
-    response_model=list[ShopOut],
-)
-async def my_shops(
-    db: Annotated[
-        AsyncSession,
-        Depends(get_db),
-    ],
-    user: Annotated[
-        User,
-        Depends(
-            require_roles(
-                "shop_owner",
-                "admin",
-            )
-        ),
-    ],
-) -> list[ShopOut]:
-
-    stmt = (
-        select(Shop)
-        .where(Shop.owner_id == user.id)
-        .order_by(
-            Shop.created_at.desc()
-        )
-    )
-
-    shops = (
-        await db.execute(stmt)
-    ).scalars().all()
-
-    return [
-        ShopOut.model_validate(
-            shop
-        )
-        for shop in shops
-    ]
 
 
 # ─────────────────────────────────────────────────────────────

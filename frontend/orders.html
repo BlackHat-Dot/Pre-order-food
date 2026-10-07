@@ -1,397 +1,466 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Orders — PreOrder</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Live Order Fulfillment Tracker — PREORDER</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
-  <!-- Exact Ambient Background -->
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
-    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
-  </div>
+<body>
+  <!-- Global Architectural Header -->
+  <div id="global-header"></div>
 
-  <div id="navbar-root"></div>
-
-  <div class="min-h-screen">
-    <!-- List View -->
-    <div id="orders-list-view" class="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 text-left">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight text-foreground">My orders</h1>
-        <p class="text-sm text-muted-foreground">Track and manage your pre-orders.</p>
+  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
+    <!-- Active Order Focus Section -->
+    <div id="active-tracker-section" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
+        <div>
+          <div class="eyebrow">LIVE TELEMETRY STREAM</div>
+          <h1 class="headline-1">Active Fulfillment Pipeline</h1>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="view-all-orders-btn">
+          &larr; BACK TO ORDER ARCHIVE
+        </button>
       </div>
 
-      <!-- Filter Tabs -->
-      <div class="w-full">
-        <div id="tabs-bar" class="flex flex-wrap h-auto p-1 bg-muted rounded-xl gap-1">
-          <button onclick="setFilter('all')" data-tab="all" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all bg-background text-foreground shadow">All</button>
-          <button onclick="setFilter('pending')" data-tab="pending" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground">Pending</button>
-          <button onclick="setFilter('preparing')" data-tab="preparing" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground">Preparing</button>
-          <button onclick="setFilter('ready')" data-tab="ready" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground">Ready</button>
-          <button onclick="setFilter('completed')" data-tab="completed" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground">Completed</button>
-          <button onclick="setFilter('cancelled')" data-tab="cancelled" class="rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground">Cancelled</button>
+      <!-- Tracker Card -->
+      <div class="order-tracker-card" id="tracker-card">
+        <div class="order-tracker-top">
+          <div>
+            <div class="mono-meta" style="color: var(--text-tertiary);">ORDER IDENTIFIER</div>
+            <div class="order-id-large" id="tracker-order-num">ORDER #----</div>
+            <div class="mono-meta" id="tracker-shop-meta" style="margin-top: 4px; color: var(--text-secondary);">
+              KITCHEN: — &bull; DISPATCH: COUNTER PICKUP
+            </div>
+          </div>
+
+          <div class="order-countdown-box">
+            <div class="mono-meta">[ ESTIMATED DISPATCH TIME ]</div>
+            <div class="order-countdown-time" id="tracker-countdown">--:--</div>
+            <span class="telemetry-badge live" id="tracker-status-pill">STATUS: PENDING</span>
+          </div>
+        </div>
+
+        <!-- 5-Step Pipeline Stepper -->
+        <div class="order-pipeline" id="order-pipeline-stepper">
+          <div class="pipeline-step" data-step="pending">
+            <div class="pipeline-step-bar"></div>
+            <span class="pipeline-step-label">01 // PENDING</span>
+          </div>
+          <div class="pipeline-step" data-step="accepted">
+            <div class="pipeline-step-bar"></div>
+            <span class="pipeline-step-label">02 // ACCEPTED</span>
+          </div>
+          <div class="pipeline-step" data-step="preparing">
+            <div class="pipeline-step-bar"></div>
+            <span class="pipeline-step-label">03 // PREPARING</span>
+          </div>
+          <div class="pipeline-step" data-step="ready">
+            <div class="pipeline-step-bar"></div>
+            <span class="pipeline-step-label">04 // READY</span>
+          </div>
+          <div class="pipeline-step" data-step="completed">
+            <div class="pipeline-step-bar"></div>
+            <span class="pipeline-step-label">05 // COMPLETED</span>
+          </div>
+        </div>
+
+        <!-- Cancellation Notice / Reason if Cancelled -->
+        <div id="tracker-cancel-banner" style="display: none; padding: 14px 18px; margin: 16px 0; border: 1px solid var(--status-danger-border); background: var(--status-danger-bg); border-radius: var(--radius-xs);">
+          <div class="mono-meta" style="color: var(--status-danger); font-weight: 700;">[ CANCELLATION EVENT ]</div>
+          <p id="tracker-cancel-text" style="font-size: 0.84rem; color: var(--text-primary); margin-top: 4px;"></p>
+        </div>
+
+        <div class="hairline-divider" style="margin: 28px 0 20px;"></div>
+
+        <!-- Manifest & Financial Split -->
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; align-items: start;">
+          <div>
+            <div class="mono-meta" style="color: var(--text-tertiary); margin-bottom: 8px;">ORDER MANIFEST</div>
+            <div id="tracker-manifest-items" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Items populated dynamically -->
+            </div>
+          </div>
+
+          <div style="border-left: 1px solid var(--border-subtle); padding-left: 28px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="mono-meta" style="color: var(--text-tertiary);">SETTLEMENT TELEMETRY</div>
+            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
+              <span style="color: var(--text-secondary);">FINAL TOTAL:</span>
+              <strong id="tracker-total-val" style="color: var(--accent-ember-hover);">₹0.00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
+              <span style="color: var(--text-secondary);">PAYMENT STATUS:</span>
+              <span id="tracker-payment-status" class="mono-meta" style="font-weight: 600;">UNPAID</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.84rem;">
+              <span style="color: var(--text-secondary);">PAYMENT METHOD:</span>
+              <span id="tracker-payment-method" class="mono-meta">COD</span>
+            </div>
+
+            <!-- Cancellation Action Trigger -->
+            <div id="cancel-action-slot" style="margin-top: 14px;">
+              <button class="btn btn-danger btn-sm" id="open-cancel-btn" style="width: 100%;">
+                REQUEST ORDER CANCELLATION
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div id="orders-loading" class="h-32 w-full rounded-2xl bg-muted/40 animate-pulse flex items-center justify-center text-xs text-muted-foreground">Loading orders...</div>
-
-      <div id="orders-container" class="space-y-3"></div>
     </div>
 
-    <!-- Single Order Ticket Detail View -->
-    <div id="order-detail-view" class="mx-auto max-w-2xl px-4 py-8 text-left hidden">
-      <button onclick="closeOrderDetail()" class="mb-4 inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground gap-1 transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m15 18-6-6 6-6"/></svg>
-        Back to My Orders
-      </button>
-
-      <div class="rounded-2xl border border-border/80 bg-card text-card-foreground shadow-sm overflow-hidden">
-        <div class="p-6 space-y-4">
-          <div class="flex justify-between items-center border-b border-border/60 pb-4">
-            <div>
-              <p class="text-[10px] uppercase font-bold text-muted-foreground">Order Reference ID</p>
-              <h2 id="detail-order-id" class="font-mono text-xs font-bold text-foreground"></h2>
-            </div>
-            <div id="detail-status-pill" class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span id="detail-status-text"></span>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <p class="text-xs font-bold text-foreground">Items Ordered</p>
-            <div id="detail-items-box" class="divide-y divide-border/40 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-1"></div>
-          </div>
-
-          <div class="space-y-1.5 border-t border-border/60 pt-3 text-xs">
-            <div class="flex justify-between text-muted-foreground">
-              <span>Total Bill</span>
-              <span id="detail-total-bill" class="font-medium text-foreground"></span>
-            </div>
-            <div class="flex justify-between text-muted-foreground">
-              <span>Payment Status</span>
-              <span id="detail-payment-status" class="font-bold text-emerald-600 uppercase"></span>
-            </div>
-          </div>
-
-          <!-- Customer Order Cancellation Action Module -->
-          <div id="detail-action-module"></div>
+    <!-- Orders Archive Section -->
+    <div id="orders-archive-section">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div class="eyebrow">ORDER REPOSITORY</div>
+          <h1 class="headline-1">Fulfillment Ledger</h1>
         </div>
+        <div class="mono-meta" id="archive-count-meta">0 ORDERS RECORDED</div>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="category-capsules" id="archive-filter-tabs" style="margin-bottom: 24px;">
+        <button class="category-capsule active" data-filter="">ALL DISPATCHES</button>
+        <button class="category-capsule" data-filter="active">ACTIVE IN-KITCHEN</button>
+        <button class="category-capsule" data-filter="completed">FULFILLED</button>
+        <button class="category-capsule" data-filter="cancelled">CANCELLED</button>
+      </div>
+
+      <!-- Orders Data Table -->
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ORDER #</th>
+              <th>TIMESTAMP</th>
+              <th>KITCHEN OUTLET</th>
+              <th>ITEMS</th>
+              <th>TOTAL</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body">
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
+                [ SYNCHRONIZING FULFILLMENT LEDGER... ]
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
+  </main>
 
-  <!-- Cancellation Modal -->
-  <div id="cancel-reason-modal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden animate-in fade-in-0 duration-200">
-    <div class="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl text-left space-y-4 animate-in zoom-in-95 duration-200">
-      <div>
-        <h3 class="text-sm font-black tracking-tight text-foreground">Specify Cancellation Reason</h3>
-        <p id="cancel-chances-hint" class="text-xs text-muted-foreground pt-1">
-          Let the store manager know why you need to drop this order.
+  <!-- Cancel Reason Modal -->
+  <div class="modal-backdrop" id="cancel-modal-backdrop">
+    <div class="modal-sheet" id="cancel-modal">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow" style="margin-bottom: 2px;">CANCELLATION REQUEST</div>
+          <h3 class="headline-3">Confirm Order Abort</h3>
+        </div>
+        <button class="drawer-close" id="close-cancel-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5;">
+          Orders may be cancelled prior to kitchen preparation commencement. Please submit a reason for outlet records:
         </p>
+        <div class="form-group" style="margin-top: 10px;">
+          <label class="form-label">REASON FOR CANCELLATION</label>
+          <textarea id="cancel-reason-input" class="textarea-input" placeholder="e.g. Schedule change, inadvertent duplicate ticket..."></textarea>
+        </div>
       </div>
-
-      <div class="py-1">
-        <textarea id="cancellation-reason-text" placeholder="e.g., Selected wrong delivery coordinates / Mistaken duplicate selection..." class="flex min-h-[90px] w-full rounded-xl border border-input bg-background px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary resize-none" maxlength="250"></textarea>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 pt-2">
-        <button type="button" onclick="closeCancelModal()" class="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-xl hover:bg-accent text-foreground">Back</button>
-        <button id="submit-cancel-request-btn" type="button" onclick="submitCancelRequest()" class="inline-flex items-center justify-center h-9 px-4 bg-destructive text-destructive-foreground font-semibold text-xs rounded-xl shadow-sm hover:bg-destructive/90 transition-all">Submit Request</button>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="dismiss-cancel-btn">KEEP ORDER</button>
+        <button class="btn btn-danger" id="confirm-cancel-btn">CONFIRM CANCELLATION</button>
       </div>
     </div>
   </div>
 
-  <script src="js/api.js"></script>
-  <script src="js/cart.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script>
+  <!-- Global Footer -->
+  <div id="global-footer"></div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { toast } from '/js/toast.js';
+    import { formatPrice, formatDate } from '/js/app.js';
+
+    if (!auth.requireAuth()) {
+      // Handled by guard
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeOrderId = urlParams.get('id');
+
     let allOrders = [];
-    let currentFilter = "all";
-    let activeOrderDetail = null;
+    let currentFilter = '';
+    let pollingInterval = null;
+    let currentActiveOrder = null;
 
-    const STATUS_BADGE_STYLES = {
-      pending: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-      accepted: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      preparing: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
-      ready: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-      completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold",
-      cancel_requested: "bg-rose-500/10 text-rose-500 border-rose-500/20 font-bold animate-pulse",
-      cancelled: "bg-red-600/10 text-red-600 border-red-600/30 font-bold",
-      refunded: "bg-red-600/10 text-red-600 border-red-600/30 font-bold",
-    };
-
-    function renderStatusBadge(status) {
-      const s = (status || "pending").toLowerCase();
-      const style = STATUS_BADGE_STYLES[s] || "bg-muted text-muted-foreground border-transparent";
-      return `
-        <span class="inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${style}">
-          ${s.replace("_", " ")}
-        </span>
-      `;
+    async function init() {
+      if (activeOrderId) {
+        await loadActiveOrder(activeOrderId);
+        startPolling(activeOrderId);
+      } else {
+        await loadOrdersArchive();
+      }
     }
 
-    async function loadOrders() {
-      const user = window.auth.getUser();
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
+    // ── Active Order Tracker ──
+    async function loadActiveOrder(orderId) {
+      document.getElementById('active-tracker-section').style.display = 'block';
+      document.getElementById('orders-archive-section').style.display = 'none';
 
       try {
-        allOrders = await window.api.orders.list({ page: 1, page_size: 50 });
-        if (!Array.isArray(allOrders)) allOrders = [];
-        document.getElementById("orders-loading").classList.add("hidden");
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const orderIdParam = urlParams.get("id");
-        if (orderIdParam) {
-          showOrderDetail(orderIdParam);
-        } else {
-          renderOrdersList();
-        }
+        currentActiveOrder = await api.getOrder(orderId);
+        renderActiveOrder(currentActiveOrder);
       } catch (err) {
-        document.getElementById("orders-loading").textContent = "Failed to load orders: " + err.message;
+        console.error('Failed to load active order:', err);
+        toast.error('Unable to locate order ticket');
+        showArchiveView();
       }
     }
 
-    function setFilter(f) {
-      currentFilter = f;
-      document.querySelectorAll("#tabs-bar button").forEach((btn) => {
-        if (btn.getAttribute("data-tab") === f) {
-          btn.className = "rounded-lg text-xs py-1.5 px-3 font-medium transition-all bg-background text-foreground shadow";
+    function renderActiveOrder(order) {
+      document.getElementById('tracker-order-num').textContent = `ORDER #${order.order_number || order.id.slice(0, 8).toUpperCase()}`;
+
+      const shopName = order.shop ? order.shop.name : 'Partner Kitchen';
+      const orderTypeStr = order.order_type === 'delivery' ? 'COURIER DISPATCH' : 'COUNTER PICKUP';
+      document.getElementById('tracker-shop-meta').textContent = `KITCHEN: ${shopName} • DISPATCH: ${orderTypeStr}`;
+
+      document.getElementById('tracker-total-val').textContent = formatPrice(order.total_price || order.total_amount);
+      document.getElementById('tracker-payment-status').textContent = (order.payment_status || 'unpaid').toUpperCase();
+      document.getElementById('tracker-payment-method').textContent = (order.payment_method || 'cod').toUpperCase();
+
+      // Status pill & Countdown
+      const statusPill = document.getElementById('tracker-status-pill');
+      const countdownEl = document.getElementById('tracker-countdown');
+      const cancelSlot = document.getElementById('cancel-action-slot');
+      const cancelBanner = document.getElementById('tracker-cancel-banner');
+
+      statusPill.textContent = `STATUS: ${order.status.toUpperCase()}`;
+
+      if (order.status === 'cancelled' || order.status === 'cancel_requested') {
+        statusPill.className = 'telemetry-badge closed';
+        countdownEl.textContent = 'ABORTED';
+        cancelSlot.style.display = 'none';
+        cancelBanner.style.display = 'block';
+        document.getElementById('tracker-cancel-text').textContent =
+          order.cancellation_reason ? `Reason: ${order.cancellation_reason}` : 'Order cancelled by customer or kitchen.';
+      } else if (order.status === 'completed') {
+        statusPill.className = 'telemetry-badge live';
+        countdownEl.textContent = 'FULFILLED';
+        cancelSlot.style.display = 'none';
+        cancelBanner.style.display = 'none';
+      } else {
+        cancelBanner.style.display = 'none';
+        statusPill.className = 'telemetry-badge live';
+
+        if (order.status === 'ready') {
+          countdownEl.textContent = 'READY FOR PICKUP';
+          cancelSlot.style.display = 'none';
+        } else if (order.status === 'preparing') {
+          countdownEl.textContent = '~10 MIN';
+          cancelSlot.style.display = 'none'; // Cannot cancel while in pan
         } else {
-          btn.className = "rounded-lg text-xs py-1.5 px-3 font-medium transition-all text-muted-foreground hover:text-foreground";
+          countdownEl.textContent = '~15 MIN';
+          cancelSlot.style.display = 'block';
+        }
+      }
+
+      // Update Pipeline Stepper
+      const steps = ['pending', 'accepted', 'preparing', 'ready', 'completed'];
+      const currentIdx = steps.indexOf(order.status);
+
+      document.querySelectorAll('#order-pipeline-stepper .pipeline-step').forEach(el => {
+        const stepName = el.dataset.step;
+        const stepIdx = steps.indexOf(stepName);
+
+        el.classList.remove('completed', 'active');
+        if (order.status === 'cancelled' || order.status === 'cancel_requested') {
+          // Keep neutral
+        } else if (stepIdx < currentIdx) {
+          el.classList.add('completed');
+        } else if (stepIdx === currentIdx) {
+          el.classList.add('active');
         }
       });
-      renderOrdersList();
+
+      // Manifest
+      const manifestContainer = document.getElementById('tracker-manifest-items');
+      if (order.items && order.items.length > 0) {
+        manifestContainer.innerHTML = order.items.map(item => {
+          const name = item.item_name_snapshot || item.item_name || 'Culinary Dish';
+          const variant = item.variant_name_snapshot || item.variant_name || null;
+          const lineTotal = item.total_price || (item.unit_price * item.quantity);
+          return `
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 6px;">
+            <div>
+              <span style="font-weight: 600; font-size: 0.88rem;">${name}</span>
+              ${variant ? `<span class="mono-meta" style="color: var(--accent-ember);">[ ${variant} ]</span>` : ''}
+              <div class="mono-meta" style="font-size: 0.72rem; color: var(--text-tertiary);">${item.quantity} × ${formatPrice(item.unit_price)}</div>
+            </div>
+            <span class="mono-meta" style="font-weight: 700;">${formatPrice(lineTotal)}</span>
+          </div>
+        `;
+        }).join('');
+      } else {
+        manifestContainer.innerHTML = '<div class="mono-meta">Manifest items unavailable.</div>';
+      }
     }
 
-    function renderOrdersList() {
-      const container = document.getElementById("orders-container");
-      container.innerHTML = "";
+    function startPolling(orderId) {
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = setInterval(async () => {
+        try {
+          const freshOrder = await api.getOrder(orderId);
+          currentActiveOrder = freshOrder;
+          renderActiveOrder(freshOrder);
+          if (freshOrder.status === 'completed' || freshOrder.status === 'cancelled') {
+            clearInterval(pollingInterval);
+          }
+        } catch (err) {
+          console.warn('Poll update failed:', err);
+        }
+      }, 5000);
+    }
 
-      const visible = allOrders.filter((o) => {
-        if (!o || !o.status) return false;
-        const s = String(o.status).toLowerCase();
-        if (currentFilter === "all") return true;
-        if (currentFilter === "cancelled") return s === "cancelled" || s === "cancel_requested" || s === "refunded";
-        return s === currentFilter;
+    function showArchiveView() {
+      if (pollingInterval) clearInterval(pollingInterval);
+      window.history.pushState({}, '', '/orders.html');
+      document.getElementById('active-tracker-section').style.display = 'none';
+      document.getElementById('orders-archive-section').style.display = 'block';
+      loadOrdersArchive();
+    }
+
+    document.getElementById('view-all-orders-btn')?.addEventListener('click', showArchiveView);
+
+    // ── Orders Archive ──
+    async function loadOrdersArchive() {
+      const tbody = document.getElementById('orders-table-body');
+      const countEl = document.getElementById('archive-count-meta');
+
+      try {
+        allOrders = await api.getCustomerOrders({ page: 1, page_size: 50 });
+        renderOrdersArchive();
+      } catch (err) {
+        console.error('Failed to load orders archive:', err);
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:center; padding:32px; color:var(--status-danger);">
+              Failed to load order archive.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    function renderOrdersArchive() {
+      const tbody = document.getElementById('orders-table-body');
+      const countEl = document.getElementById('archive-count-meta');
+
+      const filtered = allOrders.filter(o => {
+        if (!currentFilter) return true;
+        if (currentFilter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
+        if (currentFilter === 'completed') return o.status === 'completed';
+        if (currentFilter === 'cancelled') return o.status === 'cancelled' || o.status === 'cancel_requested';
+        return true;
       });
 
-      if (visible.length === 0) {
-        container.innerHTML = `
-          <div class="rounded-2xl border border-dashed p-16 text-center text-muted-foreground text-sm">
-            No orders found matching this status window.
-          </div>
+      if (countEl) countEl.textContent = `${filtered.length} / ${allOrders.length} DISPATCHES`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 48px; color: var(--text-tertiary); font-family: var(--font-mono);">
+              [ ∅ NO ORDERS MATCH CURRENT FILTER ]
+            </td>
+          </tr>
         `;
         return;
       }
 
-      container.innerHTML = visible.map((o) => {
-        const s = String(o.status || "").toLowerCase();
-        const orderNum = o.order_number ?? (o.id ? String(o.id).slice(0, 8).toUpperCase() : "");
+      tbody.innerHTML = filtered.map(order => {
+        const orderNum = order.order_number ? `#${order.order_number}` : `#${order.id.slice(0, 8).toUpperCase()}`;
+        const shopName = order.shop ? order.shop.name : 'Kitchen';
+        const itemCount = order.items ? order.items.reduce((s, i) => s + i.quantity, 0) : 0;
+
+        let statusClass = 'waiting';
+        if (order.status === 'completed') statusClass = 'live';
+        if (order.status === 'cancelled') statusClass = 'closed';
+        if (order.status === 'preparing') statusClass = 'info';
+
         return `
-          <div onclick="showOrderDetail('${o.id}')" class="block cursor-pointer transition-transform active:scale-[0.995] text-left">
-            <div class="rounded-2xl border border-border/80 bg-card text-card-foreground shadow-sm hover:border-primary/40 transition-all p-5 space-y-4">
-              <div class="flex items-start justify-between gap-4">
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/60 font-bold">
-                      #${orderNum}
-                    </span>
-                    ${renderStatusBadge(o.status)}
-                  </div>
-                  <p class="text-[11px] text-muted-foreground font-mono">
-                    ${formatDate(o.created_at)}
-                  </p>
-                </div>
-                <div class="text-right">
-                  <p class="text-base font-bold text-foreground">${formatCurrency(o.total_price)}</p>
-                  ${o.shop_name ? `<p class="text-xs text-muted-foreground font-medium mt-0.5">${o.shop_name}</p>` : ""}
-                </div>
-              </div>
-
-              <div class="bg-muted/40 border border-border/40 rounded-xl p-3 text-xs space-y-2">
-                <div class="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 font-medium uppercase tracking-wider">
-                  <span>Order Activity Context</span>
-                  <span class="font-semibold text-foreground normal-case font-mono">
-                    ${s === 'cancel_requested' ? 'Cancellation Pending Review' : 'Active Fulfillment Workflow'}
-                  </span>
-                </div>
-                ${o.items && o.items.length > 0 ? `
-                  <div class="space-y-1.5 divide-y divide-border/20">
-                    ${o.items.map((it) => `
-                      <div class="flex items-center justify-between pt-1.5 first:pt-0 gap-4 text-left">
-                        <span class="font-semibold text-foreground">${it.item_name_snapshot || it.name} ${it.variant_name_snapshot ? `(${it.variant_name_snapshot})` : ''}</span>
-                        <span class="font-mono text-xs text-muted-foreground bg-background px-1.5 py-0.5 rounded border shrink-0 font-bold">×${it.quantity}</span>
-                      </div>
-                    `).join("")}
-                  </div>
-                ` : `<p class="text-muted-foreground italic">Standard Basket Content</p>`}
-              </div>
-            </div>
-          </div>
+          <tr>
+            <td class="mono-cell" style="font-weight: 700; color: var(--accent-ember-hover);">${orderNum}</td>
+            <td class="mono-cell" style="font-size: 0.76rem; color: var(--text-secondary);">${formatDate(order.created_at)}</td>
+            <td style="font-weight: 600;">${shopName}</td>
+            <td class="mono-cell">${itemCount} items</td>
+            <td class="mono-cell" style="font-weight: 700;">${formatPrice(order.total_price || order.total_amount)}</td>
+            <td>
+              <span class="telemetry-badge ${statusClass}">${order.status.toUpperCase()}</span>
+            </td>
+            <td>
+              <button class="btn btn-secondary btn-sm inspect-order-btn" data-id="${order.id}">
+                TRACK &rarr;
+              </button>
+            </td>
+          </tr>
         `;
-      }).join("");
+      }).join('');
+
+      document.querySelectorAll('.inspect-order-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          window.history.pushState({}, '', `/orders.html?id=${id}`);
+          loadActiveOrder(id);
+          startPolling(id);
+        });
+      });
     }
 
-    async function showOrderDetail(orderId) {
-      try {
-        const order = await window.api.orders.get(orderId);
-        activeOrderDetail = order;
+    // Filter capsules
+    document.getElementById('archive-filter-tabs')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.category-capsule');
+      if (!btn) return;
+      document.querySelectorAll('#archive-filter-tabs .category-capsule').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderOrdersArchive();
+    });
 
-        document.getElementById("orders-list-view").classList.add("hidden");
-        document.getElementById("order-detail-view").classList.remove("hidden");
+    // ── Cancellation Workflow ──
+    const cancelBackdrop = document.getElementById('cancel-modal-backdrop');
+    document.getElementById('open-cancel-btn')?.addEventListener('click', () => {
+      cancelBackdrop.classList.add('active');
+    });
 
-        document.getElementById("detail-order-id").textContent = order.id;
-        document.getElementById("detail-status-text").textContent = (order.status || "").replace("_", " ");
-        document.getElementById("detail-status-pill").className = `inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase ${STATUS_BADGE_STYLES[order.status] || 'bg-primary/10 text-primary'}`;
-        document.getElementById("detail-total-bill").textContent = formatCurrency(order.total_price);
-        document.getElementById("detail-payment-status").textContent = order.payment_status || "PAID";
+    const closeCancelModal = () => cancelBackdrop.classList.remove('active');
+    document.getElementById('close-cancel-modal')?.addEventListener('click', closeCancelModal);
+    document.getElementById('dismiss-cancel-btn')?.addEventListener('click', closeCancelModal);
 
-        const itemsBox = document.getElementById("detail-items-box");
-        itemsBox.innerHTML = (order.items || []).map((it) => `
-          <div class="flex justify-between items-center py-2.5 text-xs">
-            <span class="text-foreground">${it.quantity} × ${it.item_name_snapshot || it.name}</span>
-            <span class="font-medium text-foreground">${formatCurrency(it.unit_price * it.quantity)}</span>
-          </div>
-        `).join("");
-
-        renderActionModule(order);
-      } catch (err) {
-        window.toast.error("Failed to load order: " + err.message);
-      }
-    }
-
-    function closeOrderDetail() {
-      activeOrderDetail = null;
-      document.getElementById("order-detail-view").classList.add("hidden");
-      document.getElementById("orders-list-view").classList.remove("hidden");
-      window.history.replaceState(null, "", "orders.html");
-      loadOrders();
-    }
-
-    function renderActionModule(order) {
-      const container = document.getElementById("detail-action-module");
-      const s = String(order.status || "").toLowerCase();
-      const requestsCount = parseInt(order.cancellation_requests_sent || 0, 10);
-      const isPending = s === "pending";
-      const isCancellationPending = s === "cancel_requested" || !!order.is_cancellation_pending;
-      const isCancelled = s === "cancelled" || s === "refunded";
-      const isCompleted = s === "completed";
-
-      if (isCancelled || isCompleted) {
-        container.innerHTML = "";
-        return;
-      }
-
-      if (requestsCount >= 3 && !isCancellationPending) {
-        container.innerHTML = `
-          <div class="mt-5 pt-4 border-t border-border/80 space-y-2 text-left animate-in fade-in duration-200">
-            <div class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 text-muted-foreground"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Cancellation Limit Exceeded</span>
-            </div>
-            <p class="text-[11px] text-muted-foreground leading-normal">
-              The automated cancellation request threshold has been met. Please connect directly with the shop owner for any additional manual overrides.
-            </p>
-          </div>
-        `;
-        return;
-      }
-
-      if (isCancellationPending) {
-        container.innerHTML = `
-          <div class="mt-4 p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl space-y-2 text-left animate-in fade-in duration-200">
-            <div class="text-xs font-bold text-amber-500 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
-              <span>Waiting for shop owner reply...</span>
-            </div>
-            <p class="text-[11px] text-muted-foreground leading-relaxed">
-              Your request has been submitted. The kitchen workflow line has been locked automatically. The store operator must explicitly accept or decline this cancellation before this order can be processed.
-            </p>
-            <div class="text-[10px] text-muted-foreground/70 font-medium pt-1">
-              Request attempts used: (${requestsCount} of 3 attempts)
-            </div>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = `
-        <div class="mt-4 p-4 border border-border bg-muted/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="space-y-1 text-left">
-            <p class="text-xs font-bold flex items-center gap-1.5 text-foreground">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-destructive"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Manage Order Cancellation
-            </p>
-            <p class="text-[11px] text-muted-foreground max-w-md leading-normal">
-              ${isPending ? 'This order is pending kitchen verification. You can cancel it for an immediate full refund.' : `Active kitchen workflow item. Request attempts used: (${requestsCount} of 3 attempts).`}
-            </p>
-          </div>
-          ${isPending ? `
-            <button onclick="instantCancelOrder('${order.id}')" class="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-destructive text-destructive-foreground shadow hover:bg-destructive/90 text-xs font-semibold gap-1.5 shrink-0 px-4 h-9">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
-              Cancel Order
-            </button>
-          ` : `
-            <button onclick="openCancelModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-destructive/20 text-destructive bg-transparent hover:bg-destructive/10 text-xs font-medium gap-1.5 shrink-0 px-4 h-9">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Request Cancellation
-            </button>
-          `}
-        </div>
-      `;
-    }
-
-    async function instantCancelOrder(orderId) {
-      try {
-        await window.api.orders.updateStatus(orderId, "cancelled");
-        window.toast.success("Order cancelled successfully.");
-        showOrderDetail(orderId);
-      } catch (err) {
-        window.toast.error("Failed to cancel order: " + err.message);
-      }
-    }
-
-    function openCancelModal() {
-      const requestsCount = parseInt(activeOrderDetail?.cancellation_requests_sent || 0, 10);
-      document.getElementById("cancel-chances-hint").textContent = `Remaining requests: ${3 - requestsCount} execution chances left.`;
-      document.getElementById("cancellation-reason-text").value = "";
-      document.getElementById("cancel-reason-modal").classList.remove("hidden");
-    }
-
-    function closeCancelModal() {
-      document.getElementById("cancel-reason-modal").classList.add("hidden");
-    }
-
-    async function submitCancelRequest() {
-      const reason = document.getElementById("cancellation-reason-text").value.trim();
-      if (!reason) {
-        window.toast.error("Please enter a cancellation reason.");
-        return;
-      }
-      const btn = document.getElementById("submit-cancel-request-btn");
-      btn.disabled = true;
-      btn.textContent = "Submitting…";
+    document.getElementById('confirm-cancel-btn')?.addEventListener('click', async () => {
+      if (!currentActiveOrder) return;
+      const reason = document.getElementById('cancel-reason-input').value.trim();
 
       try {
-        await window.api.orders.updateStatus(activeOrderDetail.id, "cancel_requested", reason);
-        window.toast.success("Cancellation request submitted to shop owner.");
+        await api.updateOrderStatus(currentActiveOrder.id, {
+          status: 'cancel_requested',
+          reason: reason || 'Customer requested order cancellation before preparation.'
+        });
+        toast.success('Cancellation request transmitted');
         closeCancelModal();
-        showOrderDetail(activeOrderDetail.id);
+        await loadActiveOrder(currentActiveOrder.id);
       } catch (err) {
-        window.toast.error(err.message || "Something went wrong");
-        btn.disabled = false;
-        btn.textContent = "Submit Request";
+        toast.error(err.message || 'Failed to submit cancellation request');
       }
-    }
+    });
 
-    document.addEventListener("DOMContentLoaded", loadOrders);
+    init();
   </script>
 </body>
 </html>

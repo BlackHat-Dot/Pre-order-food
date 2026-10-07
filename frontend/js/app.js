@@ -1,206 +1,314 @@
-/**
- * PreOrder Application Shared Utilities, Toasts, and Exact Navbar
- */
+/* ============================================================================
+   PREORDER ARCHITECTURAL SHELL & EVENT ORCHESTRATOR
+   Header, Footer, Cart Drawer & Telemetry Synchronization
+   ============================================================================ */
 
-function formatCurrency(val) {
-  const num = parseFloat(val || 0);
-  return `₹${num.toFixed(2)}`;
+import { auth } from './auth.js';
+import { cart } from './cart.js';
+import { toast } from './toast.js';
+
+export function formatPrice(num) {
+  return `₹${Number(num || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleString("en-IN", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
+export function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  return d.toLocaleString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 }
 
-function formatDateShort(dateStr) {
-  if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-IN", {
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
+export function initGlobalShell() {
+  renderHeader();
+  renderFooter();
+  renderCartDrawer();
+  bindCartEvents();
+  updateAuthUI();
 }
 
-function showToast(type, message, description = "") {
-  let container = document.getElementById("toast-container");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "toast-container";
-    container.className = "fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none";
-    document.body.appendChild(container);
-  }
+function renderHeader() {
+  const headerContainer = document.getElementById('global-header');
+  if (!headerContainer) return;
 
-  const toast = document.createElement("div");
-  const isSuccess = type === "success";
-  const isWarning = type === "warning";
-  const isError = type === "error";
+  const currentPath = window.location.pathname;
+  const isOwner = auth.isOwner();
+  const isAdmin = auth.isAdmin();
 
-  let iconSvg = "";
-  let borderClass = "border-border/80";
-  let iconClass = "text-primary";
+  headerContainer.innerHTML = `
+    <header class="app-header">
+      <div class="app-container">
+        <div class="header-inner">
+          <a href="/index.html" class="brand-mark">
+            <span class="brand-symbol">P</span>
+            <div class="brand-label">
+              <span class="brand-title">PREORDER</span>
+              <span class="brand-sub">CULINARY LOGISTICS</span>
+            </div>
+          </a>
 
-  if (isSuccess) {
-    borderClass = "border-emerald-500/30";
-    iconClass = "text-emerald-500";
-    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 ${iconClass}"><path d="M20 6 9 17l-5-5"/></svg>`;
-  } else if (isWarning) {
-    borderClass = "border-amber-500/30";
-    iconClass = "text-amber-500";
-    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 ${iconClass}"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-  } else {
-    borderClass = "border-rose-500/30";
-    iconClass = "text-rose-500";
-    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 ${iconClass}"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-  }
+          <nav class="header-nav">
+            <a href="/index.html" class="nav-link ${currentPath === '/' || currentPath.endsWith('index.html') ? 'active' : ''}">Kitchens</a>
+            <a href="/orders.html" class="nav-link ${currentPath.includes('orders.html') ? 'active' : ''}">Track Orders</a>
+            <a href="/loyalty.html" class="nav-link ${currentPath.includes('loyalty.html') ? 'active' : ''}">Loyalty Vault</a>
+            ${isOwner ? `<a href="/owner.html" class="nav-link ${currentPath.includes('owner.html') ? 'active' : ''}">Kitchen Desk</a>` : ''}
+            ${isAdmin ? `<a href="/admin.html" class="nav-link ${currentPath.includes('admin.html') ? 'active' : ''}">Control Admin</a>` : ''}
+          </nav>
 
-  toast.className = `pointer-events-auto flex items-start gap-3 rounded-xl border ${borderClass} bg-card/95 p-4 text-card-foreground shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-2 duration-200 transition-all text-left`;
-  toast.innerHTML = `
-    <div class="mt-0.5 shrink-0">${iconSvg}</div>
-    <div class="flex-1 space-y-0.5">
-      <p class="text-xs font-semibold text-foreground">${message}</p>
-      ${description ? `<p class="text-[11px] text-muted-foreground leading-normal">${description}</p>` : ""}
-    </div>
-  `;
-
-  container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add("opacity-0", "translate-x-4");
-    setTimeout(() => toast.remove(), 250);
-  }, 4000);
-}
-
-// Global toast object matching sonner: toast.success, toast.error, toast.warning
-window.toast = {
-  success: (msg, opts = {}) => showToast("success", msg, opts.description || ""),
-  error: (msg, opts = {}) => showToast("error", msg, opts.description || ""),
-  warning: (msg, opts = {}) => showToast("warning", msg, opts.description || ""),
-  info: (msg, opts = {}) => showToast("info", msg, opts.description || ""),
-};
-
-function initNavbar() {
-  const root = document.getElementById("navbar-root");
-  if (!root) return;
-
-  const user = window.auth ? window.auth.getUser() : null;
-  const count = window.cart ? window.cart.getCount() : 0;
-
-  let rightNav = "";
-  if (user) {
-    const firstName = (user.name || "User").split(" ")[0];
-    const roleLanding = window.auth.getLandingPage(user.role);
-    rightNav = `
-      <div class="relative" id="user-menu-wrapper">
-        <button id="user-menu-btn" type="button" class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3 gap-2 rounded-xl">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span>${firstName}</span>
-        </button>
-        <div id="user-menu-dropdown" class="absolute right-0 top-full mt-2 w-52 rounded-xl border border-border/80 bg-popover/95 p-1 shadow-xl backdrop-blur-xl z-50 hidden animate-in fade-in-50 zoom-in-95 duration-100">
-          <div class="px-2 py-1.5 text-xs text-muted-foreground truncate border-b border-border/60 font-medium">
-            ${user.email || user.phone}
-          </div>
-          <div class="p-1 space-y-0.5">
-            <a href="${roleLanding}" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-              <span>Dashboard</span>
-            </a>
-            <a href="profile.html" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span>Profile</span>
-            </a>
-            ${user.role === "customer" ? `
-            <a href="loyalty.html" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 text-primary"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-              <span>Loyalty Wallet</span>
-            </a>
-            ` : ""}
-            <div class="h-px bg-border/60 my-1"></div>
-            <button onclick="window.auth.logout()" class="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors text-left">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              <span>Sign out</span>
+          <div class="header-actions">
+            <button class="cart-launcher-btn" id="open-cart-btn" aria-label="Open Cart Ticket">
+              <span>TICKET</span>
+              <span class="cart-count-pill" id="header-cart-count">0</span>
             </button>
+            <div id="header-auth-slot"></div>
           </div>
         </div>
       </div>
-    `;
-  } else {
-    rightNav = `
-      <a href="login.html">
-        <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 rounded-xl">Sign in</button>
-      </a>
-      <a href="register.html">
-        <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 rounded-xl">Get started</button>
-      </a>
-    `;
-  }
-
-  root.innerHTML = `
-    <header class="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur-xl">
-      <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <a href="index.html" class="flex items-center gap-2 font-semibold tracking-tight hover:opacity-90 transition-opacity">
-          <span class="grid h-8 w-8 place-items-center rounded-lg text-primary-foreground" style="background: var(--gradient-primary);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="m14 2 4 4"/><path d="M18 10v12"/><path d="M6 2v20"/><path d="M9 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/></svg>
-          </span>
-          <span class="text-lg">PreOrder</span>
-        </a>
-
-        <nav class="flex items-center gap-2">
-          <a href="cart.html">
-            <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 px-3 gap-2 rounded-xl">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-              <span>Cart</span>
-              <span id="nav-cart-badge" class="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground animate-in zoom-in duration-200" style="${count > 0 ? '' : 'display: none;'}">${count}</span>
-            </button>
-          </a>
-          ${rightNav}
-        </nav>
-      </div>
     </header>
   `;
+}
 
-  const btn = document.getElementById("user-menu-btn");
-  const dd = document.getElementById("user-menu-dropdown");
-  if (btn && dd) {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dd.classList.toggle("hidden");
-    };
-    document.addEventListener("click", () => dd.classList.add("hidden"));
+function updateAuthUI() {
+  const slot = document.getElementById('header-auth-slot');
+  if (!slot) return;
+
+  if (auth.isLoggedIn()) {
+    const user = auth.getUser();
+    const name = (user && user.name) ? user.name.split(' ')[0] : 'Account';
+    const role = (user && user.role) ? user.role : 'user';
+
+    slot.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <a href="/profile.html" class="account-pill">
+          <span>${name}</span>
+          <span class="account-pill-role">${role}</span>
+        </a>
+        <button id="logout-btn" class="btn btn-ghost btn-sm" title="Log Out" style="padding:4px 8px; font-size:0.75rem;">
+          LOGOUT
+        </button>
+      </div>
+    `;
+
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+      auth.logout();
+    });
+  } else {
+    slot.innerHTML = `
+      <a href="/login.html" class="btn btn-secondary btn-sm">LOG IN</a>
+    `;
   }
 }
 
-// Sync cart badge automatically on cart events
-window.addEventListener("cart-updated", () => {
-  const badge = document.getElementById("nav-cart-badge");
-  if (badge && window.cart) {
-    const count = window.cart.getCount();
-    badge.textContent = count;
-    badge.style.display = count > 0 ? "inline-block" : "none";
-  }
-});
-window.addEventListener("pof_cart", () => {
-  const badge = document.getElementById("nav-cart-badge");
-  if (badge && window.cart) {
-    const count = window.cart.getCount();
-    badge.textContent = count;
-    badge.style.display = count > 0 ? "inline-block" : "none";
-  }
-});
+function renderCartDrawer() {
+  if (document.getElementById('cart-drawer-root')) return;
 
-document.addEventListener("DOMContentLoaded", initNavbar);
+  const drawerRoot = document.createElement('div');
+  drawerRoot.id = 'cart-drawer-root';
+  drawerRoot.innerHTML = `
+    <div class="cart-drawer-backdrop" id="cart-backdrop"></div>
+    <div class="cart-drawer" id="cart-drawer" aria-labelledby="cart-title" role="dialog">
+      <div class="drawer-header">
+        <div>
+          <div class="eyebrow" style="margin-bottom:2px;">DISPATCH TICKET</div>
+          <h3 class="drawer-title" id="cart-title">Order Assembly</h3>
+        </div>
+        <button class="drawer-close" id="close-cart-btn" aria-label="Close Cart">&times;</button>
+      </div>
+
+      <div class="drawer-items" id="drawer-items-list">
+        <!-- Injected dynamically -->
+      </div>
+
+      <div class="drawer-footer" id="drawer-footer">
+        <div class="drawer-subtotal-row">
+          <span>KITCHEN</span>
+          <span id="drawer-shop-name">—</span>
+        </div>
+        <div class="drawer-subtotal-row">
+          <span>ESTIMATED PREP</span>
+          <span id="drawer-prep-time">0 MIN</span>
+        </div>
+        <div class="drawer-total-row">
+          <span>SUBTOTAL</span>
+          <span id="drawer-total-price">₹0.00</span>
+        </div>
+        <a href="/checkout.html" class="btn btn-primary btn-lg" id="checkout-trigger-btn" style="width:100%; text-align:center;">
+          PROCEED TO DISPATCH &rarr;
+        </a>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(drawerRoot);
+}
+
+function bindCartEvents() {
+  const openBtn = document.getElementById('open-cart-btn');
+  const closeBtn = document.getElementById('close-cart-btn');
+  const backdrop = document.getElementById('cart-backdrop');
+  const drawer = document.getElementById('cart-drawer');
+
+  const openDrawer = () => {
+    backdrop?.classList.add('active');
+    drawer?.classList.add('active');
+  };
+
+  const closeDrawer = () => {
+    backdrop?.classList.remove('active');
+    drawer?.classList.remove('active');
+  };
+
+  openBtn?.addEventListener('click', openDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
+  backdrop?.addEventListener('click', closeDrawer);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDrawer();
+  });
+
+  window.openCartDrawer = openDrawer;
+  window.closeCartDrawer = closeDrawer;
+
+  // React to cart state updates
+  cart.subscribe((state) => {
+    updateCartDrawerUI(state);
+  });
+}
+
+function updateCartDrawerUI(cartState) {
+  const countPill = document.getElementById('header-cart-count');
+  if (countPill) {
+    countPill.textContent = cart.getItemsCount();
+  }
+
+  const itemsList = document.getElementById('drawer-items-list');
+  const shopNameEl = document.getElementById('drawer-shop-name');
+  const prepTimeEl = document.getElementById('drawer-prep-time');
+  const totalPriceEl = document.getElementById('drawer-total-price');
+  const checkoutBtn = document.getElementById('checkout-trigger-btn');
+
+  if (!itemsList) return;
+
+  if (cartState.items.length === 0) {
+    itemsList.innerHTML = `
+      <div class="drawer-empty">
+        <span style="font-size:1.8rem; opacity:0.4;">[ ∅ ]</span>
+        <p>Your order dispatch ticket is empty.</p>
+        <a href="/index.html" class="btn btn-secondary btn-sm" onclick="window.closeCartDrawer()">EXPLORE KITCHENS</a>
+      </div>
+    `;
+    if (shopNameEl) shopNameEl.textContent = '—';
+    if (prepTimeEl) prepTimeEl.textContent = '0 MIN';
+    if (totalPriceEl) totalPriceEl.textContent = '₹0.00';
+    if (checkoutBtn) checkoutBtn.classList.add('disabled');
+    return;
+  }
+
+  if (checkoutBtn) checkoutBtn.classList.remove('disabled');
+  if (shopNameEl) shopNameEl.textContent = cartState.shopName || 'Active Kitchen';
+  if (prepTimeEl) prepTimeEl.textContent = `${cart.getMaxPrepMinutes()} MIN`;
+  if (totalPriceEl) totalPriceEl.textContent = formatPrice(cart.getSubtotal());
+
+  itemsList.innerHTML = cartState.items.map(item => `
+    <div class="drawer-item-card">
+      <div class="drawer-item-top">
+        <div>
+          <div class="drawer-item-title">${item.name}</div>
+          ${item.variantName ? `<div class="drawer-item-variant">[ ${item.variantName} ]</div>` : ''}
+          <div style="margin-top:2px;">
+            <span class="dietary-tag ${item.dietaryType}">${item.dietaryType}</span>
+          </div>
+        </div>
+        <div class="mono-meta" style="font-weight:700; color:var(--text-primary); font-size:0.88rem;">
+          ${formatPrice(item.price * item.quantity)}
+        </div>
+      </div>
+      <div class="drawer-item-bottom">
+        <div class="qty-stepper">
+          <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, -1)">-</button>
+          <span class="qty-val">${item.quantity}</span>
+          <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, 1)">+</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="window.cart.removeItem('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'})" style="padding:2px 6px; font-size:0.68rem; color:var(--status-danger);">
+          REMOVE
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFooter() {
+  const footerContainer = document.getElementById('global-footer');
+  if (!footerContainer) return;
+
+  footerContainer.innerHTML = `
+    <footer class="app-footer">
+      <div class="app-container">
+        <div class="footer-top">
+          <div class="footer-col">
+            <div class="brand-mark" style="margin-bottom:8px;">
+              <span class="brand-symbol">P</span>
+              <div class="brand-label">
+                <span class="brand-title">PREORDER</span>
+                <span class="brand-sub">CULINARY TELEMETRY & LOGISTICS</span>
+              </div>
+            </div>
+            <p class="subheadline" style="font-size:0.86rem; color:var(--text-tertiary); max-width:40ch;">
+              Institutional-grade pre-order and kitchen scheduling infrastructure. Direct kitchen telemetry eliminates wait queues and preserves culinary integrity.
+            </p>
+            <div style="margin-top:8px;">
+              <span class="telemetry-badge live">SYSTEM STATUS: ALL LOGISTICS OPERATIONAL</span>
+            </div>
+          </div>
+
+          <div class="footer-col">
+            <div class="footer-col-title">Navigation</div>
+            <ul class="footer-nav-list">
+              <li><a href="/index.html" class="footer-nav-link">Marketplace</a></li>
+              <li><a href="/orders.html" class="footer-nav-link">Order Tracker</a></li>
+              <li><a href="/loyalty.html" class="footer-nav-link">Loyalty Vault</a></li>
+              <li><a href="/checkout.html" class="footer-nav-link">Active Ticket</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <div class="footer-col-title">Portals</div>
+            <ul class="footer-nav-list">
+              <li><a href="/owner.html" class="footer-nav-link">Kitchen Partner Desk</a></li>
+              <li><a href="/register.html" class="footer-nav-link">Onboard Kitchen</a></li>
+              <li><a href="/admin.html" class="footer-nav-link">Verification Console</a></li>
+              <li><a href="/profile.html" class="footer-nav-link">Diner Profile</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <div class="footer-col-title">Institutional</div>
+            <p style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-tertiary); line-height:1.6;">
+              HIGH-CONCURRENCY FASTAPI ENGINE<br>
+              POSTGRESQL 16 ENTERPRISE DB<br>
+              HAIRLINE ZERO-QUEUE DISPATCH<br>
+              ISO 8601 UTC COMPLIANCE
+            </p>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <div>&copy; ${new Date().getFullYear()} PREORDER LOGISTICS INC. ALL RIGHTS RESERVED.</div>
+          <div style="display:flex; gap:16px;">
+            <span>LATENCY: &lt;18MS</span>
+            <span>API V1.0.0</span>
+            <span>ENCRYPTED TLS</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  `;
+}
+
+// Auto-boot on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  initGlobalShell();
+});

@@ -1,0 +1,560 @@
+/* ============================================================================
+   PREORDER ARCHITECTURAL DESIGN SYSTEM
+   Art Direction: Drone.riotters (Structure & Telemetry) +
+                  Pasticcino/Monogrid (Sensory Materiality & Warm Carbon) +
+                  Aardvark (Clarity & Hierarchy) +
+                  Tresmares (Institutional Weight & Metric Monumentality)
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+:root {
+  /* Surfaces & Canvas */
+  --bg-canvas: #08090C;
+  --bg-surface: #101217;
+  --bg-surface-elevated: #161922;
+  --bg-surface-active: #1D212C;
+  --bg-surface-subtle: #0D0F14;
+
+  /* Hairline Borders */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.28);
+  --border-accent: rgba(229, 136, 38, 0.45);
+
+  /* Accents & Warm Ember */
+  --accent-ember: #E58826;
+  --accent-ember-hover: #F59E0B;
+  --accent-ember-soft: rgba(229, 136, 38, 0.12);
+  --accent-ember-border: rgba(229, 136, 38, 0.35);
+
+  /* Status Colors */
+  --status-open: #10B981;
+  --status-open-bg: rgba(16, 185, 129, 0.12);
+  --status-open-border: rgba(16, 185, 129, 0.3);
+
+  --status-wait: #F59E0B;
+  --status-wait-bg: rgba(245, 158, 11, 0.12);
+  --status-wait-border: rgba(245, 158, 11, 0.3);
+
+  --status-danger: #EF4444;
+  --status-danger-bg: rgba(239, 68, 68, 0.12);
+  --status-danger-border: rgba(239, 68, 68, 0.3);
+
+  --status-info: #3B82F6;
+  --status-info-bg: rgba(59, 130, 246, 0.12);
+  --status-info-border: rgba(59, 130, 246, 0.3);
+
+  /* Dietary Types */
+  --veg-color: #22C55E;
+  --veg-bg: rgba(34, 197, 94, 0.1);
+  --veg-border: rgba(34, 197, 94, 0.3);
+
+  --nonveg-color: #EF4444;
+  --nonveg-bg: rgba(239, 68, 68, 0.1);
+  --nonveg-border: rgba(239, 68, 68, 0.3);
+
+  --vegan-color: #06B6D4;
+  --vegan-bg: rgba(6, 182, 212, 0.1);
+  --vegan-border: rgba(6, 182, 212, 0.3);
+
+  /* Typography Colors */
+  --text-primary: #F8F9FA;
+  --text-secondary: #9DA3AF;
+  --text-tertiary: #606673;
+  --text-accent: #F59E0B;
+
+  /* Typography Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  /* Geometry & Rhythm */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Container */
+  --container-max: 1360px;
+  --container-padding: 32px;
+
+  /* Transitions */
+  --transition-fast: 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* CSS Reset & Base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-xs);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-ember);
+}
+
+/* Global Selection */
+::selection {
+  background: var(--accent-ember);
+  color: #000;
+}
+
+/* Architectural Layout Primitives */
+.app-container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+.hairline-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border-subtle);
+  border: none;
+  margin: 0;
+}
+
+.hairline-divider-strong {
+  width: 100%;
+  height: 1px;
+  background: var(--border-medium);
+  border: none;
+  margin: 0;
+}
+
+/* Hairline Grid Overlay (Architectural Reference: Drone.riotters) */
+.grid-hairline {
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* Typography Scale */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.headline-display {
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.headline-1 {
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.headline-2 {
+  font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.headline-3 {
+  font-size: 1.2rem;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.subheadline {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+/* Telemetry & Eyebrow Metadata */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-accent);
+  margin-bottom: 8px;
+}
+
+.eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--accent-ember);
+}
+
+.mono-meta {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Technical Telemetry Badges */
+.telemetry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.telemetry-badge.accent {
+  background: var(--accent-ember-soft);
+  border-color: var(--accent-ember-border);
+  color: var(--accent-ember-hover);
+}
+
+.telemetry-badge.live {
+  background: var(--status-open-bg);
+  border-color: var(--status-open-border);
+  color: var(--status-open);
+}
+
+.telemetry-badge.live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-open);
+  box-shadow: 0 0 8px var(--status-open);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+.telemetry-badge.waiting {
+  background: var(--status-wait-bg);
+  border-color: var(--status-wait-border);
+  color: var(--status-wait);
+}
+
+.telemetry-badge.info {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
+  color: var(--status-info);
+}
+
+.telemetry-badge.closed {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Dietary Markers */
+.dietary-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dietary-tag.veg {
+  background: var(--veg-bg);
+  color: var(--veg-color);
+  border: 1px solid var(--veg-border);
+}
+
+.dietary-tag.non_veg {
+  background: var(--nonveg-bg);
+  color: var(--nonveg-color);
+  border: 1px solid var(--nonveg-border);
+}
+
+.dietary-tag.vegan {
+  background: var(--vegan-bg);
+  color: var(--vegan-color);
+  border: 1px solid var(--vegan-border);
+}
+
+/* Button Hierarchy */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent-ember);
+  color: #08090C;
+  border-color: var(--accent-ember);
+}
+
+.btn-primary:hover {
+  background: var(--accent-ember-hover);
+  border-color: var(--accent-ember-hover);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-strong);
+  color: #FFFFFF;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.btn-danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
+  border-color: var(--status-danger-border);
+}
+
+.btn-danger:hover {
+  background: var(--status-danger);
+  color: #FFFFFF;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.74rem;
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.btn-icon {
+  padding: 8px;
+  width: 38px;
+  height: 38px;
+}
+
+.btn:disabled, .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Forms & Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.form-label-hint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  text-transform: none;
+}
+
+.form-control,
+.input-text,
+.select-input,
+.textarea-input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.form-control:focus,
+.input-text:focus,
+.select-input:focus,
+.textarea-input:focus {
+  border-color: var(--accent-ember);
+  background: var(--bg-surface-elevated);
+  box-shadow: 0 0 0 1px var(--accent-ember);
+}
+
+.form-control::placeholder,
+.input-text::placeholder {
+  color: var(--text-tertiary);
+}
+
+.select-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239DA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  padding-right: 38px;
+}
+
+.textarea-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Institutional Metrics Ribbon (Reference: Tresmares) */
+.metrics-ribbon {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface-subtle);
+}
+
+.metric-cell {
+  padding: 24px 28px;
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-cell:last-child {
+  border-right: none;
+}
+
+.metric-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.metric-val {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.metric-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .metrics-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .metric-cell:nth-child(2) {
+    border-right: none;
+  }
+  .metric-cell:nth-child(1),
+  .metric-cell:nth-child(2) {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 600px) {
+  .metrics-ribbon {
+    grid-template-columns: 1fr;
+  }
+  .metric-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 18px 20px;
+  }
+  .metric-cell:last-child {
+    border-bottom: none;
+  }
+  .app-container {
+    padding: 0 18px;
+  }
+}

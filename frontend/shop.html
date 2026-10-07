@@ -1,590 +1,510 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shop Details — PreOrder</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Kitchen Dossier — PREORDER</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
-  <!-- Exact Ambient Background -->
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
-    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
+<body>
+  <!-- Global Architectural Header -->
+  <div id="global-header"></div>
+
+  <!-- Kitchen Dossier Header -->
+  <section style="background: var(--bg-surface); border-bottom: 1px solid var(--border-medium); padding: 48px 0 32px;">
+    <div class="app-container">
+      <div id="shop-header-container" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="mono-meta" style="color: var(--text-tertiary);">[ SYNCHRONIZING DOSSIER TELEMETRY... ]</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sticky Category Navigation Bar -->
+  <div style="position: sticky; top: 64px; z-index: 90; background: rgba(8, 9, 12, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border-subtle); padding: 12px 0;">
+    <div class="app-container" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; overflow-x: auto;">
+      <div class="category-capsules" id="menu-category-tabs">
+        <button class="category-capsule active" data-cat="">ALL ITEMS</button>
+      </div>
+      <div class="mono-meta" id="menu-items-count" style="white-space: nowrap;">0 DISHES ON TICKET</div>
+    </div>
   </div>
 
-  <div id="navbar-root"></div>
-
-  <div id="shop-page-container" class="min-h-screen text-left">
-    <!-- Hero Banner -->
-    <div class="relative h-[320px] w-full overflow-hidden sm:h-[380px]">
-      <img
-        id="shop-hero-img"
-        src="https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1400&q=80"
-        alt="Shop Banner"
-        class="h-full w-full object-cover"
-      />
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/45 to-background"></div>
-    </div>
-
-    <!-- Main Content Container -->
-    <div class="mx-auto -mt-28 max-w-6xl px-4 sm:px-6 relative z-10">
-      <a href="index.html" class="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-1"><path d="m15 18-6-6 6-6"/></svg>
-        All shops
-      </a>
-
-      <!-- Shop Information Card -->
-      <div class="rounded-xl border border-white/15 bg-card/65 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.75)] backdrop-blur-xl text-card-foreground">
-        <div class="relative flex flex-wrap items-start justify-between gap-4 p-6">
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <h1 id="shop-title" class="text-2xl font-bold tracking-tight sm:text-3xl text-foreground">Loading store...</h1>
-              <span id="shop-verified-badge" class="hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-              </span>
-            </div>
-            <p id="shop-cuisine" class="text-sm text-muted-foreground"></p>
-            <div class="flex flex-wrap gap-3 pt-1 text-xs text-muted-foreground">
-              <span id="shop-address" class="flex items-center gap-1"></span>
-              <span id="shop-phone" class="flex items-center gap-1"></span>
-              <span class="flex items-center gap-1 border-l pl-4 border-border/50">
-                <span id="shop-id-text" class="font-mono"></span>
-                <button id="copy-shop-id-btn" class="rounded-md p-1 hover:text-foreground transition-colors" title="Copy Shop ID">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                </button>
-              </span>
-              <span id="shop-rating" class="flex items-center gap-1"></span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 mt-2 sm:mt-0">
-            <span id="shop-open-status" class="inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold border bg-amber-500/10 text-amber-500 border-amber-500/20">Open</span>
-            <a id="view-cart-link" href="cart.html" class="hidden">
-              <button class="inline-flex items-center justify-center whitespace-nowrap h-7 rounded-md bg-primary hover:bg-primary/90 px-3 text-xs font-semibold gap-1.5 shadow-sm text-primary-foreground transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                <span>View Cart (<span id="cart-item-count">0</span>)</span>
-              </button>
-            </a>
+  <!-- Menu Content & Reviews Grid -->
+  <main class="app-container" style="padding: 40px var(--container-padding) 80px;">
+    <div style="display: grid; grid-template-columns: 1fr 340px; gap: 40px; align-items: start;" id="shop-main-layout">
+      <!-- Dishes Grid Column -->
+      <div>
+        <div id="dishes-container">
+          <div style="padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
+            [ RETRIEVING CULINARY CATALOG... ]
           </div>
         </div>
       </div>
 
-      <p id="shop-description" class="mt-4 text-sm text-muted-foreground"></p>
+      <!-- Reviews & Ledger Sidebar -->
+      <aside style="display: flex; flex-direction: column; gap: 24px;">
+        <div style="border: 1px solid var(--border-medium); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 24px;">
+          <div class="eyebrow">VERIFIED REVIEWS</div>
+          <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;">
+            <span class="headline-1" id="sidebar-rating-val" style="color: var(--accent-ember-hover);">—</span>
+            <span class="mono-meta" id="sidebar-review-count">0 reviews</span>
+          </div>
 
-      <!-- Tabs Navigation -->
-      <div class="mt-6">
-        <div class="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
-          <button id="tab-btn-menu" onclick="switchTab('menu')" class="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow" data-state="active">Menu</button>
-          <button id="tab-btn-reviews" onclick="switchTab('reviews')" class="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground" data-state="inactive">Reviews (<span id="reviews-count-badge">0</span>)</button>
-        </div>
+          <div id="reviews-list" style="display: flex; flex-direction: column; gap: 14px; max-height: 400px; overflow-y: auto; padding-right: 4px;">
+            <div class="mono-meta" style="color: var(--text-tertiary);">No verified diner reviews recorded yet.</div>
+          </div>
 
-        <!-- Menu Tab View -->
-        <div id="tab-content-menu" class="mt-6 space-y-8">
-          <div id="menu-loading" class="h-32 w-full rounded-xl bg-muted/40 animate-pulse flex items-center justify-center text-xs text-muted-foreground">Syncing merchant menu...</div>
-          <div id="menu-sections" class="space-y-8"></div>
-        </div>
-
-        <!-- Reviews Tab View -->
-        <div id="tab-content-reviews" class="mt-6 space-y-4 hidden">
-          <div class="flex items-center justify-between border-b border-border/50 pb-3">
-            <h3 class="text-sm font-semibold text-foreground">Customer Reviews (<span id="reviews-header-count">0</span>)</h3>
-            <button id="write-review-btn" onclick="toggleReviewForm()" class="inline-flex items-center justify-center whitespace-nowrap border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground gap-1.5 h-8 text-xs font-medium rounded-xl px-3 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></svg>
-              <span>Write a review</span>
+          <div style="margin-top: 20px; border-top: 1px dashed var(--border-subtle); padding-top: 16px;">
+            <button class="btn btn-secondary btn-sm" id="open-review-modal-btn" style="width: 100%;">
+              SUBMIT DINER REVIEW
             </button>
           </div>
-
-          <!-- Review Form Card -->
-          <div id="review-form-card" class="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4 text-left hidden">
-            <form id="review-form" onsubmit="submitReview(event)" class="space-y-3">
-              <div class="space-y-1">
-                <label class="text-xs font-medium text-muted-foreground block">Your Rating</label>
-                <div id="star-rating-selector" class="flex items-center gap-1">
-                  <!-- Rendered dynamically -->
-                </div>
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-xs font-medium text-muted-foreground block">Review Message</label>
-                <textarea id="review-comment" placeholder="Tell others about the food quality..." class="flex min-h-[80px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary resize-none" maxlength="300"></textarea>
-              </div>
-              <div class="flex items-center justify-end gap-2 pt-1">
-                <button type="button" onclick="toggleReviewForm()" class="inline-flex items-center justify-center whitespace-nowrap hover:bg-accent hover:text-accent-foreground h-8 text-xs font-medium rounded-lg px-3">Cancel</button>
-                <button type="submit" class="inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 text-xs font-medium rounded-lg px-3">Submit</button>
-              </div>
-            </form>
-          </div>
-
-          <div id="reviews-list" class="space-y-2.5 text-left"></div>
         </div>
-      </div>
+
+        <div style="border: 1px solid var(--border-subtle); background: var(--bg-surface-subtle); border-radius: var(--radius-sm); padding: 20px;">
+          <div class="mono-meta" style="color: var(--accent-ember); font-weight: 700; margin-bottom: 6px;">[ ZERO-QUEUE GUARANTEE ]</div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;">
+            Every order placed on PreOrder is synchronized to kitchen prep slots. If your food is not ready within 5 minutes of your arrival slot, loyalty reward points are credited automatically.
+          </p>
+        </div>
+      </aside>
     </div>
+  </main>
 
-    <div class="h-16"></div>
-  </div>
-
-  <!-- Customization / Add Item Modal -->
-  <div id="add-item-modal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden animate-in fade-in-0 duration-200">
-    <div class="w-full max-w-[420px] rounded-2xl border border-border bg-card p-6 shadow-2xl text-left space-y-4 animate-in zoom-in-95 duration-200">
-      <div class="space-y-1.5">
-        <h3 id="modal-item-name" class="text-lg font-bold tracking-tight text-foreground">Menu Item</h3>
-        <p id="modal-item-desc" class="text-xs text-muted-foreground line-clamp-3"></p>
-      </div>
-
-      <!-- Variants Selection Radio -->
-      <div id="modal-variants-section" class="space-y-2 hidden">
-        <label class="text-xs font-semibold text-muted-foreground">Choose option</label>
-        <div id="modal-variants-list" class="space-y-2"></div>
-      </div>
-
-      <!-- Quantity Selector -->
-      <div class="flex items-center justify-between border-t border-dashed pt-4 border-border/60">
-        <div class="space-y-0.5">
-          <label class="text-sm font-bold text-foreground">Quantity</label>
-          <p class="text-[11px] text-muted-foreground">Maximum limit: 10 items total per cart</p>
+  <!-- Variant Selection Modal -->
+  <div class="modal-backdrop" id="variant-modal-backdrop">
+    <div class="modal-sheet" id="variant-modal">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow" style="margin-bottom: 2px;">CUSTOMIZE DISH</div>
+          <h3 class="headline-3" id="modal-dish-title">Select Variant</h3>
         </div>
-        <div class="flex items-center gap-1.5 bg-muted/40 border border-border/50 p-1 rounded-xl">
-          <button type="button" onclick="changeQty(-1)" class="inline-flex items-center justify-center h-8 w-8 rounded-lg font-bold hover:bg-accent text-foreground">−</button>
-          <span id="modal-qty-display" class="w-8 text-center font-mono text-sm font-bold">1</span>
-          <button type="button" onclick="changeQty(1)" class="inline-flex items-center justify-center h-8 w-8 rounded-lg font-bold hover:bg-accent text-foreground">+</button>
-        </div>
+        <button class="drawer-close" id="close-variant-modal">&times;</button>
       </div>
-
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
-        <button type="button" onclick="closeAddItemModal()" class="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-xl hover:bg-accent text-foreground">Cancel</button>
-        <button id="modal-confirm-add-btn" type="button" onclick="confirmAddItem()" class="inline-flex items-center justify-center h-9 px-5 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow hover:bg-primary/90 transition-all">Add</button>
+      <div class="modal-body" id="variant-options-body">
+        <!-- Variant radios inserted dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="cancel-variant-btn">CANCEL</button>
+        <button class="btn btn-primary" id="confirm-variant-btn">ADD TO ORDER TICKET</button>
       </div>
     </div>
   </div>
 
-  <!-- Multi-Shop Conflict Dialog -->
-  <div id="conflict-modal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden animate-in fade-in-0 duration-200">
-    <div class="w-full max-w-[400px] rounded-2xl border border-border bg-card p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-200">
-      <div class="flex flex-col items-center gap-2">
-        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+  <!-- Review Submission Modal -->
+  <div class="modal-backdrop" id="review-modal-backdrop">
+    <div class="modal-sheet" id="review-modal">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow" style="margin-bottom: 2px;">DINER FEEDBACK</div>
+          <h3 class="headline-3">Submit Verified Review</h3>
         </div>
-        <h3 class="text-base font-bold tracking-tight text-foreground">Replace existing cart items?</h3>
-        <p class="text-xs text-muted-foreground leading-normal px-2">
-          Your cart currently contains selections from another store. To order from <span id="conflict-shop-name" class="font-semibold text-foreground">this store</span> instead, your previous basket will be cleared.
-        </p>
+        <button class="drawer-close" id="close-review-modal">&times;</button>
       </div>
-      <div class="grid grid-cols-2 gap-2 mt-4">
-        <button type="button" onclick="closeConflictModal()" class="inline-flex items-center justify-center h-9 rounded-xl border border-input bg-background text-xs font-semibold hover:bg-accent text-foreground">Keep Existing Cart</button>
-        <button type="button" onclick="confirmConflictReplace()" class="inline-flex items-center justify-center h-9 rounded-xl bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 shadow-sm">Clear Cart & Add</button>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">RATING (1 TO 5 STARS)</label>
+          <select id="review-rating-select" class="select-input">
+            <option value="5">5 ★ — Exceptional Culinary Quality</option>
+            <option value="4">4 ★ — Very Good Experience</option>
+            <option value="3">3 ★ — Average Prep / Standard</option>
+            <option value="2">2 ★ — Subpar Texture or Delay</option>
+            <option value="1">1 ★ — Unsatisfactory</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">VERIFIED COMMENT</label>
+          <textarea id="review-comment-input" class="textarea-input" placeholder="Document flavor profile, thermal freshness, or packaging quality..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="cancel-review-btn">CANCEL</button>
+        <button class="btn btn-primary" id="submit-review-btn">TRANSMIT REVIEW</button>
       </div>
     </div>
   </div>
 
-  <script src="js/api.js"></script>
-  <script src="js/cart.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script>
-    let currentShop = null;
-    let menuItems = [];
-    let reviews = [];
-    let selectedItem = null;
-    let itemVariants = [];
-    let selectedVariantId = null;
-    let modalQuantity = 1;
-    let pendingConflictItem = null;
-    let ratingStars = 5;
+  <!-- Global Footer -->
+  <div id="global-footer"></div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { cart } from '/js/cart.js';
+    import { toast } from '/js/toast.js';
+    import { formatPrice } from '/js/app.js';
 
     const urlParams = new URLSearchParams(window.location.search);
-    const shopId = urlParams.get("id") || urlParams.get("shopId");
+    const shopId = urlParams.get('id');
 
-    const FALLBACK_DETAIL_IMAGES = [
-      "https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1400&q=80",
-      "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1400&q=80",
-      "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1400&q=80",
-    ];
-
-    function getFallbackDetailImage(id, name) {
-      const key = `${id}-${name}`;
-      let hash = 0;
-      for (let i = 0; i < key.length; i++) hash = (hash << 5) - hash + key.charCodeAt(i);
-      return FALLBACK_DETAIL_IMAGES[Math.abs(hash) % FALLBACK_DETAIL_IMAGES.length];
+    if (!shopId) {
+      window.location.href = '/index.html';
     }
 
-    async function loadShop() {
-      if (!shopId) {
-        window.location.href = "index.html";
-        return;
-      }
+    let shopData = null;
+    let menuItems = [];
+    let selectedItemForVariant = null;
+    let selectedVariantId = null;
+    let activeCategory = '';
+
+    async function initShop() {
       try {
-        currentShop = await window.api.shops.get(shopId);
+        shopData = await api.getShop(shopId);
+        menuItems = await api.getMenuItems(shopId);
+
         renderShopHeader();
-        updateCartPill();
-        loadMenuItems();
+        buildCategoryTabs();
+        renderDishes();
         loadReviews();
       } catch (err) {
-        window.toast.error("Failed to load shop details: " + err.message);
+        console.error('Failed to load shop:', err);
+        document.getElementById('shop-header-container').innerHTML = `
+          <div style="padding: 32px; border: 1px solid var(--status-danger-border); background: var(--status-danger-bg); border-radius: var(--radius-sm);">
+            <div class="mono-meta" style="color: var(--status-danger);">[ DOSSIER ERROR ]</div>
+            <p style="margin-top: 6px;">Kitchen outlet not found or telemetry inactive.</p>
+            <a href="/index.html" class="btn btn-secondary btn-sm" style="margin-top: 12px;">RETURN TO MARKETPLACE</a>
+          </div>
+        `;
       }
     }
 
     function renderShopHeader() {
-      document.getElementById("shop-title").textContent = currentShop.name;
-      document.title = `${currentShop.name} — PreOrder`;
+      const container = document.getElementById('shop-header-container');
+      const isOpen = shopData.is_open && shopData.is_accepting_orders;
+      const rating = (shopData.rating_avg && shopData.rating_avg > 0) ? `${Number(shopData.rating_avg).toFixed(1)} ★` : 'NEW';
 
-      if (currentShop.image_url) {
-        document.getElementById("shop-hero-img").src = currentShop.image_url;
-      } else {
-        document.getElementById("shop-hero-img").src = getFallbackDetailImage(currentShop.id, currentShop.name);
-      }
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+          <div>
+            <div class="eyebrow">OUTLET DOSSIER // ID: ${shopData.id.slice(0, 8)}</div>
+            <h1 class="headline-1" style="margin: 4px 0 10px;">${shopData.name}</h1>
+            <p class="subheadline" style="max-width: 70ch;">${shopData.description || 'Verified culinary partner with synchronized preparation dispatch.'}</p>
+          </div>
 
-      if (currentShop.is_verified) {
-        document.getElementById("shop-verified-badge").classList.remove("hidden");
-      }
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <span class="telemetry-badge ${isOpen ? 'live' : 'closed'}">
+              ${isOpen ? 'ACCEPTING PRE-ORDERS' : 'KITCHEN PAUSED'}
+            </span>
+            <div class="mono-meta" style="font-size: 0.85rem; color: var(--accent-ember-hover); font-weight: 700;">
+              [ SCORE: ${rating} ]
+            </div>
+          </div>
+        </div>
 
-      if (currentShop.cuisine) {
-        document.getElementById("shop-cuisine").textContent = currentShop.cuisine;
-      }
-      if (currentShop.address) {
-        document.getElementById("shop-address").innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          ${currentShop.address}
-        `;
-      }
-      if (currentShop.phone) {
-        document.getElementById("shop-phone").innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          ${currentShop.phone}
-        `;
-      }
-      document.getElementById("shop-id-text").textContent = `ID: ${currentShop.id.slice(0, 8)}...`;
-      document.getElementById("copy-shop-id-btn").onclick = () => {
-        navigator.clipboard.writeText(currentShop.id);
-        window.toast.success("Shop ID copied!");
-      };
+        <div class="hairline-divider" style="margin: 12px 0;"></div>
 
-      if (currentShop.rating != null) {
-        document.getElementById("shop-rating").innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" class="h-3 w-3 text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span class="font-bold text-foreground">${Number(currentShop.rating).toFixed(1)}</span>
-        `;
-      }
-
-      const statusEl = document.getElementById("shop-open-status");
-      if (currentShop.is_open) {
-        statusEl.className = "inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold border bg-amber-500/10 text-amber-500 border-amber-500/20";
-        statusEl.textContent = "Open";
-      } else {
-        statusEl.className = "inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold border bg-muted text-muted-foreground border-border";
-        statusEl.textContent = "Closed";
-      }
-
-      if (currentShop.description) {
-        document.getElementById("shop-description").textContent = currentShop.description;
-      }
+        <div style="display: flex; flex-wrap: wrap; gap: 24px; font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-secondary);">
+          <div><strong style="color: var(--text-tertiary);">CATEGORY:</strong> ${shopData.category || 'Gourmet'}</div>
+          <div><strong style="color: var(--text-tertiary);">LOCATION:</strong> ${shopData.address_line}, ${shopData.city} ${shopData.pincode}</div>
+          <div><strong style="color: var(--text-tertiary);">HOURS:</strong> ${shopData.opening_hours || '10:00 - 22:00'}</div>
+          <div><strong style="color: var(--text-tertiary);">DIRECT PHONE:</strong> ${shopData.phone}</div>
+        </div>
+      `;
     }
 
-    function updateCartPill() {
-      const user = window.auth.getUser();
-      const isShopOwner = user?.role === "shop_owner";
-      const lines = window.cart.byShop(shopId);
-      const count = lines.reduce((acc, c) => acc + c.quantity, 0);
+    function buildCategoryTabs() {
+      const categories = ['ALL ITEMS'];
+      menuItems.forEach(item => {
+        if (item.category && !categories.includes(item.category.toUpperCase())) {
+          categories.push(item.category.toUpperCase());
+        }
+      });
 
-      const cartBtn = document.getElementById("view-cart-link");
-      if (count > 0 && !isShopOwner) {
-        cartBtn.classList.remove("hidden");
-        document.getElementById("cart-item-count").textContent = count;
-      } else {
-        cartBtn.classList.add("hidden");
-      }
+      const tabsContainer = document.getElementById('menu-category-tabs');
+      tabsContainer.innerHTML = categories.map(cat => `
+        <button class="category-capsule ${cat === 'ALL ITEMS' ? 'active' : ''}" data-cat="${cat === 'ALL ITEMS' ? '' : cat}">
+          ${cat}
+        </button>
+      `).join('');
+
+      tabsContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.category-capsule');
+        if (!btn) return;
+        document.querySelectorAll('#menu-category-tabs .category-capsule').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        renderDishes();
+      });
     }
 
-    async function loadMenuItems() {
-      try {
-        menuItems = await window.api.menu.listItems(shopId);
-        document.getElementById("menu-loading").classList.add("hidden");
-        renderMenuItems();
-      } catch (err) {
-        document.getElementById("menu-loading").textContent = "Unable to load menu items.";
+    function renderDishes() {
+      const container = document.getElementById('dishes-container');
+      const countEl = document.getElementById('menu-items-count');
+
+      const filtered = menuItems.filter(item => {
+        if (!activeCategory) return true;
+        return (item.category || '').toUpperCase() === activeCategory;
+      });
+
+      if (countEl) {
+        countEl.textContent = `${filtered.length} DISHES AVAILABLE`;
       }
-    }
 
-    function renderMenuItems() {
-      const container = document.getElementById("menu-sections");
-      container.innerHTML = "";
-
-      if (!menuItems || menuItems.length === 0) {
+      if (filtered.length === 0) {
         container.innerHTML = `
-          <div class="rounded-xl border border-dashed p-12 text-center text-muted-foreground text-xs font-medium">
-            No items available on this shop's menu.
+          <div style="padding: 60px 0; text-align: center; color: var(--text-tertiary); font-family: var(--font-mono);">
+            [ ∅ NO DISHES CONFIGURED IN THIS CATEGORY ]
           </div>
         `;
         return;
       }
 
-      const grouped = {};
-      menuItems.forEach((it) => {
-        const cat = it.category || "Menu";
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(it);
+      // Group by category
+      const groups = {};
+      filtered.forEach(item => {
+        const cat = item.category || 'Specialties';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(item);
       });
 
-      const user = window.auth.getUser();
-      const isShopOwner = user?.role === "shop_owner";
-
-      Object.entries(grouped).forEach(([category, items]) => {
-        const section = document.createElement("section");
-        section.className = "space-y-3";
-        section.innerHTML = `
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">${category}</h2>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            ${items.map((item) => {
-              const isAvailable = item.is_available !== false;
-              const imgUrl = item.image_url || getFallbackDetailImage(item.id, item.name);
-              return `
-                <div class="rounded-xl border bg-card text-card-foreground shadow flex h-full flex-row gap-4 overflow-hidden p-4 hover:border-primary/40 transition-colors ${!isAvailable ? 'opacity-60 bg-muted/20 border-dashed' : ''}">
-                  <div class="flex-1 space-y-1">
-                    <h3 class="font-medium text-sm text-foreground">${item.name}</h3>
-                    ${item.description ? `<p class="line-clamp-2 text-xs text-muted-foreground">${item.description}</p>` : ""}
-                    <div class="flex items-center justify-between pt-2">
-                      <span class="font-semibold text-primary text-sm">${formatCurrency(item.price)}</span>
-                      ${isShopOwner ? `
-                        <button onclick="window.toast.error('Owners cannot place orders. Please use a Customer account.')" class="h-8 rounded-xl text-[11px] font-bold text-muted-foreground bg-muted/60 border hover:bg-destructive hover:text-white transition-colors px-3">
-                          Owners Blocked
-                        </button>
-                      ` : !isAvailable ? `
-                        <button disabled class="h-8 rounded-xl text-[11px] font-bold text-red-400 bg-red-500/5 cursor-not-allowed border border-red-500/10 uppercase px-3">
-                          Unavailable
-                        </button>
-                      ` : `
-                        <button onclick="handleItemAddClick('${item.id}')" ${!currentShop.is_open ? 'disabled' : ''} class="inline-flex items-center gap-1 h-8 rounded-xl border border-input bg-background hover:bg-accent px-3 text-xs font-semibold shadow-sm transition-all disabled:opacity-50">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                          Add
-                        </button>
-                      `}
-                    </div>
-                  </div>
-                  <div class="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    <img src="${imgUrl}" alt="${item.name}" class="h-full w-full object-cover" />
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
+      let html = '';
+      for (const [catName, items] of Object.entries(groups)) {
+        html += `
+          <section class="menu-section">
+            <div class="menu-section-header">
+              <h2 class="menu-section-title">${catName}</h2>
+              <span class="mono-meta">[ ${items.length} ITEMS ]</span>
+            </div>
+            <div class="dishes-grid">
+              ${items.map(dish => renderDishCard(dish)).join('')}
+            </div>
+          </section>
         `;
-        container.appendChild(section);
+      }
+
+      container.innerHTML = html;
+      bindDishActionButtons();
+    }
+
+    function renderDishCard(dish) {
+      const hasVariants = dish.variants && dish.variants.length > 0;
+      const isAvailable = dish.is_available !== false;
+      const lowestPrice = hasVariants ? Math.min(...dish.variants.map(v => v.price), dish.price) : dish.price;
+
+      return `
+        <div class="dish-card" data-dish-id="${dish.id}">
+          <div class="dish-card-header">
+            <div class="dish-title-wrap">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="dietary-tag ${dish.dietary_type || 'veg'}">${dish.dietary_type || 'veg'}</span>
+                ${dish.is_featured ? '<span class="telemetry-badge accent" style="padding: 1px 5px; font-size: 0.65rem;">SIGNATURE</span>' : ''}
+              </div>
+              <h3 class="dish-title">${dish.name}</h3>
+            </div>
+            <div class="dish-price">
+              ${hasVariants ? `<span style="font-size:0.75rem; color:var(--text-tertiary); font-weight:normal;">FROM </span>` : ''}
+              ${formatPrice(lowestPrice)}
+            </div>
+          </div>
+
+          <p class="dish-desc">${dish.description || 'Prepared fresh with high-grade ingredients to preserve flavor integrity.'}</p>
+
+          <div class="dish-footer">
+            <div class="mono-meta">[ PREP: ~${dish.prep_time_minutes || 15}M ]</div>
+            <div>
+              ${!isAvailable ? `
+                <span class="telemetry-badge closed">SOLD OUT</span>
+              ` : hasVariants ? `
+                <button class="btn btn-secondary btn-sm select-variant-btn" data-id="${dish.id}">
+                  CUSTOMIZE &rarr;
+                </button>
+              ` : `
+                <button class="btn btn-primary btn-sm add-direct-btn" data-id="${dish.id}">
+                  + ADD TO TICKET
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindDishActionButtons() {
+      // Direct Add Buttons
+      document.querySelectorAll('.add-direct-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const dishId = e.currentTarget.dataset.id;
+          const dish = menuItems.find(d => d.id === dishId);
+          if (!dish) return;
+
+          cart.addItem({
+            shopId: shopData.id,
+            shopName: shopData.name,
+            itemId: dish.id,
+            variantId: null,
+            name: dish.name,
+            variantName: null,
+            price: dish.price,
+            dietaryType: dish.dietary_type,
+            prepMinutes: dish.prep_time_minutes
+          });
+        });
+      });
+
+      // Customize Variant Buttons
+      document.querySelectorAll('.select-variant-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const dishId = e.currentTarget.dataset.id;
+          const dish = menuItems.find(d => d.id === dishId);
+          if (!dish) return;
+          openVariantModal(dish);
+        });
       });
     }
 
-    async function handleItemAddClick(itemId) {
-      const item = menuItems.find((it) => it.id === itemId);
-      if (!item) return;
-
-      const currentTotal = window.cart.getCount();
-      if (currentTotal >= 10) {
-        window.toast.warning("Cart Limit Reached", { description: "Your cart is capped at a maximum of 10 items." });
-        return;
-      }
-
-      // Check shop conflict
-      const currentShopId = window.cart.getShopId();
-      if (currentShopId && currentShopId !== shopId) {
-        pendingConflictItem = item;
-        document.getElementById("conflict-shop-name").textContent = currentShop.name;
-        document.getElementById("conflict-modal").classList.remove("hidden");
-        return;
-      }
-
-      openAddItemModal(item);
-    }
-
-    async function openAddItemModal(item) {
-      selectedItem = item;
-      modalQuantity = 1;
+    function openVariantModal(dish) {
+      selectedItemForVariant = dish;
       selectedVariantId = null;
 
-      document.getElementById("modal-item-name").textContent = item.name;
-      document.getElementById("modal-item-desc").textContent = item.description || "";
-      document.getElementById("modal-qty-display").textContent = "1";
+      document.getElementById('modal-dish-title').textContent = dish.name;
+      const body = document.getElementById('variant-options-body');
 
-      const variantsSection = document.getElementById("modal-variants-section");
-      const variantsList = document.getElementById("modal-variants-list");
-      variantsSection.classList.add("hidden");
-      variantsList.innerHTML = "";
-
-      document.getElementById("add-item-modal").classList.remove("hidden");
-      updateModalAddButton();
-
-      try {
-        itemVariants = await window.api.menu.listVariants(item.id);
-        if (itemVariants && itemVariants.length > 0) {
-          selectedVariantId = itemVariants[0].id;
-          variantsSection.classList.remove("hidden");
-          variantsList.innerHTML = itemVariants.map((v) => `
-            <label onclick="selectVariant('${v.id}')" class="flex cursor-pointer items-center justify-between rounded-xl border border-border p-3 transition-all ${selectedVariantId === v.id ? 'border-primary bg-primary/5' : ''}">
-              <div class="flex items-center gap-2 text-sm font-medium">
-                <input type="radio" name="variant" value="${v.id}" ${selectedVariantId === v.id ? 'checked' : ''} class="text-primary focus:ring-primary" />
-                <span>${v.name}</span>
-              </div>
-              <span class="text-sm font-bold text-foreground">${formatCurrency(v.price)}</span>
-            </label>
-          `).join("");
-        }
-      } catch {
-        itemVariants = [];
-      }
-      updateModalAddButton();
-    }
-
-    function selectVariant(id) {
-      selectedVariantId = id;
-      document.querySelectorAll('#modal-variants-list label').forEach((el) => {
-        el.classList.remove('border-primary', 'bg-primary/5');
-      });
-      const selectedLabel = document.querySelector(`#modal-variants-list input[value="${id}"]`)?.closest('label');
-      if (selectedLabel) selectedLabel.classList.add('border-primary', 'bg-primary/5');
-      updateModalAddButton();
-    }
-
-    function changeQty(delta) {
-      const currentCartTotal = window.cart.getCount();
-      const newQty = modalQuantity + delta;
-      if (newQty < 1) return;
-      if (currentCartTotal + newQty > 10) {
-        window.toast.warning("Cart Limit Reached", { description: "You cannot exceed a total of 10 items in your cart." });
-        return;
-      }
-      modalQuantity = newQty;
-      document.getElementById("modal-qty-display").textContent = modalQuantity;
-      updateModalAddButton();
-    }
-
-    function updateModalAddButton() {
-      if (!selectedItem) return;
-      const v = itemVariants.find((x) => x.id === selectedVariantId);
-      const price = v ? v.price : selectedItem.price;
-      document.getElementById("modal-confirm-add-btn").textContent = `Add — ${formatCurrency(price * modalQuantity)}`;
-    }
-
-    function closeAddItemModal() {
-      document.getElementById("add-item-modal").classList.add("hidden");
-      selectedItem = null;
-    }
-
-    function confirmAddItem() {
-      if (!selectedItem) return;
-      const v = itemVariants.find((x) => x.id === selectedVariantId) || null;
-      window.cart.addItem(selectedItem, v, modalQuantity);
-      window.toast.success(`Added ${modalQuantity} × ${selectedItem.name}`);
-      closeAddItemModal();
-      updateCartPill();
-    }
-
-    function closeConflictModal() {
-      document.getElementById("conflict-modal").classList.add("hidden");
-      pendingConflictItem = null;
-    }
-
-    function confirmConflictReplace() {
-      if (!pendingConflictItem) return;
-      window.cart.clear();
-      const item = pendingConflictItem;
-      closeConflictModal();
-      openAddItemModal(item);
-      window.toast.success("Your cart has been reset.");
-    }
-
-    function switchTab(tab) {
-      const menuBtn = document.getElementById("tab-btn-menu");
-      const revBtn = document.getElementById("tab-btn-reviews");
-      const menuContent = document.getElementById("tab-content-menu");
-      const revContent = document.getElementById("tab-content-reviews");
-
-      if (tab === "menu") {
-        menuBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow";
-        revBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground";
-        menuContent.classList.remove("hidden");
-        revContent.classList.add("hidden");
-      } else {
-        revBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow";
-        menuBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground";
-        revContent.classList.remove("hidden");
-        menuContent.classList.add("hidden");
-      }
-    }
-
-    async function loadReviews() {
-      try {
-        reviews = await window.api.reviews.list(shopId);
-        document.getElementById("reviews-count-badge").textContent = reviews.length;
-        document.getElementById("reviews-header-count").textContent = reviews.length;
-        renderReviews();
-      } catch {
-        reviews = [];
-      }
-    }
-
-    function renderReviews() {
-      const list = document.getElementById("reviews-list");
-      list.innerHTML = "";
-      if (!reviews || reviews.length === 0) {
-        list.innerHTML = `
-          <div class="rounded-xl border border-dashed bg-muted/5 py-12 text-center text-muted-foreground text-xs font-medium">
-            No reviews yet. Be the first to share your experience!
-          </div>
-        `;
-        return;
-      }
-
-      list.innerHTML = reviews.map((r) => `
-        <div class="rounded-xl border border-border/40 bg-card p-4 space-y-1.5 shadow-none">
-          <div class="flex items-center justify-between">
-            <span class="font-semibold text-xs text-foreground">${r.customer_name || "Customer"}</span>
-            <span class="text-[10px] text-muted-foreground/70">${formatDateShort(r.created_at)}</span>
-          </div>
-          ${r.rating > 0 ? `
-            <div class="flex items-center gap-0.5">
-              ${Array.from({ length: 5 }).map((_, i) => `
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3 ${i < r.rating ? 'text-amber-400' : 'text-muted-foreground/20'}"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              `).join("")}
-            </div>
-          ` : ""}
-          ${r.comment ? `<p class="text-xs text-muted-foreground/90 leading-relaxed">${r.comment}</p>` : ""}
+      let optionsHtml = `
+        <div style="margin-bottom: 12px; font-size: 0.82rem; color: var(--text-secondary);">
+          Select your customized configuration for this dish:
         </div>
-      `).join("");
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
+
+      // Base option
+      optionsHtml += `
+        <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-xs); cursor: pointer; background: var(--bg-surface-elevated);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="radio" name="dish-variant" value="" checked>
+            <span style="font-weight: 600; font-size: 0.9rem;">Standard Base Formulation</span>
+          </div>
+          <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember);">${formatPrice(dish.price)}</span>
+        </label>
+      `;
+
+      // Variants
+      if (dish.variants && dish.variants.length > 0) {
+        dish.variants.forEach(v => {
+          optionsHtml += `
+            <label style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-xs); cursor: pointer; background: var(--bg-surface-elevated);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="dish-variant" value="${v.id}">
+                <div>
+                  <div style="font-weight: 600; font-size: 0.9rem;">${v.name}</div>
+                  <div class="mono-meta" style="font-size: 0.7rem; color: var(--text-tertiary);">PREP: ~${v.prep_time_minutes || dish.prep_time_minutes}M</div>
+                </div>
+              </div>
+              <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember);">${formatPrice(v.price)}</span>
+            </label>
+          `;
+        });
+      }
+
+      optionsHtml += `</div>`;
+      body.innerHTML = optionsHtml;
+
+      document.getElementById('variant-modal-backdrop').classList.add('active');
     }
 
-    function toggleReviewForm() {
-      const formCard = document.getElementById("review-form-card");
-      formCard.classList.toggle("hidden");
-      renderRatingStars();
+    function closeVariantModal() {
+      document.getElementById('variant-modal-backdrop').classList.remove('active');
+      selectedItemForVariant = null;
+      selectedVariantId = null;
     }
 
-    function renderRatingStars() {
-      const selector = document.getElementById("star-rating-selector");
-      selector.innerHTML = [1, 2, 3, 4, 5].map((star) => `
-        <button type="button" onclick="setRating(${star})" class="p-0.5 outline-none transform active:scale-95 transition-all">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 ${star <= ratingStars ? 'text-amber-400' : 'text-muted-foreground/20'}"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </button>
-      `).join("");
-    }
+    document.getElementById('close-variant-modal')?.addEventListener('click', closeVariantModal);
+    document.getElementById('cancel-variant-btn')?.addEventListener('click', closeVariantModal);
 
-    function setRating(r) {
-      ratingStars = r;
-      renderRatingStars();
-    }
+    document.getElementById('confirm-variant-btn')?.addEventListener('click', () => {
+      if (!selectedItemForVariant) return;
 
-    async function submitReview(e) {
-      e.preventDefault();
-      const comment = document.getElementById("review-comment").value.trim();
+      const checked = document.querySelector('input[name="dish-variant"]:checked');
+      const vId = checked ? checked.value : null;
+
+      let chosenName = selectedItemForVariant.name;
+      let chosenVariantName = null;
+      let chosenPrice = selectedItemForVariant.price;
+      let chosenPrep = selectedItemForVariant.prep_time_minutes;
+
+      if (vId) {
+        const variantObj = selectedItemForVariant.variants.find(v => v.id === vId);
+        if (variantObj) {
+          chosenVariantName = variantObj.name;
+          chosenPrice = variantObj.price;
+          chosenPrep = variantObj.prep_time_minutes || chosenPrep;
+        }
+      }
+
+      cart.addItem({
+        shopId: shopData.id,
+        shopName: shopData.name,
+        itemId: selectedItemForVariant.id,
+        variantId: vId || null,
+        name: chosenName,
+        variantName: chosenVariantName,
+        price: chosenPrice,
+        dietaryType: selectedItemForVariant.dietary_type,
+        prepMinutes: chosenPrep
+      });
+
+      closeVariantModal();
+    });
+
+    // Reviews Loading & Submission
+    async function loadReviews() {
+      const listEl = document.getElementById('reviews-list');
+      const scoreEl = document.getElementById('sidebar-rating-val');
+      const countEl = document.getElementById('sidebar-review-count');
+
       try {
-        await window.api.reviews.create(shopId, { rating: ratingStars, comment });
-        window.toast.success("Review posted successfully!");
-        document.getElementById("review-comment").value = "";
-        toggleReviewForm();
+        const reviews = await api.getShopReviews(shopId);
+        if (scoreEl) scoreEl.textContent = (shopData.rating_avg && shopData.rating_avg > 0) ? `${Number(shopData.rating_avg).toFixed(1)} ★` : '—';
+        if (countEl) countEl.textContent = `${reviews.length} reviews`;
+
+        if (reviews.length === 0) {
+          listEl.innerHTML = '<div class="mono-meta" style="color: var(--text-tertiary);">No verified diner reviews recorded yet.</div>';
+          return;
+        }
+
+        listEl.innerHTML = reviews.map(r => `
+          <div style="border-bottom: 1px dashed var(--border-subtle); padding-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="mono-meta" style="font-weight: 700; color: var(--accent-ember-hover);">${r.rating} ★</span>
+              <span class="mono-meta" style="font-size: 0.68rem; color: var(--text-tertiary);">${r.customer ? (r.customer.name || 'Verified Diner') : 'Verified Diner'}</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+              ${r.comment || 'Order fulfilled on time. Excellent preparation and packaging.'}
+            </p>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load reviews:', err);
+      }
+    }
+
+    // Review Modal Events
+    const reviewBackdrop = document.getElementById('review-modal-backdrop');
+    document.getElementById('open-review-modal-btn')?.addEventListener('click', () => {
+      if (!auth.requireAuth()) return;
+      reviewBackdrop.classList.add('active');
+    });
+
+    const closeReviewModal = () => reviewBackdrop.classList.remove('active');
+    document.getElementById('close-review-modal')?.addEventListener('click', closeReviewModal);
+    document.getElementById('cancel-review-btn')?.addEventListener('click', closeReviewModal);
+
+    document.getElementById('submit-review-btn')?.addEventListener('click', async () => {
+      const rating = Number(document.getElementById('review-rating-select').value);
+      const comment = document.getElementById('review-comment-input').value.trim();
+
+      try {
+        await api.createShopReview(shopId, { rating, comment });
+        toast.success('Verified review recorded');
+        closeReviewModal();
         loadReviews();
       } catch (err) {
-        window.toast.error("Failed to post review: " + err.message);
+        toast.error(err.message || 'Failed to submit review');
       }
-    }
+    });
 
-    window.addEventListener("cart-updated", updateCartPill);
-    document.addEventListener("DOMContentLoaded", loadShop);
+    initShop();
   </script>
 </body>
 </html>

@@ -1,244 +1,191 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Command Center — PreOrder</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Verification & Platform Console — PREORDER</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen relative overflow-x-clip">
-  <!-- Exact Ambient Background -->
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,170,65,0.12),transparent_28%),radial-gradient(circle_at_86%_24%,rgba(255,170,65,0.09),transparent_26%),radial-gradient(circle_at_50%_86%,rgba(77,116,255,0.08),transparent_34%)]"></div>
-    <div class="absolute inset-0 opacity-[0.07]" style="background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 44px 44px;"></div>
-  </div>
+<body>
+  <!-- Global Architectural Header -->
+  <div id="global-header"></div>
 
-  <div id="navbar-root"></div>
-
-  <div class="min-h-screen">
-    <div class="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 text-left">
+  <main class="app-container" style="padding: 48px var(--container-padding) 80px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-foreground">Command Center</h1>
-        <p class="text-sm text-muted-foreground">System telemetry, platform governance, and merchant audits.</p>
+        <div class="eyebrow">ENTERPRISE ADMINISTRATION</div>
+        <h1 class="headline-1">Platform Control Console</h1>
+        <p class="subheadline">System metrics, high-concurrency order monitoring, and kitchen compliance verification.</p>
       </div>
 
-      <!-- Stat Cards Grid -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <!-- Users Stat -->
-        <div class="relative overflow-hidden rounded-xl border border-border/60 bg-card p-5 text-card-foreground shadow-sm">
-          <div class="flex items-start justify-between">
-            <div class="space-y-1">
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Registered Accounts</p>
-              <p id="stat-users-count" class="text-2xl font-bold tracking-tight text-foreground">--</p>
-              <p class="text-xs text-muted-foreground">Platform-wide profiles</p>
-            </div>
-            <div class="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-          </div>
-          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-0.5" style="background: var(--gradient-primary);"></div>
-        </div>
-
-        <!-- Shops Stat -->
-        <div class="relative overflow-hidden rounded-xl border border-border/60 bg-card p-5 text-card-foreground shadow-sm">
-          <div class="flex items-start justify-between">
-            <div class="space-y-1">
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Merchants</p>
-              <p id="stat-shops-count" class="text-2xl font-bold tracking-tight text-foreground">--</p>
-              <p class="text-xs text-muted-foreground">Registered restaurants</p>
-            </div>
-            <div class="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
-            </div>
-          </div>
-          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-0.5" style="background: var(--gradient-primary);"></div>
-        </div>
-
-        <!-- System Status -->
-        <div class="relative overflow-hidden rounded-xl border border-border/60 bg-card p-5 text-card-foreground shadow-sm">
-          <div class="flex items-start justify-between">
-            <div class="space-y-1">
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cluster Telemetry</p>
-              <p class="text-2xl font-bold tracking-tight text-emerald-500">100% Operational</p>
-              <p class="text-xs text-muted-foreground">Database & Auth verified</p>
-            </div>
-            <div class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500/10 text-emerald-500">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-          </div>
-          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500"></div>
-        </div>
-      </div>
-
-      <!-- Navigation Tabs -->
-      <div class="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
-        <button id="admin-tab-users" onclick="switchAdminTab('users')" class="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow">Users</button>
-        <button id="admin-tab-shops" onclick="switchAdminTab('shops')" class="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground">Merchants</button>
-      </div>
-
-      <!-- Users Tab Content -->
-      <div id="admin-users-view" class="space-y-3">
-        <div class="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
-          <div class="p-4 border-b border-border/40 font-semibold text-sm">System Users Directory</div>
-          <div id="users-table-container" class="divide-y divide-border/40"></div>
-        </div>
-      </div>
-
-      <!-- Shops Tab Content -->
-      <div id="admin-shops-view" class="space-y-3 hidden">
-        <div class="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
-          <div class="p-4 border-b border-border/40 font-semibold text-sm">Platform Merchants & Verification</div>
-          <div id="shops-table-container" class="divide-y divide-border/40"></div>
-        </div>
-      </div>
-
+      <span class="telemetry-badge accent" style="padding: 6px 12px; font-size: 0.8rem;">
+        PRIVILEGE: SUPERADMIN ACCESS
+      </span>
     </div>
-  </div>
 
-  <script src="js/api.js"></script>
-  <script src="js/cart.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script>
-    let usersList = [];
-    let shopsList = [];
+    <!-- Platform Stats Ribbon -->
+    <div class="metrics-ribbon" style="border-radius: var(--radius-sm); border: 1px solid var(--border-medium); margin-bottom: 40px;">
+      <div class="metric-cell">
+        <span class="metric-tag">[ REGISTERED OPERATORS ]</span>
+        <span class="metric-val" id="stat-users-val">—</span>
+        <span class="metric-desc">Verified customer & owner accounts</span>
+      </div>
+      <div class="metric-cell">
+        <span class="metric-tag">[ KITCHEN OUTLETS ]</span>
+        <span class="metric-val" id="stat-shops-val">—</span>
+        <span class="metric-desc">Culinary nodes on network</span>
+      </div>
+      <div class="metric-cell">
+        <span class="metric-tag">[ CUMULATIVE ORDERS ]</span>
+        <span class="metric-val" id="stat-orders-val">—</span>
+        <span class="metric-desc">Dispatched scheduling tickets</span>
+      </div>
+      <div class="metric-cell">
+        <span class="metric-tag">[ GROSS PLATFORM GMV ]</span>
+        <span class="metric-val" id="stat-gmv-val" style="color: var(--accent-ember-hover);">₹0.00</span>
+        <span class="metric-desc">Total processed culinary value</span>
+      </div>
+    </div>
+
+    <!-- Kitchen Outlets Compliance Table -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
+        <div>
+          <div class="eyebrow">COMPLIANCE LEDGER</div>
+          <h2 class="headline-3">Kitchen Outlets & Verification</h2>
+        </div>
+        <div class="mono-meta" id="shops-count-meta">0 REGISTERED OUTLETS</div>
+      </div>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>OUTLET ID</th>
+              <th>NAME</th>
+              <th>CITY / STATE</th>
+              <th>PHONE</th>
+              <th>CATEGORY</th>
+              <th>COMPLIANCE STATUS</th>
+              <th>ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="admin-shops-body">
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
+                [ CONNECTING TO ENTERPRISE REGISTRY... ]
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Global Footer -->
+  <div id="global-footer"></div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { toast } from '/js/toast.js';
+    import { formatPrice } from '/js/app.js';
+
+    if (!auth.requireAdmin()) {
+      // Handled by guard
+    }
 
     async function initAdmin() {
-      const user = window.auth.getUser();
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
-      if (user.role !== "admin") {
-        window.toast.error("Administrator credentials required.");
-        setTimeout(() => window.location.href = "index.html", 1500);
-        return;
-      }
-
-      loadTelemetry();
-      loadUsers();
-      loadShops();
-    }
-
-    async function loadTelemetry() {
       try {
-        const uCount = await window.api.admin.countUsers();
-        document.getElementById("stat-users-count").textContent = uCount?.count ?? "--";
-      } catch {}
-
-      try {
-        const sCount = await window.api.admin.countShops();
-        document.getElementById("stat-shops-count").textContent = sCount?.count ?? "--";
-      } catch {}
-    }
-
-    async function loadUsers() {
-      try {
-        usersList = await window.api.admin.listUsers();
-        if (!Array.isArray(usersList)) usersList = [];
-        renderUsers();
+        loadStats();
+        loadAdminShops();
       } catch (err) {
-        document.getElementById("users-table-container").innerHTML = `<p class="p-6 text-xs text-muted-foreground">Unable to load users.</p>`;
+        console.error('Admin init failure:', err);
       }
     }
 
-    function renderUsers() {
-      const c = document.getElementById("users-table-container");
-      if (!usersList || usersList.length === 0) {
-        c.innerHTML = `<p class="p-6 text-xs text-muted-foreground text-center">No users found.</p>`;
-        return;
-      }
-
-      c.innerHTML = usersList.map((u) => `
-        <div class="flex items-center justify-between p-4 text-xs">
-          <div class="space-y-0.5">
-            <p class="font-bold text-foreground">${u.name}</p>
-            <p class="text-muted-foreground font-mono">${u.phone || u.email || '—'}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-muted px-2 py-0.5 font-bold uppercase text-[10px] text-primary">${u.role}</span>
-            <span class="rounded px-2 py-0.5 text-[10px] font-semibold ${u.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}">
-              ${u.is_active ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    async function loadShops() {
+    async function loadStats() {
       try {
-        shopsList = await window.api.admin.listShops();
-        if (!Array.isArray(shopsList)) shopsList = [];
-        renderShops();
-      } catch {
-        document.getElementById("shops-table-container").innerHTML = `<p class="p-6 text-xs text-muted-foreground">Unable to load shops.</p>`;
-      }
-    }
-
-    function renderShops() {
-      const c = document.getElementById("shops-table-container");
-      if (!shopsList || shopsList.length === 0) {
-        c.innerHTML = `<p class="p-6 text-xs text-muted-foreground text-center">No shops found.</p>`;
-        return;
-      }
-
-      c.innerHTML = shopsList.map((s) => `
-        <div class="flex items-center justify-between p-4 text-xs">
-          <div class="space-y-0.5">
-            <div class="flex items-center gap-2">
-              <p class="font-bold text-foreground">${s.name}</p>
-              ${s.is_verified ? `
-                <span class="text-primary text-[10px] font-semibold bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">Verified</span>
-              ` : `
-                <span class="text-muted-foreground text-[10px] bg-muted px-1.5 py-0.5 rounded">Unverified</span>
-              `}
-            </div>
-            <p class="text-muted-foreground">${s.cuisine || '—'} · ${s.phone || '—'}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            ${!s.is_verified ? `
-              <button onclick="verifyShop('${s.id}')" class="h-7 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors">
-                Verify Shop
-              </button>
-            ` : ""}
-            <span class="rounded border px-2 py-0.5 text-[10px] font-semibold ${s.is_open ? 'border-primary text-primary' : 'border-border text-muted-foreground'}">
-              ${s.is_open ? 'Open' : 'Closed'}
-            </span>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    async function verifyShop(shopId) {
-      try {
-        await window.api.admin.verifyShop(shopId);
-        window.toast.success("Shop verified successfully!");
-        loadShops();
+        const stats = await api.getAdminStats();
+        document.getElementById('stat-users-val').textContent = stats.total_users || 0;
+        document.getElementById('stat-shops-val').textContent = stats.total_shops || 0;
+        document.getElementById('stat-orders-val').textContent = stats.total_orders || 0;
+        document.getElementById('stat-gmv-val').textContent = formatPrice(stats.total_gmv || 0);
       } catch (err) {
-        window.toast.error("Failed to verify shop: " + err.message);
+        console.warn('Failed to load stats:', err);
       }
     }
 
-    function switchAdminTab(t) {
-      const uBtn = document.getElementById("admin-tab-users");
-      const sBtn = document.getElementById("admin-tab-shops");
-      const uView = document.getElementById("admin-users-view");
-      const sView = document.getElementById("admin-shops-view");
+    async function loadAdminShops() {
+      const tbody = document.getElementById('admin-shops-body');
+      const countMeta = document.getElementById('shops-count-meta');
 
-      if (t === "users") {
-        uBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow";
-        sBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground";
-        uView.classList.remove("hidden");
-        sView.classList.add("hidden");
-      } else {
-        sBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all bg-background text-foreground shadow";
-        uBtn.className = "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all text-muted-foreground";
-        sView.classList.remove("hidden");
-        uView.classList.add("hidden");
+      try {
+        const shops = await api.getAdminShops(1, 50);
+        if (countMeta) countMeta.textContent = `${shops.length} OUTLETS`;
+
+        if (shops.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-tertiary); font-family: var(--font-mono);">
+                [ ∅ NO KITCHEN OUTLETS REGISTERED ]
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = shops.map(s => {
+          const isVerified = Boolean(s.is_verified);
+          return `
+            <tr>
+              <td class="mono-cell" style="font-size: 0.76rem; color: var(--text-secondary);">${s.id.slice(0, 8)}...</td>
+              <td style="font-weight: 700;">${s.name}</td>
+              <td>${s.city || '—'}, ${s.state || '—'}</td>
+              <td class="mono-cell">${s.phone}</td>
+              <td class="mono-cell" style="text-transform: uppercase;">${s.category || 'Gourmet'}</td>
+              <td>
+                <span class="telemetry-badge ${isVerified ? 'live' : 'waiting'}">
+                  ${isVerified ? 'VERIFIED' : 'PENDING REVIEW'}
+                </span>
+              </td>
+              <td>
+                <button class="btn ${isVerified ? 'btn-ghost' : 'btn-primary'} btn-sm toggle-verify-btn" data-id="${s.id}" data-verified="${isVerified}">
+                  ${isVerified ? 'REVOKE STATUS' : 'GRANT VERIFICATION'}
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.toggle-verify-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.dataset.id;
+            const current = e.currentTarget.dataset.verified === 'true';
+
+            try {
+              await api.verifyAdminShop(id, !current);
+              toast.success(`Outlet verification ${!current ? 'granted' : 'revoked'}`);
+              loadAdminShops();
+            } catch (err) {
+              toast.error(err.message || 'Verification update failed');
+            }
+          });
+        });
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; color: var(--status-danger); padding: 32px;">
+              Failed to load outlet registry.
+            </td>
+          </tr>
+        `;
       }
     }
 
-    document.addEventListener("DOMContentLoaded", initAdmin);
+    initAdmin();
   </script>
 </body>
 </html>
