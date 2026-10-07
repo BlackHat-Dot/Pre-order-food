@@ -174,18 +174,6 @@ async def register(
             detail="Phone already registered",
         )
 
-    if payload.email:
-        existing_email = await get_user_by_email(
-            db,
-            payload.email,
-        )
-
-        if existing_email:
-            raise HTTPException(
-                status_code=409,
-                detail="Email already registered",
-            )
-
     user_id = new_id()
 
     user = User(
@@ -193,12 +181,10 @@ async def register(
         role=payload.role,
         name=payload.name,
         phone=normalized_phone,
-        email=payload.email,
         password_hash=hash_password(
             payload.password
         ),
         phone_verified=True,
-        email_verified=False,
     )
 
     db.add(user)

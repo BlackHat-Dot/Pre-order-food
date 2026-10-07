@@ -73,15 +73,6 @@ class User(Base):
         index=True,
     )
 
-    email: Mapped[
-        str | None
-    ] = mapped_column(
-        String(255),
-        nullable=True,
-        unique=True,
-        index=True,
-    )
-
     password_hash: Mapped[
         str
     ] = mapped_column(
@@ -100,16 +91,6 @@ class User(Base):
     )
 
     phone_verified: Mapped[
-        bool
-    ] = mapped_column(
-        Boolean,
-        nullable=False,
-        server_default=text(
-            "false"
-        ),
-    )
-
-    email_verified: Mapped[
         bool
     ] = mapped_column(
         Boolean,

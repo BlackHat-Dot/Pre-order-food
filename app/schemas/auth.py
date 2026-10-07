@@ -28,18 +28,14 @@ class RegisterRequest(BaseModel):
 
     phone: str
 
-    email: EmailStr | None = None
-
     password: str = Field(
         min_length=8,
         max_length=128,
     )
 
-    phone_verification_token: str = (
-        Field(
-            min_length=20,
-            max_length=2048,
-        )
+    phone_verification_token: str = Field(
+        min_length=20,
+        max_length=2048,
     )
 
     @field_validator("phone")
@@ -48,37 +44,10 @@ class RegisterRequest(BaseModel):
         cls,
         value: str,
     ) -> str:
-
         try:
-            return normalize_e164(
-                value.strip()
-            )
-
+            return normalize_e164(value.strip())
         except ValueError as exc:
-            raise ValueError(
-                str(exc)
-            ) from exc
-
-    @field_validator(
-        "email",
-        mode="before",
-    )
-    @classmethod
-    def empty_email_to_none(
-        cls,
-        value: object,
-    ) -> object:
-
-        if value is None:
-            return None
-
-        if (
-            isinstance(value, str)
-            and not value.strip()
-        ):
-            return None
-
-        return value
+            raise ValueError(str(exc)) from exc
 
     @field_validator(
         "name"

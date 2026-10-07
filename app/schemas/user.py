@@ -21,13 +21,9 @@ class UserOut(
 
     phone: str
 
-    email: EmailStr | None
-
     is_active: bool
 
     phone_verified: bool
-
-    email_verified: bool
 
     created_at: datetime
 

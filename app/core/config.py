@@ -129,10 +129,6 @@ class Settings(BaseSettings):
 
     ENABLE_ADMIN_SEED: bool = False
 
-    DEFAULT_ADMIN_EMAIL: (
-        str | None
-    ) = None
-
     DEFAULT_ADMIN_PHONE: (
         str | None
     ) = None
@@ -185,7 +181,6 @@ class Settings(BaseSettings):
                 self.ENABLE_ADMIN_SEED
             ):
                 required = [
-                    self.DEFAULT_ADMIN_EMAIL,
                     self.DEFAULT_ADMIN_PHONE,
                     self.DEFAULT_ADMIN_PASSWORD,
                 ]
@@ -193,8 +188,7 @@ class Settings(BaseSettings):
                 if not all(required):
                     raise ValueError(
                         (
-                            "DEFAULT_ADMIN_EMAIL, "
-                            "DEFAULT_ADMIN_PHONE, "
+                            "DEFAULT_ADMIN_PHONE "
                             "and "
                             "DEFAULT_ADMIN_PASSWORD "
                             "are required when "

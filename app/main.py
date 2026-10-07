@@ -34,7 +34,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.security import hash_password
-from app.crud.user import get_user_by_email
+from app.crud.user import get_user_by_phone
 from app.db.base import Base
 from app.db.session import (
     AsyncSessionLocal,
@@ -90,6 +90,9 @@ async def create_database_tables() -> None:
                 "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id VARCHAR(36);",
                 "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount_applied FLOAT NOT NULL DEFAULT 0;",
                 "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;",
+                "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;",
+                "ALTER TABLE users DROP COLUMN IF EXISTS email CASCADE;",
+                "ALTER TABLE users DROP COLUMN IF EXISTS email_verified CASCADE;",
             ]
             for stmt in extra_statements:
                 await conn.execute(text(stmt))
@@ -114,16 +117,15 @@ async def create_database_tables() -> None:
 # ─────────────────────────────────────────────────────────────
 
 async def _seed_admin(
-    email: str,
     phone: str,
     name: str,
     password: str,
 ) -> None:
     async with AsyncSessionLocal() as db:
         existing = (
-            await get_user_by_email(
+            await get_user_by_phone(
                 db,
-                email,
+                phone,
             )
         )
 
@@ -135,13 +137,11 @@ async def _seed_admin(
             role="admin",
             name=name,
             phone=phone,
-            email=email,
             password_hash=hash_password(
                 password
             ),
             is_active=True,
             phone_verified=True,
-            email_verified=True,
         )
 
         db.add(admin)
@@ -159,7 +159,6 @@ async def ensure_default_admin(
         return
 
     required = [
-        settings.DEFAULT_ADMIN_EMAIL,
         settings.DEFAULT_ADMIN_PHONE,
         settings.DEFAULT_ADMIN_PASSWORD,
     ]
@@ -175,7 +174,6 @@ async def ensure_default_admin(
         return
 
     await _seed_admin(
-        email=settings.DEFAULT_ADMIN_EMAIL,
         phone=settings.DEFAULT_ADMIN_PHONE,
         name=settings.DEFAULT_ADMIN_NAME,
         password=settings.DEFAULT_ADMIN_PASSWORD,

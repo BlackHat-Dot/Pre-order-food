@@ -115,7 +115,6 @@ async def list_users(
         stmt = stmt.where(
             User.name.ilike(search_filter)
             | User.phone.ilike(search_filter)
-            | User.email.ilike(search_filter)
         )
     stmt = stmt.order_by(User.created_at.desc())
 

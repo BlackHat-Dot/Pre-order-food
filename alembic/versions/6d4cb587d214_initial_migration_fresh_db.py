@@ -49,15 +49,12 @@ def upgrade() -> None:
     sa.Column('role', sa.String(length=20), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
     sa.Column('phone', sa.String(length=20), nullable=False),
-    sa.Column('email', sa.String(length=255), nullable=True),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('phone_verified', sa.Boolean(), server_default=sa.text('false'), nullable=False),
-    sa.Column('email_verified', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('email'),
     sa.UniqueConstraint('phone')
     )
     op.create_index('ix_users_created_at', 'users', ['created_at'], unique=False)

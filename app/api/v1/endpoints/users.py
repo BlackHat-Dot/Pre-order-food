@@ -63,17 +63,8 @@ class ProfileUpdate(BaseModel):
         max_length=120,
     )
 
-    email: EmailStr | None = None
-
     phone: str | None = Field(
         default=None,
-    )
-
-    email_verification_token: str | None = (
-        Field(
-            default=None,
-            max_length=2048,
-        )
     )
 
     phone_verification_token: str | None = (
@@ -88,22 +79,7 @@ class ProfileUpdate(BaseModel):
         max_length=128,
     )
 
-    @field_validator(
-        "email",
-        mode="before",
-    )
-    @classmethod
-    def normalize_email(
-        cls,
-        value: object,
-    ) -> object:
-        if (
-            isinstance(value, str)
-            and not value.strip()
-        ):
-            return None
 
-        return value
 
     @field_validator(
         "phone",
@@ -478,83 +454,7 @@ async def update_profile(
     if "name" in updates:
         user.name = updates["name"]
 
-    # ─────────────────────────────────────────
-    # Email
-    # ─────────────────────────────────────────
 
-    if "email" in updates:
-        new_email = updates["email"]
-
-        if new_email is None:
-            user.email = None
-            user.email_verified = False
-
-        elif (
-            new_email.lower()
-            != (user.email or "").lower()
-        ):
-            validated_email = (
-                await validate_email_change(
-                    db=db,
-                    user=user,
-                    new_email=new_email,
-                    email_token=email_token,
-                    current_password=current_password,
-                )
-            )
-
-            user.email = validated_email
-            user.email_verified = True
-
-            await create_notification(
-                db=db,
-                user_id=user.id,
-                title="Email Updated",
-                message="Your email address has been updated successfully.",
-            )
-
-        elif (
-            email_token
-            and not user.email_verified
-        ):
-            try:
-                proof = (
-                    decode_otp_proof_token(
-                        email_token
-                    )
-                )
-
-            except JWTError as exc:
-                raise HTTPException(
-                    status_code=401,
-                    detail=(
-                        "Invalid email "
-                        "verification token"
-                    ),
-                ) from exc
-
-            if (
-                proof.get("vtype")
-                != "email_profile"
-                or str(
-                    proof.get("uid")
-                    or ""
-                ) != str(user.id)
-                or str(
-                    proof.get("email")
-                    or ""
-                ).lower()
-                != new_email.lower()
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Email verification "
-                        "mismatch"
-                    ),
-                )
-
-            user.email_verified = True
 
     # ─────────────────────────────────────────
     # Phone
