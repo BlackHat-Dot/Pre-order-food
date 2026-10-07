@@ -149,14 +149,11 @@ async def verify_order_access(
     order: Order,
 ) -> None:
 
-    if (
-        user.role == "customer"
-        and order.customer_id != user.id
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden",
-        )
+    if user.role == "admin":
+        return
+
+    if order.customer_id == user.id:
+        return
 
     if user.role == "shop_owner":
         shop = await db.get(
@@ -164,14 +161,13 @@ async def verify_order_access(
             order.shop_id,
         )
 
-        if (
-            not shop
-            or shop.owner_id != user.id
-        ):
-            raise HTTPException(
-                status_code=403,
-                detail="Forbidden",
-            )
+        if shop and shop.owner_id == user.id:
+            return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Forbidden",
+    )
 
 
 async def restore_coupon(
@@ -242,20 +238,12 @@ async def create_order(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),
     ],
 ) -> OrderOut:
-
-    if user.role == "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Shop owners cannot "
-                "place orders"
-            ),
-        )
 
     shop = await get_shop_or_404(
         db,
@@ -742,6 +730,7 @@ async def customer_orders(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),

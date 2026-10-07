@@ -141,7 +141,7 @@ async def verify_review_owner(
     customer_id: str,
 ) -> None:
     if (
-        user.role == "customer"
+        user.role != "admin"
         and customer_id != user.id
     ):
         raise HTTPException(
@@ -170,6 +170,7 @@ async def create_review(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),
@@ -285,6 +286,7 @@ async def create_shop_profile_review(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),
@@ -427,6 +429,7 @@ async def update_review(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),
@@ -485,6 +488,7 @@ async def delete_review(
         Depends(
             require_roles(
                 "customer",
+                "shop_owner",
                 "admin",
             )
         ),

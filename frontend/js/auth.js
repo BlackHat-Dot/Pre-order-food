@@ -52,7 +52,7 @@ export const auth = {
   },
 
   isOwner() {
-    return this.getRole() === 'shop_owner' || this.getRole() === 'admin';
+    return this.getRole() === 'shop_owner';
   },
 
   isAdmin() {
@@ -80,7 +80,10 @@ export const auth = {
 
   requireOwner() {
     if (!this.requireAuth()) return false;
-    if (!this.isOwner()) {
+    if (this.getRole() !== 'shop_owner') {
+      if (window.toast) {
+        window.toast.info('User accounts cannot run a kitchen. If you want to run a kitchen, please create another account with the Kitchen Owner role.');
+      }
       window.location.href = '/index.html';
       return false;
     }

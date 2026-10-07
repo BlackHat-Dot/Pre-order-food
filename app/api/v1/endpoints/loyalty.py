@@ -110,7 +110,7 @@ async def my_loyalty(
     ] = None,
     user: Annotated[
         User,
-        Depends(require_roles("customer", "admin")),
+        Depends(require_roles("customer", "shop_owner", "admin")),
     ] = None,
 ) -> LoyaltyAccountOut:
     account = await ensure_loyalty_account(
@@ -142,7 +142,7 @@ async def my_loyalty_transactions(
     ] = None,
     user: Annotated[
         User,
-        Depends(require_roles("customer", "admin")),
+        Depends(require_roles("customer", "shop_owner", "admin")),
     ] = None,
 ) -> list[LoyaltyTransactionOut]:
     account = await ensure_loyalty_account(
@@ -192,7 +192,7 @@ async def redeem_points(
     ],
     user: Annotated[
         User,
-        Depends(require_roles("customer", "admin")),
+        Depends(require_roles("customer", "shop_owner", "admin")),
     ],
 ) -> LoyaltyAccountOut:
     if payload.points <= 0:

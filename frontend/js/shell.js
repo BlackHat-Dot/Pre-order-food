@@ -1,10 +1,37 @@
 import { auth } from './auth.js';
 import { cart } from './cart.js';
-import './toast.js';
+import { toast } from './toast.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const formatPrice = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 export const formatDate = (iso) => iso ? new Date(iso).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+export function handleRunKitchen(e) {
+  if (e) e.preventDefault();
+  if (!auth.isLoggedIn()) {
+    window.location.href = '/register.html?role=shop_owner';
+    return;
+  }
+  const role = auth.getRole();
+  if (role === 'shop_owner') {
+    window.location.href = '/owner.html';
+    return;
+  }
+  toast.info('User accounts cannot run a kitchen. If you want to run a kitchen, please create another account with the Kitchen Owner role.');
+}
+window.handleRunKitchen = handleRunKitchen;
+
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('[data-run-kitchen], a[href*="role=shop_owner"], [data-kitchen-desk]');
+  if (target) {
+    if (target.matches('[data-kitchen-desk]') && !auth.isLoggedIn()) {
+      e.preventDefault();
+      window.location.href = '/login.html?redirect=' + encodeURIComponent('/owner.html');
+      return;
+    }
+    handleRunKitchen(e);
+  }
+});
 
 function header() {
   const el = document.getElementById('site-header');
@@ -38,8 +65,15 @@ function footer() {
   el.className = 'site-footer';
   el.innerHTML = `<div class="wrap">
     <span>preorder — order ahead, collect hot.</span>
-    <nav><a href="/login.html">Log in</a><a href="/orders.html">Your orders</a></nav>
+    <nav>
+      <a href="/register.html?role=shop_owner" data-run-kitchen>Run a kitchen</a>
+      ${auth.isLoggedIn()
+        ? `<button class="btn quiet sm" id="footer-logout" style="color:inherit;padding:0;font-size:inherit;text-decoration:underline;background:none;border:none;cursor:pointer;font-family:inherit">Log out</button>`
+        : `<a href="/login.html">Log in</a>`}
+      <a href="/orders.html">Your orders</a>
+    </nav>
   </div>`;
+  document.getElementById('footer-logout')?.addEventListener('click', () => auth.logout());
 }
 
 function drawer() {
