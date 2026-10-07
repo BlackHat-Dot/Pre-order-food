@@ -41,7 +41,7 @@ cart.subscribe(s => {
   $('items').innerHTML = n ? s.items.map(i => { const d = `data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}"`; return `
     <li class="row" style="grid-template-columns:1fr auto auto auto;gap:20px">
       <div><strong class="h3" style="font-family:var(--display)">${esc(i.name)}</strong>${i.variantName ? `<div class="small muted">${esc(i.variantName)}</div>` : ''}<div class="small faint">${formatPrice(i.price)} each · about ${i.prepMinutes || 15} min</div></div>
-      <div class="step"><button data-act="dec" ${d} aria-label="One less">−</button><span>${i.quantity}</span><button data-act="inc" ${d} aria-label="One more">+</button></div>
+      <div class="step"><button data-act="dec" ${d} aria-label="One less">−</button><span>${i.quantity}</span><button data-act="inc" ${d} ${i.quantity >= 10 ? 'disabled title="Maximum quantity is 10"' : ''} aria-label="One more">+</button></div>
       <strong class="num">${formatPrice(i.price * i.quantity)}</strong>
       <button class="btn quiet sm" data-act="remove" ${d}>Remove</button></li>`; }).join('')
     : `<li class="empty">Your order is empty. <a href="/index.html"><strong>Browse kitchens</strong></a></li>`;

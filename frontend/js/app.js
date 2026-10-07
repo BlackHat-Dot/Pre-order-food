@@ -230,7 +230,7 @@ function updateCartDrawerUI(cartState) {
         <div class="qty-stepper">
           <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, -1)">-</button>
           <span class="qty-val">${item.quantity}</span>
-          <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, 1)">+</button>
+          <button class="qty-btn" ${item.quantity >= 10 ? 'disabled title="Maximum quantity is 10"' : ''} onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, 1)">+</button>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="window.cart.removeItem('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'})" style="padding:2px 6px; font-size:0.68rem; color:var(--status-danger);">
           REMOVE

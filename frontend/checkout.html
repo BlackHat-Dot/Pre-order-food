@@ -103,7 +103,7 @@ $('send').addEventListener('click', async () => {
   b.disabled = true; b.textContent = 'Placing order…';
   try {
     const o = await api.createOrder({
-      shop_id: s.shopId, items: s.items.map(i => ({ item_id: i.itemId, variant_id: i.variantId || null, quantity: i.quantity })),
+      shop_id: s.shopId, items: s.items.map(i => ({ item_id: i.itemId, variant_id: i.variantId || null, quantity: Math.min(10, Math.max(1, i.quantity)) })),
       order_type: type, payment_method: document.querySelector('input[name=pm]:checked').value,
       instructions: $('notes').value.trim() || null, redeem_loyalty_points: Number($('pts').value || 0),
       coupon_id: coupon ? coupon.id : null, delivery_address_id: addr });

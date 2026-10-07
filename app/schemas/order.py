@@ -52,7 +52,8 @@ class OrderItemInput(
 
     quantity: int = Field(
         ge=1,
-        le=50,
+        le=10,
+        description="Quantity between 1 and 10",
     )
 
     @model_validator(

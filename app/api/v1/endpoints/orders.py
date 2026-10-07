@@ -267,6 +267,12 @@ async def create_order(
     order_items: list[OrderItem] = []
 
     for entry in payload.items:
+        if entry.quantity > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum quantity allowed per item is 10",
+            )
+
         if entry.variant_id:
             variant = await db.get(
                 MenuItemVariant,

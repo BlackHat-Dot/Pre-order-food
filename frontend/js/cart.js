@@ -17,7 +17,13 @@ class CartStore {
     try {
       const raw = localStorage.getItem(CART_KEY);
       if (!raw) return { shopId: null, shopName: null, items: [] };
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.items)) {
+        parsed.items.forEach(item => {
+          if (item.quantity > 10) item.quantity = 10;
+        });
+      }
+      return parsed;
     } catch {
       return { shopId: null, shopName: null, items: [] };
     }
@@ -66,6 +72,10 @@ class CartStore {
     );
 
     if (existingIndex > -1) {
+      if (this.cart.items[existingIndex].quantity >= 10) {
+        toast.info('Maximum quantity for this dish is 10');
+        return false;
+      }
       this.cart.items[existingIndex].quantity += 1;
     } else {
       this.cart.items.push({
@@ -92,7 +102,15 @@ class CartStore {
 
     if (idx === -1) return;
 
+    if (delta > 0 && this.cart.items[idx].quantity >= 10) {
+      toast.info('Maximum quantity for this dish is 10');
+      return;
+    }
+
     this.cart.items[idx].quantity += delta;
+    if (this.cart.items[idx].quantity > 10) {
+      this.cart.items[idx].quantity = 10;
+    }
     if (this.cart.items[idx].quantity <= 0) {
       this.cart.items.splice(idx, 1);
     }

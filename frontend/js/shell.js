@@ -119,7 +119,7 @@ function drawer() {
       <div class="line-item">
         <div><strong>${esc(i.name)}</strong>${i.variantName ? `<div class="small muted">${esc(i.variantName)}</div>` : ''}</div>
         <div class="num">${formatPrice(i.price * i.quantity)}</div>
-        <div class="step"><button data-act="dec" data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}" aria-label="One less">−</button><span>${i.quantity}</span><button data-act="inc" data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}" aria-label="One more">+</button></div>
+        <div class="step"><button data-act="dec" data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}" aria-label="One less">−</button><span>${i.quantity}</span><button data-act="inc" data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}" ${i.quantity >= 10 ? 'disabled title="Maximum quantity is 10"' : ''} aria-label="One more">+</button></div>
         <button class="btn quiet sm" style="justify-self:end" data-act="remove" data-item="${esc(i.itemId)}" data-variant="${esc(i.variantId || '')}">Remove</button>
       </div>`).join('')
       : `<p class="empty">Nothing here yet. Pick a kitchen and add a dish.</p>`;
