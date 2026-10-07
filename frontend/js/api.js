@@ -6,9 +6,18 @@
 import { auth } from './auth.js';
 import { toast } from './toast.js';
 
-const BASE_URL = (typeof window !== 'undefined' && window.location && window.location.port === '8000')
-  ? '/api/v1'
-  : `http://${(typeof window !== 'undefined' && window.location && window.location.hostname) || 'localhost'}:8000/api/v1`;
+const RAILWAY_API_URL = 'https://pre-order-food-production.up.railway.app/api/v1';
+
+const BASE_URL = (() => {
+  if (typeof window !== 'undefined') {
+    if (window.PREORDER_API_URL) return window.PREORDER_API_URL;
+    if (localStorage.getItem('preorder_api_url')) return localStorage.getItem('preorder_api_url');
+    if (window.location.hostname.includes('railway.app')) {
+      return `${window.location.origin}/api/v1`;
+    }
+  }
+  return RAILWAY_API_URL;
+})();
 
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
