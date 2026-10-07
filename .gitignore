@@ -10,6 +10,9 @@ data/
 .env
 !.env.example
 node_modules
+order-delight-main/
+package.json
+package-lock.json
 
 .env.example
 .env.local

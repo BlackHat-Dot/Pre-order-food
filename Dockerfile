@@ -1,31 +1,20 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y \
-    nodejs \
-    npm \
-    g++ \
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    libstdc++6 \
+    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python -m venv /opt/venv
+ENV PORT=8000
+EXPOSE ${PORT}
 
-RUN /opt/venv/bin/pip install --upgrade pip
-
-RUN /opt/venv/bin/pip install -r requirements-production.txt
-
-RUN npm install
-
-RUN cd order-delight-main && npm install
-
-RUN cd order-delight-main && npm run build
-
-ENV PATH="/opt/venv/bin:$PATH"
-
-EXPOSE 8080
-
-CMD ["bash", "start.sh"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
