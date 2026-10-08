@@ -1,0 +1,15 @@
+{
+  "outputDirectory": "frontend",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://pre-order-food-production.up.railway.app/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://pre-order-food-production.up.railway.app/health"
+    }
+  ]
+}

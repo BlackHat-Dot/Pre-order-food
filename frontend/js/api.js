@@ -12,7 +12,7 @@ const BASE_URL = (() => {
   if (typeof window !== 'undefined') {
     if (window.PREORDER_API_URL) return window.PREORDER_API_URL;
     if (localStorage.getItem('preorder_api_url')) return localStorage.getItem('preorder_api_url');
-    if (window.location.hostname.includes('railway.app')) {
+    if (window.location.hostname.includes('railway.app') || window.location.hostname.includes('vercel.app')) {
       return `${window.location.origin}/api/v1`;
     }
     if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '8000') {
