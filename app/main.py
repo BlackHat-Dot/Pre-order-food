@@ -63,40 +63,41 @@ async def create_database_tables() -> None:
                 Base.metadata.create_all
             )
 
-            await conn.execute(
-                text("""
-                    ALTER TABLE orders
-                    ADD COLUMN IF NOT EXISTS
-                    is_cancellation_pending
-                    BOOLEAN NOT NULL DEFAULT FALSE;
-                """)
-            )
+            if conn.dialect.name == "postgresql":
+                await conn.execute(
+                    text("""
+                        ALTER TABLE orders
+                        ADD COLUMN IF NOT EXISTS
+                        is_cancellation_pending
+                        BOOLEAN NOT NULL DEFAULT FALSE;
+                    """)
+                )
 
-            await conn.execute(
-                text("""
-                    ALTER TABLE orders
-                    ADD COLUMN IF NOT EXISTS
-                    cancellation_requests_sent
-                    INTEGER NOT NULL DEFAULT 0;
-                """)
-            )
+                await conn.execute(
+                    text("""
+                        ALTER TABLE orders
+                        ADD COLUMN IF NOT EXISTS
+                        cancellation_requests_sent
+                        INTEGER NOT NULL DEFAULT 0;
+                    """)
+                )
 
-            extra_statements = [
-                "CREATE SEQUENCE IF NOT EXISTS orders_order_number_seq START WITH 1001;",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number INTEGER UNIQUE DEFAULT nextval('orders_order_number_seq');",
-                "ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT nextval('orders_order_number_seq');",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(30) NOT NULL DEFAULT 'delivery';",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address_id VARCHAR(255);",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id VARCHAR(36);",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount_applied FLOAT NOT NULL DEFAULT 0;",
-                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;",
-                "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;",
-                "ALTER TABLE users DROP COLUMN IF EXISTS email CASCADE;",
-                "ALTER TABLE users DROP COLUMN IF EXISTS email_verified CASCADE;",
-                "UPDATE shops SET is_verified = TRUE, is_open = TRUE WHERE is_active = TRUE;",
-            ]
-            for stmt in extra_statements:
-                await conn.execute(text(stmt))
+                extra_statements = [
+                    "CREATE SEQUENCE IF NOT EXISTS orders_order_number_seq START WITH 1001;",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number INTEGER UNIQUE DEFAULT nextval('orders_order_number_seq');",
+                    "ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT nextval('orders_order_number_seq');",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(30) NOT NULL DEFAULT 'delivery';",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address_id VARCHAR(255);",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id VARCHAR(36);",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount_applied FLOAT NOT NULL DEFAULT 0;",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;",
+                    "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;",
+                    "ALTER TABLE users DROP COLUMN IF EXISTS email CASCADE;",
+                    "ALTER TABLE users DROP COLUMN IF EXISTS email_verified CASCADE;",
+                    "UPDATE shops SET is_verified = TRUE, is_open = TRUE WHERE is_active = TRUE;",
+                ]
+                for stmt in extra_statements:
+                    await conn.execute(text(stmt))
 
         logger.info(
             "Database schema ready"
@@ -217,10 +218,8 @@ def create_app() -> FastAPI:
             await connect_redis()
 
         except Exception as exc:
-            logger.exception(
-                (
-                    "Redis startup failed: %s"
-                ),
+            logger.warning(
+                "Redis startup failed: %s. Continuing in cache-bypass mode.",
                 exc,
             )
 
@@ -238,6 +237,10 @@ def create_app() -> FastAPI:
             if settings.ENV.lower() not in {
                 "production",
                 "prod",
+                "local",
+                "dev",
+                "development",
+                "test",
             }:
                 raise
 
@@ -255,6 +258,10 @@ def create_app() -> FastAPI:
             if settings.ENV.lower() not in {
                 "production",
                 "prod",
+                "local",
+                "dev",
+                "development",
+                "test",
             }:
                 raise
 

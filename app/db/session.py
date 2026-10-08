@@ -33,6 +33,16 @@ def _normalize_database_url(
 
     connect_args: dict = {}
 
+    if value.startswith("sqlite"):
+        if value.startswith("sqlite://") and "aiosqlite" not in value:
+            value = value.replace(
+                "sqlite://",
+                "sqlite+aiosqlite://",
+                1,
+            )
+        connect_args["check_same_thread"] = False
+        return value, connect_args
+
     if value.startswith("postgres://"):
         value = value.replace(
             "postgres://",
@@ -258,11 +268,8 @@ async def connect_redis() -> None:
 
     except Exception as exc:
         redis_client = None
-
-        logger.exception(
-            (
-                "Redis connection failed: %s"
-            ),
+        logger.warning(
+            "Redis unavailable (%s). Running in cache-bypass mode.",
             exc,
         )
 

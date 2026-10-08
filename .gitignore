@@ -1,3 +1,4 @@
+# Python & Virtual Environments
 venv/
 .venv/
 __pycache__/
@@ -6,12 +7,58 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 data/
+
+# Databases
 *.db
+*.db-shm
+*.db-wal
+preorder_dev.db*
+*.sqlite
+*.sqlite3
+
+# Environment files
 .env
-!.env.example
-node_modules
+.env.example
+.env.local
+.env.*.local
+
+# Node & Package Managers
+node_modules/
+**/node_modules/
 /package.json
 /package-lock.json
 
-.env.example
-.env.local
+# Frontend Build Outputs & Caches
+dist/
+**/dist/
+order-delight-main/dist/
+.output/
+**/.output/
+.tanstack/
+**/.tanstack/
+.vercel/
+**/.vercel/
+.nitro/
+**/.nitro/
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI Agents, Tools & Auto-generated Critique Artifacts
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.impeccable/
+DESIGN.md
+PRODUCT.md
+
+# Local Development Scripts & Runners
+run-backend.bat
+run-backend.ps1
+scripts/run_backend.py
