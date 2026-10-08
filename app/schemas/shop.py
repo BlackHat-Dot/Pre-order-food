@@ -61,7 +61,7 @@ class ShopCreate(
         max_length=120,
     )
 
-    image_url: HttpUrl | None = None
+    image_url: str | None = None
 
     loyalty_discount_per_point: (
         float
@@ -139,7 +139,7 @@ class ShopUpdate(
 
     phone: str | None = None
 
-    image_url: HttpUrl | None = None
+    image_url: str | None = None
 
     loyalty_discount_per_point: (
         float | None

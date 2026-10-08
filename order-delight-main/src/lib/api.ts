@@ -24,6 +24,19 @@ export const API_BASE_URL: string = import.meta.env.SSR
   ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? RAILWAY_BACKEND_URL)
   : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? RAILWAY_BACKEND_URL);
 
+export function resolveImageUrl(url: string | null | undefined, fallback: string): string {
+  if (!url) return fallback;
+  const trimmed = url.trim();
+  if (!trimmed) return fallback;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/")) {
+    return `${API_BASE_URL}${trimmed}`;
+  }
+  return trimmed;
+}
+
 const ACCESS_KEY = "pof_access_token";
 const REFRESH_KEY = "pof_refresh_token";
 
@@ -553,6 +566,19 @@ export const shopsApi = {
     const rows = await apiRequest<BackendShopOut[]>("/api/v1/shops", { query: backendQuery, auth: false, retries: 2 });
     return rows.map(mapShopFromBackend);
   },
+  count: async (params: { search?: string; cuisine?: string; city?: string } = {}) => {
+    const backendQuery = {
+      q: params.search,
+      category: params.cuisine,
+      city: params.city,
+    };
+    try {
+      const res = await apiRequest<{ total: number }>("/api/v1/shops/meta/count", { query: backendQuery, auth: false });
+      return res.total;
+    } catch {
+      return 0;
+    }
+  },
   get: async (id: string) => {
     const shop = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { auth: false });
     return mapShopFromBackend(shop);
@@ -864,4 +890,32 @@ export const adminApi = {
 
 export const healthApi = {
   check: () => apiRequest<{ status: string }>("/health"),
+};
+
+// ── Uploads API ────────────────────────────────────────────────────────────────
+
+export const uploadsApi = {
+  uploadImage: async (file: File): Promise<{ url: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const base = API_BASE_URL;
+    const token = tokenStore.access;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${base}/api/v1/uploads/image`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      let msg = "Failed to upload image";
+      try {
+        const err = await res.json();
+        if (err?.detail) msg = typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
+      } catch {}
+      throw new ApiError(res.status, msg);
+    }
+    return res.json();
+  },
 };

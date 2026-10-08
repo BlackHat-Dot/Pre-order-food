@@ -258,6 +258,7 @@ async def list_shops(
     stmt = (
         stmt.order_by(
             Shop.rating_avg.desc(),
+            Shop.rating_count.desc(),
             Shop.created_at.desc(),
         )
         .offset((page - 1) * page_size)
@@ -287,6 +288,41 @@ async def list_shops(
         )
         for shop in serialized
     ]
+
+
+@router.get(
+    "/meta/count",
+)
+async def count_shops(
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+    city: str | None = None,
+    category: str | None = None,
+    q: str | None = None,
+) -> dict[str, int]:
+    stmt = select(func.count(Shop.id)).where(
+        Shop.is_active.is_(True),
+    )
+
+    if city:
+        stmt = stmt.where(
+            Shop.city.ilike(f"%{city}%")
+        )
+
+    if category:
+        stmt = stmt.where(
+            Shop.category.ilike(f"%{category}%")
+        )
+
+    if q:
+        stmt = stmt.where(
+            Shop.name.ilike(f"%{q}%")
+        )
+
+    total = (await db.execute(stmt)).scalar() or 0
+    return {"total": total}
 
 
 # ─────────────────────────────────────────────────────────────

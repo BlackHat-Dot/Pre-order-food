@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     payments,
     reviews,
     shops,
+    uploads,
     users,
     verification,
 )
@@ -33,3 +34,4 @@ api_router.include_router(admin.router)
 api_router.include_router(notification.router)
 api_router.include_router(coupons.router)
 api_router.include_router(addresses_router)
+api_router.include_router(uploads.router)

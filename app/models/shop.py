@@ -138,7 +138,7 @@ class Shop(Base):
     image_url: Mapped[
         str | None
     ] = mapped_column(
-        String(500),
+        Text,
         nullable=True,
     )
 

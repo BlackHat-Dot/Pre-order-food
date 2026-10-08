@@ -2,10 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Search, Star, MapPin, ChevronRight, ShieldCheck, AlertTriangle,
+  Search, Star, MapPin, ChevronRight, ChevronLeft, ShieldCheck, AlertTriangle,
   Zap, Clock, TrendingUp, Award,
 } from "lucide-react";
-import { shopsApi } from "@/lib/api";
+import { shopsApi, resolveImageUrl } from "@/lib/api";
 import { PublicNav } from "@/components/app/PublicNav";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,7 +68,7 @@ function getShopFallbackImage(shop: ShopOut) {
 function ShopCard({ shop }: { shop: ShopOut }) {
   const [imgFailed, setImgFailed] = useState(false);
   const fallbackImage = getShopFallbackImage(shop);
-  const displayImage = !imgFailed && shop.image_url ? shop.image_url : fallbackImage;
+  const displayImage = !imgFailed && shop.image_url ? resolveImageUrl(shop.image_url, fallbackImage) : fallbackImage;
   const ratingVal = typeof shop.rating === "number" ? shop.rating : Number(shop.rating || 0);
   const reviewCount = typeof shop.total_reviews === "number" ? shop.total_reviews : Number(shop.total_reviews || 0);
 
@@ -140,16 +140,28 @@ function ShopCard({ shop }: { shop: ShopOut }) {
   );
 }
 
+const PAGE_SIZE = 5;
+
 function HomePage() {
   const [search, setSearch] = useState("");
   const [inputVal, setInputVal] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["shops", "list", search],
-    queryFn: () => shopsApi.list({ page: 1, page_size: 24, search: search || undefined }),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ["shops", "list", search, page],
+    queryFn: () => shopsApi.list({ page, page_size: PAGE_SIZE, search: search || undefined }),
+    staleTime: 30 * 1000,
     retry: 2,
   });
+
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: ["shops", "count", search],
+    queryFn: () => shopsApi.count({ search: search || undefined }),
+    staleTime: 30 * 1000,
+  });
+
+  const totalShops = typeof totalCount === "number" && totalCount > 0 ? totalCount : (data?.length ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalShops / PAGE_SIZE));
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-background">
@@ -196,7 +208,7 @@ function HomePage() {
 
               <form
                 className="mx-auto mt-9 flex w-full max-w-2xl flex-col items-stretch gap-2 rounded-2xl border border-white/10 bg-card/70 p-2 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:flex-row sm:items-center sm:p-1.5"
-                onSubmit={(e) => { e.preventDefault(); setSearch(inputVal); }}
+                onSubmit={(e) => { e.preventDefault(); setSearch(inputVal.trim()); setPage(1); }}
               >
                 <Search className="ml-3 hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />
                 <Input
@@ -275,26 +287,43 @@ function HomePage() {
       </section>
 
       {/* Shop listing */}
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <section id="shops-section" className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {search ? `Results for "${search}"` : "Discover shops"}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                {search ? `Results for "${search}"` : "Top Reviewed Shops"}
+              </h2>
+              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-500 text-xs font-semibold gap-1">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> Top rated
+              </Badge>
+            </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {data == null ? "Loading…" : `${data.length} ${data.length === 1 ? "shop" : "shops"} ready to take your order`}
+              {data == null
+                ? "Loading top reviewed shops…"
+                : data.length === 0
+                ? "0 shops found"
+                : `Showing ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + data.length} of ${totalShops} ${totalShops === 1 ? "shop" : "shops"} · Ranked by reviews & rating`}
             </p>
           </div>
           {search && (
-            <Button variant="outline" size="sm" onClick={() => { setSearch(""); setInputVal(""); }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setInputVal("");
+                setPage(1);
+              }}
+            >
               Clear search
             </Button>
           )}
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-64 rounded-2xl" />
             ))}
           </div>
@@ -322,11 +351,91 @@ function HomePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {data.map((shop) => (
-              <ShopCard key={shop.id} shop={shop} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {data.map((shop) => (
+                <ShopCard key={shop.id} shop={shop} />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/50 pt-6 sm:flex-row">
+                <p className="text-xs text-muted-foreground font-medium">
+                  Page <span className="font-bold text-foreground">{page}</span> of{" "}
+                  <span className="font-bold text-foreground">{totalPages}</span> · 5 shops per page
+                </p>
+
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1));
+                      const el = document.getElementById("shops-section");
+                      el?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    disabled={page <= 1 || isFetching}
+                    className="h-8 gap-1 rounded-xl px-3 text-xs font-semibold"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" /> Previous 5
+                  </Button>
+
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const pNum = i + 1;
+                    if (
+                      totalPages > 6 &&
+                      pNum !== 1 &&
+                      pNum !== totalPages &&
+                      Math.abs(pNum - page) > 1
+                    ) {
+                      if (pNum === 2 || pNum === totalPages - 1) {
+                        return (
+                          <span key={pNum} className="px-1 text-xs text-muted-foreground font-mono">
+                            …
+                          </span>
+                        );
+                      }
+                      return null;
+                    }
+
+                    return (
+                      <Button
+                        key={pNum}
+                        variant={pNum === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setPage(pNum);
+                          const el = document.getElementById("shops-section");
+                          el?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        disabled={isFetching}
+                        className={`h-8 w-8 rounded-xl p-0 text-xs font-bold transition-all ${
+                          pNum === page ? "shadow-sm" : "hover:border-primary/50"
+                        }`}
+                      >
+                        {pNum}
+                      </Button>
+                    );
+                  })}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPage((p) => Math.min(totalPages, p + 1));
+                      const el = document.getElementById("shops-section");
+                      el?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    disabled={page >= totalPages || (data && data.length < PAGE_SIZE) || isFetching}
+                    className="h-8 gap-1 rounded-xl px-3 text-xs font-semibold"
+                  >
+                    Next 5 <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 

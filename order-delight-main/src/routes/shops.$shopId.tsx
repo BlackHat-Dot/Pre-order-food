@@ -162,9 +162,8 @@ function ShopDetail() {
     );
   }
 
-  const heroImage = !heroImageFailed && shop.image_url
-    ? shop.image_url
-    : getFallbackDetailImage(shop.id, shop.name);
+  // Inside the shop, the hero banner stays what it is and is not replaced by the outside discover card image
+  const heroImage = getFallbackDetailImage(shop.id, shop.name);
 
   const grouped = (items ?? []).reduce<Record<string, MenuItemOut[]>>((acc, it) => {
     const key = it.category || "Menu";

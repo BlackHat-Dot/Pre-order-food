@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useRef } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, ShieldAlert, Bike, UtensilsCrossed } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, ShieldAlert, Bike, UtensilsCrossed, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
   ordersApi,
   shopsApi,
+  uploadsApi,
+  resolveImageUrl,
   apiRequest,
   ApiError,
 } from "@/lib/api";
@@ -1039,6 +1041,9 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [form, setForm] = useState({
     name: initial.name ?? "",
     description: initial.description ?? "",
@@ -1048,6 +1053,46 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
     pincode: initial.pincode ?? "",
     loyalty_discount_per_point: String(initial.loyalty_discount_per_point ?? 0.1),
   });
+
+  async function handleImageFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (PNG, JPG, WEBP, etc.)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must be less than 10MB");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      try {
+        const res = await uploadsApi.uploadImage(file);
+        setForm((f) => ({ ...f, image_url: res.url }));
+        toast.success("Image uploaded successfully! Click Save to apply.");
+      } catch (uploadErr) {
+        console.warn("Backend upload failed, falling back to local data URL:", uploadErr);
+        const reader = new FileReader();
+        reader.onload = (readEvent) => {
+          const result = readEvent.target?.result as string;
+          if (result) {
+            setForm((f) => ({ ...f, image_url: result }));
+            toast.success("Image loaded as local data URL! Click Save to apply.");
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
 
   const stateRef = useRef({ localNumber, cleanFullPhone: "" });
   stateRef.current.localNumber = localNumber;
@@ -1180,7 +1225,7 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
         <CardTitle>Shop settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-left">
-        {(["name", "cuisine", "address", "pincode", "image_url"] as const).map((k) => (
+        {(["name", "cuisine", "address", "pincode"] as const).map((k) => (
           <div key={k} className="space-y-2">
             <Label className="capitalize">{k.replace("_", " ")}</Label>
             <Input
@@ -1189,6 +1234,98 @@ function SettingsTab({ shopId, initial }: { shopId: string; initial: any }) {
             />
           </div>
         ))}
+
+        {/* Shop Card Image Manager */}
+        <div className="space-y-3 p-4 rounded-xl border border-border/70 bg-card/60">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Label className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                Shop Card Image
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shown on the Discover Shops cards outside. (Inside restaurant hero banner remains unchanged).
+              </p>
+            </div>
+            {form.image_url ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 text-xs h-7 px-2.5"
+                onClick={() => setForm((f) => ({ ...f, image_url: "" }))}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Remove Image
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
+            <div className="relative w-full sm:w-44 h-32 rounded-lg border border-border overflow-hidden bg-muted/30 flex items-center justify-center shrink-0">
+              {form.image_url ? (
+                <img
+                  src={resolveImageUrl(form.image_url, "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60")}
+                  alt="Shop card preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60";
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-muted-foreground p-3 text-center">
+                  <ImageIcon className="h-8 w-8 mb-1 opacity-50" />
+                  <span className="text-[11px] font-medium">Default Card Photo</span>
+                  <span className="text-[10px] text-muted-foreground/70">(No custom image uploaded)</span>
+                </div>
+              )}
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center backdrop-blur-xs gap-1">
+                  <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                  <span className="text-[11px] font-medium text-foreground">Uploading...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 w-full space-y-2.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageFileSelected}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isUploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs h-8 font-medium"
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  {isUploadingImage ? "Uploading..." : "Upload from Computer (PNG, JPG, etc.)"}
+                </Button>
+                {form.image_url && (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    Active
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[11px] font-medium text-muted-foreground">Or provide Image URL directly:</div>
+                <Input
+                  placeholder="https://example.com/image.png or data:image/..."
+                  value={form.image_url}
+                  onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
+                  className="text-xs h-8 font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <Label>Phone Number</Label>
