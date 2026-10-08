@@ -1,0 +1,14 @@
+order-delight-main/
+node_modules/
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.output/
+.vercel/
