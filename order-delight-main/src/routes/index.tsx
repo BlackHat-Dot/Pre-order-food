@@ -69,6 +69,8 @@ function ShopCard({ shop }: { shop: ShopOut }) {
   const [imgFailed, setImgFailed] = useState(false);
   const fallbackImage = getShopFallbackImage(shop);
   const displayImage = !imgFailed && shop.image_url ? shop.image_url : fallbackImage;
+  const ratingVal = typeof shop.rating === "number" ? shop.rating : Number(shop.rating || 0);
+  const reviewCount = typeof shop.total_reviews === "number" ? shop.total_reviews : Number(shop.total_reviews || 0);
 
   return (
     <Link to="/shops/$shopId" params={{ shopId: shop.id }} className="group block">
@@ -90,21 +92,28 @@ function ShopCard({ shop }: { shop: ShopOut }) {
               Open now
             </span>
           )}
-          {shop.rating != null && (
-            <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-              <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-              {Number(shop.rating).toFixed(1)}
-            </span>
-          )}
+          <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-0.5 text-[10px] font-bold text-white backdrop-blur shadow-sm">
+            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+            <span>{ratingVal.toFixed(1)}</span>
+            <span className="text-white/70 font-normal">({reviewCount})</span>
+          </span>
         </div>
         <CardContent className="space-y-2 p-4">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h3 className="truncate text-sm font-semibold">{shop.name}</h3>
                 {shop.is_verified && <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />}
               </div>
-              {shop.cuisine && <p className="text-xs text-muted-foreground">{shop.cuisine}</p>}
+              <div className="flex items-center gap-1.5 pt-0.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-0.5 text-amber-400">
+                  <Star className="h-3 w-3 fill-current" />
+                  <span className="font-semibold text-foreground text-xs">{ratingVal.toFixed(1)}</span>
+                </div>
+                <span>({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</span>
+                {shop.cuisine && <span className="text-muted-foreground/40">•</span>}
+                {shop.cuisine && <span className="truncate">{shop.cuisine}</span>}
+              </div>
             </div>
           </div>
           {shop.address && (

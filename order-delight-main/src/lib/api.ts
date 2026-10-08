@@ -649,8 +649,15 @@ export const ordersApi = {
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }),
 
-  submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
-    apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
+  submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id?: string | null }) => 
+    apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, {
+      method: "POST",
+      body: {
+        rating: data.rating,
+        comment: data.comment ? data.comment.trim() : null,
+        order_id: data.order_id ? data.order_id : null,
+      },
+    }),
   
   getTicket: (orderId: string) => 
     apiRequest<OrderOut>(`/api/v1/orders/ticket/${orderId}`, { method: "GET" }),

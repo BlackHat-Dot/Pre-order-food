@@ -6,7 +6,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
 )
+from typing import Any
 
 
 class ReviewCreate(
@@ -24,6 +26,21 @@ class ReviewCreate(
         default=None,
         max_length=1000,
     )
+
+    @field_validator("order_id", mode="before")
+    @classmethod
+    def clean_order_id(cls, v: Any) -> str | None:
+        if v == "" or v is None:
+            return None
+        return str(v)
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def clean_comment(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s if s else None
 
 
 class ReviewUpdate(

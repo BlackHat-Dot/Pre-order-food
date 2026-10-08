@@ -91,6 +91,18 @@ function ShopDetail() {
 
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error("Please sign in to write a review", {
+        description: "You need an active customer account to post reviews.",
+      });
+      return;
+    }
+    if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+      toast.error("Rating required", {
+        description: "Please select between 1 and 5 stars for your review.",
+      });
+      return;
+    }
     submitReview.mutate({ rating: reviewRating, comment: reviewComment, order_id: "" });
   };
 
@@ -104,6 +116,7 @@ function ShopDetail() {
       setShowReviewForm(false);
       qc.invalidateQueries({ queryKey: ["shop", shopId] });
       qc.invalidateQueries({ queryKey: ["shop", shopId, "reviews"] });
+      qc.invalidateQueries({ queryKey: ["shops"] });
     },
     onError: (e) => {
       toast.error(e instanceof ApiError ? e.message : "Failed to post review");
@@ -185,7 +198,17 @@ function ShopDetail() {
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{shop.name}</h1>
                 {shop.is_verified && <ShieldCheck className="h-5 w-5 text-primary" />}
               </div>
-              {shop.cuisine && <p className="text-sm text-muted-foreground">{shop.cuisine}</p>}
+              <div className="flex items-center gap-2 pt-0.5">
+                <div className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-500 border border-amber-500/20">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  <span>{(typeof shop.rating === "number" ? shop.rating : Number(shop.rating || 0)).toFixed(1)}</span>
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">
+                  ({(shop.total_reviews ?? reviews?.length ?? 0)} {(shop.total_reviews ?? reviews?.length ?? 0) === 1 ? "review" : "reviews"})
+                </span>
+                {shop.cuisine && <span className="text-muted-foreground/50">•</span>}
+                {shop.cuisine && <span className="text-xs text-muted-foreground">{shop.cuisine}</span>}
+              </div>
               <div className="flex flex-wrap gap-3 pt-1 text-xs text-muted-foreground">
                 {shop.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {shop.address}</span>}
                 {shop.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {shop.phone}</span>}
@@ -201,12 +224,6 @@ function ShopDetail() {
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </span>
-                {shop.rating != null && (
-                  <span className="flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-current text-primary" />
-                    {Number(shop.rating).toFixed(1)}
-                  </span>
-                )}
               </div>
             </div>
             
@@ -233,7 +250,7 @@ function ShopDetail() {
         <Tabs defaultValue="menu" className="mt-6">
           <TabsList>
             <TabsTrigger value="menu">Menu</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({reviews?.length ?? 0})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews ({shop.total_reviews ?? reviews?.length ?? 0})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="menu" className="mt-6 space-y-8">
@@ -333,11 +350,19 @@ function ShopDetail() {
           <TabsContent value="reviews" className="mt-6 space-y-4">
             <div className="flex items-center justify-between border-b border-border/50 pb-3">
               <h3 className="text-sm font-semibold text-foreground">
-                Customer Reviews ({reviews?.length ?? 0})
+                Customer Reviews ({shop.total_reviews ?? reviews?.length ?? 0})
               </h3>
               {!showReviewForm && !isShopOwner && (
                 <Button 
-                  onClick={() => setShowReviewForm(true)} 
+                  onClick={() => {
+                    if (!user) {
+                      toast.error("Please sign in to write a review", {
+                        description: "You need an active customer account to post reviews.",
+                      });
+                      return;
+                    }
+                    setShowReviewForm(true);
+                  }} 
                   variant="outline" 
                   size="sm"
                   className="gap-1.5 h-8 text-xs font-medium rounded-xl"

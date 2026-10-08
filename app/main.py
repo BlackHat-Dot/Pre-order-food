@@ -91,6 +91,7 @@ async def create_database_tables() -> None:
                     "ALTER TABLE users DROP COLUMN IF EXISTS email CASCADE;",
                     "ALTER TABLE users DROP COLUMN IF EXISTS email_verified CASCADE;",
                     "UPDATE shops SET is_verified = TRUE, is_open = TRUE WHERE is_active = TRUE;",
+                    "UPDATE shops SET rating_avg = COALESCE((SELECT ROUND(CAST(AVG(rating) AS NUMERIC), 1) FROM reviews WHERE reviews.shop_id = shops.id), 0.0), rating_count = COALESCE((SELECT COUNT(id) FROM reviews WHERE reviews.shop_id = shops.id), 0);",
                 ]
                 for stmt in extra_statements:
                     await conn.execute(text(stmt))

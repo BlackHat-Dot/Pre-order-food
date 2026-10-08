@@ -21,6 +21,7 @@ from app.models.order import Order
 from app.models.review import Review
 from app.models.shop import Shop
 from app.models.user import User
+from app.services.cache import clear_shop_cache
 from app.schemas.review import (
     ReviewCreate,
     ReviewOut,
@@ -104,18 +105,17 @@ async def get_review_with_customer(
 async def recompute_shop_rating(
     db: AsyncSession,
     shop_id: str,
-) -> None:
+) -> tuple[float, int]:
     stmt = select(
         func.coalesce(
             func.avg(Review.rating),
-            0,
+            0.0,
         ),
         func.count(Review.id),
     ).where(Review.shop_id == shop_id)
 
-    avg_rating, total_reviews = (
-        await db.execute(stmt)
-    ).one()
+    res = (await db.execute(stmt)).one()
+    avg_rating, total_reviews = res[0], res[1]
 
     shop = await db.get(
         Shop,
@@ -123,10 +123,11 @@ async def recompute_shop_rating(
     )
 
     if not shop:
-        return
+        return 0.0, 0
 
-    shop.rating_avg = float(
-        avg_rating or 0
+    shop.rating_avg = round(
+        float(avg_rating or 0.0),
+        1,
     )
 
     shop.rating_count = int(
@@ -134,6 +135,9 @@ async def recompute_shop_rating(
     )
 
     await db.commit()
+    await clear_shop_cache(shop_id)
+
+    return shop.rating_avg, shop.rating_count
 
 
 async def verify_review_owner(
@@ -300,20 +304,26 @@ async def create_shop_profile_review(
     existing_stmt = select(Review).where(
         Review.shop_id == shop_id,
         Review.customer_id == user.id,
-        Review.order_id.is_(None),
     )
 
     existing_review = (
         await db.execute(existing_stmt)
-    ).scalar_one_or_none()
+    ).scalars().first()
 
     if existing_review:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Review already submitted "
-                "for this shop"
-            ),
+        existing_review.rating = payload.rating
+        existing_review.comment = payload.comment
+        await db.commit()
+        await recompute_shop_rating(
+            db,
+            shop_id,
+        )
+        updated_review = await get_review_with_customer(
+            db,
+            existing_review.id,
+        )
+        return ReviewOut.model_validate(
+            updated_review
         )
 
     logger.debug(

@@ -282,3 +282,21 @@ async def release_lock(
             key,
             e,
         )
+
+
+async def clear_shop_cache(
+    shop_id: str | None = None,
+) -> None:
+    keys = [
+        "shops:list:*",
+    ]
+
+    if shop_id:
+        keys.extend([
+            f"shop:{shop_id}",
+            f"dashboard:{shop_id}",
+            f"stats:{shop_id}",
+            f"menu:{shop_id}",
+        ])
+
+    await cache_delete(*keys)
