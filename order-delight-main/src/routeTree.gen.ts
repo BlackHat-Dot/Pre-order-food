@@ -9,45 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as CartRouteImport } from './routes/cart'
-import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ShopsShopIdRouteImport } from './routes/shops.$shopId'
-import { Route as AppProfileRouteImport } from './routes/_app/profile'
-import { Route as AppOrdersRouteImport } from './routes/_app/orders'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as CartRouteImport } from './routes/cart'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
 import { Route as AppLoyaltyRouteImport } from './routes/_app/loyalty'
-import { Route as AppOwnerIndexRouteImport } from './routes/_app/owner/index'
+import { Route as AppOrdersRouteImport } from './routes/_app/orders'
+import { Route as AppProfileRouteImport } from './routes/_app/profile'
+import { Route as ShopsShopIdRouteImport } from './routes/shops.$shopId'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
-import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders.$orderId'
-import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
-import { Route as AppAdminShopsRouteImport } from './routes/_app/admin/shops'
-import { Route as AppAdminOrdersRouteImport } from './routes/_app/admin/orders'
 import { Route as AppAdminLoyaltyRouteImport } from './routes/_app/admin/loyalty'
-import { Route as AppOwnerShopsNewRouteImport } from './routes/_app/owner/shops.new'
+import { Route as AppAdminOrdersRouteImport } from './routes/_app/admin/orders'
+import { Route as AppAdminShopsRouteImport } from './routes/_app/admin/shops'
+import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
+import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders.$orderId'
+import { Route as AppOwnerIndexRouteImport } from './routes/_app/owner/index'
 import { Route as AppOwnerShopsShopIdRouteImport } from './routes/_app/owner/shops.$shopId'
+import { Route as AppOwnerShopsNewRouteImport } from './routes/_app/owner/shops.new'
 
-const UnauthorizedRoute = UnauthorizedRouteImport.update({
-  id: '/unauthorized',
-  path: '/unauthorized',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -55,23 +44,29 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShopsShopIdRoute = ShopsShopIdRouteImport.update({
-  id: '/shops/$shopId',
-  path: '/shops/$shopId',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppProfileRoute = AppProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const UnauthorizedRoute = UnauthorizedRouteImport.update({
+  id: '/unauthorized',
+  path: '/unauthorized',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppLoyaltyRoute = AppLoyaltyRouteImport.update({
+  id: '/loyalty',
+  path: '/loyalty',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOrdersRoute = AppOrdersRouteImport.update({
@@ -79,39 +74,19 @@ const AppOrdersRoute = AppOrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => AppRoute,
 } as any)
-const AppLoyaltyRoute = AppLoyaltyRouteImport.update({
-  id: '/loyalty',
-  path: '/loyalty',
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
-const AppOwnerIndexRoute = AppOwnerIndexRouteImport.update({
-  id: '/owner/',
-  path: '/owner/',
-  getParentRoute: () => AppRoute,
+const ShopsShopIdRoute = ShopsShopIdRouteImport.update({
+  id: '/shops/$shopId',
+  path: '/shops/$shopId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
-  id: '/$orderId',
-  path: '/$orderId',
-  getParentRoute: () => AppOrdersRoute,
-} as any)
-const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
-  id: '/admin/users',
-  path: '/admin/users',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAdminShopsRoute = AppAdminShopsRouteImport.update({
-  id: '/admin/shops',
-  path: '/admin/shops',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAdminOrdersRoute = AppAdminOrdersRouteImport.update({
-  id: '/admin/orders',
-  path: '/admin/orders',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminLoyaltyRoute = AppAdminLoyaltyRouteImport.update({
@@ -119,14 +94,39 @@ const AppAdminLoyaltyRoute = AppAdminLoyaltyRouteImport.update({
   path: '/admin/loyalty',
   getParentRoute: () => AppRoute,
 } as any)
-const AppOwnerShopsNewRoute = AppOwnerShopsNewRouteImport.update({
-  id: '/owner/shops/new',
-  path: '/owner/shops/new',
+const AppAdminOrdersRoute = AppAdminOrdersRouteImport.update({
+  id: '/admin/orders',
+  path: '/admin/orders',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminShopsRoute = AppAdminShopsRouteImport.update({
+  id: '/admin/shops',
+  path: '/admin/shops',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
+  id: '/$orderId',
+  path: '/$orderId',
+  getParentRoute: () => AppOrdersRoute,
+} as any)
+const AppOwnerIndexRoute = AppOwnerIndexRouteImport.update({
+  id: '/owner/',
+  path: '/owner/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOwnerShopsShopIdRoute = AppOwnerShopsShopIdRouteImport.update({
   id: '/owner/shops/$shopId',
   path: '/owner/shops/$shopId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOwnerShopsNewRoute = AppOwnerShopsNewRouteImport.update({
+  id: '/owner/shops/new',
+  path: '/owner/shops/new',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -275,39 +275,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/unauthorized': {
-      id: '/unauthorized'
-      path: '/unauthorized'
-      fullPath: '/unauthorized'
-      preLoaderRoute: typeof UnauthorizedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -317,25 +289,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/shops/$shopId': {
-      id: '/shops/$shopId'
-      path: '/shops/$shopId'
-      fullPath: '/shops/$shopId'
-      preLoaderRoute: typeof ShopsShopIdRouteImport
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/profile': {
-      id: '/_app/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AppProfileRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unauthorized': {
+      id: '/unauthorized'
+      path: '/unauthorized'
+      fullPath: '/unauthorized'
+      preLoaderRoute: typeof UnauthorizedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/loyalty': {
+      id: '/_app/loyalty'
+      path: '/loyalty'
+      fullPath: '/loyalty'
+      preLoaderRoute: typeof AppLoyaltyRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/orders': {
@@ -345,53 +338,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrdersRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/loyalty': {
-      id: '/_app/loyalty'
-      path: '/loyalty'
-      fullPath: '/loyalty'
-      preLoaderRoute: typeof AppLoyaltyRouteImport
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/owner/': {
-      id: '/_app/owner/'
-      path: '/owner'
-      fullPath: '/owner/'
-      preLoaderRoute: typeof AppOwnerIndexRouteImport
-      parentRoute: typeof AppRoute
+    '/shops/$shopId': {
+      id: '/shops/$shopId'
+      path: '/shops/$shopId'
+      fullPath: '/shops/$shopId'
+      preLoaderRoute: typeof ShopsShopIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/admin/': {
       id: '/_app/admin/'
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AppAdminIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/orders/$orderId': {
-      id: '/_app/orders/$orderId'
-      path: '/$orderId'
-      fullPath: '/orders/$orderId'
-      preLoaderRoute: typeof AppOrdersOrderIdRouteImport
-      parentRoute: typeof AppOrdersRoute
-    }
-    '/_app/admin/users': {
-      id: '/_app/admin/users'
-      path: '/admin/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AppAdminUsersRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/admin/shops': {
-      id: '/_app/admin/shops'
-      path: '/admin/shops'
-      fullPath: '/admin/shops'
-      preLoaderRoute: typeof AppAdminShopsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/admin/orders': {
-      id: '/_app/admin/orders'
-      path: '/admin/orders'
-      fullPath: '/admin/orders'
-      preLoaderRoute: typeof AppAdminOrdersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/admin/loyalty': {
@@ -401,11 +366,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminLoyaltyRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/owner/shops/new': {
-      id: '/_app/owner/shops/new'
-      path: '/owner/shops/new'
-      fullPath: '/owner/shops/new'
-      preLoaderRoute: typeof AppOwnerShopsNewRouteImport
+    '/_app/admin/orders': {
+      id: '/_app/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AppAdminOrdersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/shops': {
+      id: '/_app/admin/shops'
+      path: '/admin/shops'
+      fullPath: '/admin/shops'
+      preLoaderRoute: typeof AppAdminShopsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/users': {
+      id: '/_app/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AppAdminUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orders/$orderId': {
+      id: '/_app/orders/$orderId'
+      path: '/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof AppOrdersOrderIdRouteImport
+      parentRoute: typeof AppOrdersRoute
+    }
+    '/_app/owner/': {
+      id: '/_app/owner/'
+      path: '/owner'
+      fullPath: '/owner/'
+      preLoaderRoute: typeof AppOwnerIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/owner/shops/$shopId': {
@@ -413,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: '/owner/shops/$shopId'
       fullPath: '/owner/shops/$shopId'
       preLoaderRoute: typeof AppOwnerShopsShopIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/owner/shops/new': {
+      id: '/_app/owner/shops/new'
+      path: '/owner/shops/new'
+      fullPath: '/owner/shops/new'
+      preLoaderRoute: typeof AppOwnerShopsNewRouteImport
       parentRoute: typeof AppRoute
     }
   }
