@@ -1,10 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { landingForRole } from "@/lib/nav";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
-import { PublicNav } from "@/components/app/PublicNav";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -14,47 +18,88 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    let clean = phone.trim();
-    const digits = clean.replace(/\D/g, "");
-    if (digits.length === 10) clean = "+91" + digits;
-    else if (digits.length > 10 && !clean.startsWith("+")) clean = "+" + digits;
+    const cleanIdentifier = identifier.trim();
+    if (!cleanIdentifier) {
+      toast.error("Email or phone is required.");
+      return;
+    }
     setLoading(true);
     try {
-      const me = await login(clean, password);
+      const me = await login(cleanIdentifier, password);
       toast.success(`Welcome back, ${me.name.split(" ")[0]}`);
       navigate({ to: landingForRole(me.role) });
     } catch (err) {
-      toast.error(err instanceof Error && err.message ? err.message : "Sign in failed. Check your phone number and password.");
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else if (err instanceof Error && err.message) {
+        toast.error(err.message);
+      } else {
+        toast.error("Sign in failed");
+      }
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="po" style={{ minHeight: "100vh" }}>
-      <PublicNav />
-      <div className="wrap split">
-        <div>
-          <h1 style={{ fontSize: "clamp(40px,6vw,80px)" }}>Your orders are where you left them.</h1>
-          <p className="hint" style={{ fontSize: 17, maxWidth: "40ch", marginTop: 20 }}>
-            Sign in to see order status, notifications and your loyalty points for each kitchen.
-          </p>
-        </div>
-        <form onSubmit={onSubmit} style={{ borderTop: "1px solid var(--ink)", paddingTop: 8 }}>
-          <label className="l" htmlFor="phone">Phone number</label>
-          <input id="phone" className="fld" type="tel" required autoComplete="tel" placeholder="+919876543210" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <p className="hint">A 10-digit number is read as an Indian (+91) number.</p>
-          <label className="l" htmlFor="password">Password</label>
-          <input id="password" className="fld" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="po-btn" style={{ marginTop: 28, width: "100%", justifyContent: "center" }} disabled={loading}>{loading ? "Signing in…" : "Sign in"}</button>
-          <p className="hint" style={{ marginTop: 20 }}>No account? <Link to="/register" style={{ color: "var(--sig)", fontWeight: 600 }}>Create one</Link></p>
-        </form>
+    <div className="grid min-h-screen place-items-center px-4">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="mb-8 flex items-center justify-center gap-2 font-semibold">
+          <span
+            className="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Utensils className="h-4 w-4" />
+          </span>
+          PreOrder
+        </Link>
+        <Card className="border-border/60 shadow-[var(--shadow-elegant)]">
+          <CardHeader>
+            <CardTitle>Sign in</CardTitle>
+            <CardDescription>Welcome back. Enter your details.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="identifier">Email or phone</Label>
+                <Input
+                  id="identifier"
+                  type="text"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              No account?{" "}
+              <Link to="/register" className="text-primary hover:underline">
+                Create one
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

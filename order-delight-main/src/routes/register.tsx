@@ -1,12 +1,24 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Utensils } from "lucide-react";
 import { toast } from "sonner";
-import { PublicNav } from "@/components/app/PublicNav";
 import { useAuth } from "@/lib/auth";
 import { landingForRole } from "@/lib/nav";
-import { ApiError, msg91Api, type Role } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ApiError, type Role } from "@/lib/api";
 import {
   CountryPhoneInput,
+  Msg91Widget,
   DEFAULT_COUNTRY,
   buildE164,
   isPhoneValid,
@@ -24,6 +36,7 @@ function RegisterPage() {
 
   const [form, setForm] = useState({
     name: "",
+    email: "",
     password: "",
     role: "customer" as Role,
   });
@@ -35,7 +48,6 @@ function RegisterPage() {
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
 
-  const [verifying, setVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
@@ -58,35 +70,15 @@ function RegisterPage() {
     setVerifiedPhone(null);
   }
 
+  function handlePhoneVerified(token: string, phone: string) {
+    setPhoneVerificationToken(token);
+    setVerifiedPhone(phone);
+    setPhoneVerified(true);
+    toast.success("Phone number verified successfully!");
+  }
+
   const fullPhone = buildE164(country.dialCode, localNumber);
   const phoneReady = isPhoneValid(country, localNumber);
-
-  async function handleDirectVerify() {
-    if (!phoneReady) {
-      toast.error("Please enter a valid phone number first.");
-      return;
-    }
-    setVerifying(true);
-    try {
-      const res = await msg91Api.verify({
-        phone: fullPhone,
-        purpose: "signup_phone",
-        access_token: "direct_verify",
-      } as any);
-      setPhoneVerificationToken(res.verification_token || "direct_verified_token_preorder");
-      setVerifiedPhone(fullPhone);
-      setPhoneVerified(true);
-      toast.success("Phone verified directly! (SMS OTP bypassed)");
-    } catch {
-      // Fallback: direct token for instant sign-up
-      setPhoneVerificationToken("direct_verified_token_preorder");
-      setVerifiedPhone(fullPhone);
-      setPhoneVerified(true);
-      toast.success("Phone verified directly! (SMS OTP bypassed)");
-    } finally {
-      setVerifying(false);
-    }
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,8 +87,8 @@ function RegisterPage() {
       toast.error("Enter a valid phone number.");
       return;
     }
-    if (!phoneVerified) {
-      toast.error("Click 'Verify phone' before creating your account.");
+    if (!phoneVerified || !phoneVerificationToken || !verifiedPhone) {
+      toast.error("Verify your phone number before creating an account.");
       return;
     }
 
@@ -104,10 +96,11 @@ function RegisterPage() {
     try {
       const me = await register({
         name: form.name.trim(),
-        phone: verifiedPhone || fullPhone,
+        email: form.email.trim() || null,
+        phone: verifiedPhone,
         password: form.password,
         role: form.role,
-        phone_verification_token: phoneVerificationToken || "direct_verified_token_preorder",
+        phone_verification_token: phoneVerificationToken,
       });
       toast.success(`Welcome, ${me.name.split(" ")[0]}!`);
       navigate({ to: landingForRole(me.role) });
@@ -124,60 +117,135 @@ function RegisterPage() {
     }
   }
 
-  const roles: [Role, string, string][] = [
-    ["customer", "Diner", "Order from kitchens and collect."],
-    ["shop_owner", "Kitchen owner", "List a kitchen and take orders."],
-  ];
   return (
-    <div className="po" style={{ minHeight: "100vh" }}>
-      <PublicNav />
-      <div className="wrap split">
-        <div>
-          <h1 style={{ fontSize: "clamp(40px,6vw,80px)" }}>Make an account, then make an order.</h1>
-          <p className="hint" style={{ fontSize: 17, maxWidth: "40ch", marginTop: 20 }}>
-            Choose Diner to order ahead, or Kitchen owner to list a kitchen. Each account has one type, so use a separate account for the other.
-          </p>
-          <p style={{ marginTop: 28, borderLeft: "3px solid var(--sig)", paddingLeft: 12, maxWidth: "44ch", fontSize: 15 }}>
-            Phone verification is simulated in this environment: SMS codes are not sent. Press the verify button to continue.
-          </p>
-        </div>
-        <form onSubmit={onSubmit} style={{ borderTop: "1px solid var(--ink)", paddingTop: 8 }}>
-          <label className="l" htmlFor="name">Full name</label>
-          <input id="name" className="fld" required autoComplete="name" value={form.name} onChange={(e) => set("name", e.target.value)} />
+    <div className="grid min-h-screen place-items-center px-4 py-10">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="mb-8 flex items-center justify-center gap-2 font-semibold">
+          <span
+            className="grid h-9 w-9 place-items-center rounded-lg text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Utensils className="h-4 w-4" />
+          </span>
+          PreOrder
+        </Link>
 
-          <label className="l">Phone number</label>
-          <CountryPhoneInput country={country} localNumber={localNumber} onCountryChange={handleCountryChange} onLocalNumberChange={handleLocalNumberChange} disabled={phoneVerified} />
-          {phoneVerified ? (
-            <p style={{ marginTop: 10, color: "var(--ok)", fontWeight: 600, fontSize: 14 }}>{verifiedPhone} is verified.</p>
-          ) : (
-            <>
-              <button type="button" className="po-btn ghost" style={{ marginTop: 10 }} disabled={!phoneReady || verifying} onClick={handleDirectVerify}>
-                {verifying ? "Verifying…" : "Verify phone"}
-              </button>
-              {!phoneReady && localNumber.length > 0 && <p className="hint">Enter a valid {country.name} number.</p>}
-            </>
-          )}
+        <Card className="border-border/60 shadow-[var(--shadow-elegant)]">
+          <CardHeader>
+            <CardTitle>Create account</CardTitle>
+            <CardDescription>Start ordering or sell on PreOrder.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
+              {/* Full name */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Full name</Label>
+                <Input
+                  id="name"
+                  required
+                  autoComplete="name"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                />
+              </div>
 
-          <label className="l" htmlFor="password">Password</label>
-          <input id="password" className="fld" type="password" required minLength={6} autoComplete="new-password" value={form.password} onChange={(e) => set("password", e.target.value)} />
-          <p className="hint">At least 6 characters.</p>
+              {/* Phone + MSG91 verification */}
+              <div className="space-y-2">
+                <Label>Phone number</Label>
+                <div className="relative">
+                  <CountryPhoneInput
+                    country={country}
+                    localNumber={localNumber}
+                    onCountryChange={handleCountryChange}
+                    onLocalNumberChange={handleLocalNumberChange}
+                    disabled={phoneVerified}
+                  />
+                </div>
 
-          <fieldset style={{ border: 0, padding: 0, margin: "18px 0 0" }}>
-            <legend style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Account type</legend>
-            {roles.map(([v, t, d]) => (
-              <label key={v} style={{ display: "flex", gap: 12, padding: "12px 14px", marginBottom: -1, border: `1px solid ${form.role === v ? "var(--sig)" : "var(--rule)"}`, cursor: "pointer" }}>
-                <input type="radio" name="role" checked={form.role === v} onChange={() => set("role", v)} />
-                <span><strong>{t}</strong><br /><span className="hint">{d}</span></span>
-              </label>
-            ))}
-          </fieldset>
+                {phoneVerified ? (
+                  <Msg91Widget
+                    phone={fullPhone}
+                    purpose="signup_phone"
+                    onVerified={handlePhoneVerified}
+                    isVerified={true}
+                  />
+                ) : (
+                  <Msg91Widget
+                    phone={fullPhone}
+                    purpose="signup_phone"
+                    onVerified={handlePhoneVerified}
+                    disabled={!phoneReady}
+                    isVerified={false}
+                  />
+                )}
 
-          <button className="po-btn" style={{ marginTop: 28, width: "100%", justifyContent: "center" }} disabled={loading || !phoneVerified}>
-            {loading ? "Creating account…" : "Create account"}
-          </button>
-          {!phoneVerified && <p className="hint">Verify your phone number to continue.</p>}
-          <p className="hint" style={{ marginTop: 20 }}>Already registered? <Link to="/login" style={{ color: "var(--sig)", fontWeight: 600 }}>Sign in</Link></p>
-        </form>
+                {!phoneReady && localNumber.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Enter a valid {country.name} phone number to continue.
+                  </p>
+                )}
+                {!phoneVerified && phoneReady && (
+                  <p className="text-xs text-muted-foreground">
+                    We'll send a one-time code to verify your number.
+                  </p>
+                )}
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
+              </div>
+
+              {/* Role */}
+              <div className="space-y-2">
+                <Label>I'm a…</Label>
+                <RadioGroup
+                  value={form.role}
+                  onValueChange={(v) => set("role", v as Role)}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  <Label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/10">
+                    <RadioGroupItem value="customer" /> Customer
+                  </Label>
+                  <Label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/10">
+                    <RadioGroupItem value="shop_owner" /> Shop owner
+                  </Label>
+                </RadioGroup>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || !phoneVerified}
+              >
+                {loading ? "Creating account…" : "Create account"}
+              </Button>
+
+              {!phoneVerified && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Verify your phone number above to continue.
+                </p>
+              )}
+            </form>
+
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Have an account?{" "}
+              <Link to="/login" className="text-primary hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

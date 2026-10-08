@@ -123,3 +123,13 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
+
+/* ==========================================================================
+   🚀 FIXED: BLOCK COPY/HIGHLIGHT ON TOP-RIGHT ALERTS & TOAST BENCHMARKS 
+   ========================================================================== */
+[data-sonner-toast] {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}

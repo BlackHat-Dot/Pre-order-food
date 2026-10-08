@@ -3,8 +3,23 @@
 // so it never causes an SSR/hydration mismatch the way `typeof window` does.
 // SSR: reach the backend directly via localhost (same container).
 // Browser: use relative paths → Vite dev-proxy (or prod reverse-proxy) forwards to the backend.
+// Provide TypeScript types for Vite's `import.meta.env` so editors don't flag usages
+declare global {
+  interface ImportMetaEnv {
+    SSR: boolean;
+    readonly VITE_API_BASE_URL?: string;
+    readonly VITE_PUBLIC_API_BASE_URL?: string;
+    readonly VITE_MSG91_WIDGET_ID?: string;
+    readonly VITE_MSG91_TOKEN_AUTH?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
 export const API_BASE_URL: string = import.meta.env.SSR
-  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://pre-order-food-production.up.railway.app")
+  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8000")
   : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "");
 
 const ACCESS_KEY = "pof_access_token";
@@ -51,7 +66,7 @@ interface RequestOptions {
   isForm?: boolean;
 }
 
-async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const {
     method = "GET",
     body,
@@ -127,9 +142,26 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
       try {
         const err = await res.json();
         detail = err;
-        if (err?.detail) {
-          if (typeof err.detail === "string") message = err.detail;
-          else if (typeof err.detail === "object" && err.detail !== null) {
+        
+        if (res.status >= 500) {
+          message = "Something went wrong";
+        } else if (err?.detail) {
+          if (Array.isArray(err.detail)) {
+            const first = err.detail[0];
+            const locs = Array.isArray(first?.loc) ? first.loc.map((l: unknown) => String(l).toLowerCase()) : [];
+            
+            if (locs.includes("image_url")) {
+              message = "Please enter a valid image URL";
+            } else if (locs.includes("pincode")) {
+              message = "Please enter a valid pincode";
+            } else if (locs.includes("phone")) {
+              message = "Please enter a valid phone number";
+            } else {
+              message = "Please check your input";
+            }
+          } else if (typeof err.detail === "string") {
+            message = err.detail;
+          } else if (typeof err.detail === "object" && err.detail !== null) {
             const d = err.detail as Record<string, unknown>;
             message = typeof d.message === "string" ? d.message : JSON.stringify(err.detail);
           } else {
@@ -138,8 +170,27 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
         } else if (err?.message) {
           message = String(err.message);
         }
-      } catch { /* non-JSON error body */ }
+      } catch {
+        if (res.status >= 500) {
+          message = "Something went wrong";
+        }
+      }
+
+      const lowerMsg = message.toLowerCase();
+      const technicalPatterns = ["traceback", "sqlalchemy", "asyncpg", "internal server error"];
+      if (technicalPatterns.some((p) => lowerMsg.includes(p))) {
+        message = "Something went wrong";
+      }
+
       if (triesLeft > 0) return attempt(triesLeft - 1);
+
+      console.error("[API ERROR]", {
+        path,
+        status: res.status,
+        detail,
+        message,
+      });
+
       throw new ApiError(res.status, message, detail);
     }
 
@@ -179,7 +230,7 @@ export interface ShopOut {
   phone: string;
   description: string | null;
   address: string;
-  cuisine: string;
+  cuisine: string | null;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
@@ -201,7 +252,7 @@ interface BackendShopOut {
   city: string;
   state: string;
   pincode: string;
-  category: string;
+  category: string | null;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
@@ -239,6 +290,7 @@ export interface MenuItemVariantOut {
   id: string;
   name: string;
   price: number;
+  prep_time_minutes: number;
   is_available: boolean;
 }
 
@@ -254,6 +306,15 @@ export interface MenuItemOut {
   variants: MenuItemVariantOut[];
 }
 
+export interface VariantOut {
+  id: string;
+  item_id: string;
+  name: string;
+  price: number;
+  prep_time_minutes?: number;
+  is_available: boolean;
+}
+
 export interface CartItem {
   menu_item_id: string;
   variant_id: string | null;
@@ -263,14 +324,7 @@ export interface CartItem {
   unit_price: number;
 }
 
-export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "delivered"
-  | "cancelled";
-
+export type OrderStatus = "pending" | "accepted" | "preparing" | "ready" | "completed" | "cancelled";
 export interface OrderItemOut {
   id: string;
   menu_item_id: string;
@@ -285,20 +339,23 @@ export interface OrderItemOut {
 export interface PaymentOut {
   id: string;
   order_id: string;
+  provider: string;
+  provider_order_id: string | null;
+  provider_payment_id: string | null;
   amount: number;
   currency: string;
   status: string;
-  provider: string;
   created_at: string;
 }
 
 export interface OrderOut {
   id: string;
+  order_number?: number | null;
   shop_id: string;
   customer_id: string;
   status: OrderStatus;
-  total_amount: number;
-  notes: string | null;
+  total_price: number;
+  instructions: string | null;
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
@@ -323,20 +380,20 @@ export interface ReviewOut {
 
 export interface LoyaltyAccountOut {
   id: string;
-  user_id: string;
+  customer_id: string;
+  shop_id: string;
   points_balance: number;
-  total_earned: number;
-  total_redeemed: number;
+  tier: string;
+  created_at: string;
   updated_at: string;
 }
 
 export interface LoyaltyTransactionOut {
   id: string;
   account_id: string;
-  delta: number;
-  balance_after: number;
-  reason: string;
   order_id: string | null;
+  points: number;
+  action: string;
   created_at: string;
 }
 
@@ -380,6 +437,14 @@ export const authApi = {
     apiRequest<TokenResponse>("/api/v1/auth/refresh", { method: "POST", body: { refresh_token }, auth: false }),
   me: () => apiRequest<UserOut>("/api/v1/auth/me"),
   logout: (accessToken?: string | null) => apiRequest<void>("/api/v1/auth/logout", { method: "POST", accessToken }),
+  checkPhone: (phone: string) =>
+  apiRequest<{ exists: boolean }>(
+    "/api/v1/auth/check-phone",
+    {
+      auth: false,
+      query: { phone },
+    }
+  ),
 };
 
 // ── OTP API (email verification) ───────────────────────────────────────────────
@@ -423,26 +488,19 @@ export interface Msg91VerifyResponse {
   phone: string;
 }
 
-/** Exchange a MSG91 or direct-verify access_token for our server-issued proof JWT. */
+/** Exchange a MSG91 widget access_token for our server-issued proof JWT. */
 export const msg91Api = {
   verify: (body: {
-    access_token?: string;
-    reqId?: string;
-    otp?: string;
+    reqId: string;
+    otp: string;
     phone: string;
     purpose: "signup_phone" | "profile_phone";
-  }) => {
-    const payload = {
-      access_token: body.access_token || body.reqId || "direct_verify",
-      phone: body.phone,
-      purpose: body.purpose,
-    };
-    return apiRequest<Msg91VerifyResponse>("/api/v1/verify-msg91", {
+  }) =>
+    apiRequest<Msg91VerifyResponse>("/api/v1/verify-msg91", {
       method: "POST",
-      body: payload,
+      body,
       auth: body.purpose === "profile_phone",
-    });
-  },
+    }),
 };
 
 // ── Users API ──────────────────────────────────────────────────────────────────
@@ -464,7 +522,7 @@ export const usersApi = {
 // ── Shops API ──────────────────────────────────────────────────────────────────
 
 export const shopsApi = {
-  create: async (body: Partial<ShopOut>) => {
+  create: async (body: Partial<ShopOut> & { pincode?: string }) => {
     const addr = parseAddress(body.address);
     const payload = {
       name: body.name ?? "",
@@ -473,8 +531,8 @@ export const shopsApi = {
       address_line: addr.address_line,
       city: addr.city,
       state: addr.state,
-      pincode: addr.pincode,
-      category: body.cuisine ?? "General",
+      pincode: body.pincode?.trim() || addr.pincode || "",
+      category: body.cuisine?.trim() || null,
       opening_hours: null as string | null,
       image_url: body.image_url ?? null,
       loyalty_discount_per_point: body.loyalty_discount_per_point ?? 0.1,
@@ -497,12 +555,12 @@ export const shopsApi = {
     const shop = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { auth: false });
     return mapShopFromBackend(shop);
   },
-  update: async (id: string, body: Partial<ShopOut>) => {
+  update: async (id: string, body: Partial<ShopOut> & { pincode?: string }) => {
     const payload: Record<string, unknown> = {};
     if (body.name !== undefined) payload.name = body.name;
     if (body.description !== undefined) payload.description = body.description;
     if (body.phone !== undefined) payload.phone = body.phone;
-    if (body.cuisine !== undefined) payload.category = body.cuisine;
+    if (body.cuisine !== undefined) payload.category = body.cuisine?.trim() || null;
     if (body.image_url !== undefined) payload.image_url = body.image_url;
     if (body.loyalty_discount_per_point !== undefined) payload.loyalty_discount_per_point = body.loyalty_discount_per_point;
     if (body.address !== undefined) {
@@ -510,7 +568,9 @@ export const shopsApi = {
       payload.address_line = addr.address_line;
       payload.city = addr.city;
       payload.state = addr.state;
-      payload.pincode = addr.pincode;
+      payload.pincode = body.pincode?.trim() || addr.pincode || "";
+    } else if (body.pincode !== undefined) {
+      payload.pincode = body.pincode.trim();
     }
     if (body.is_open !== undefined) payload.is_open = body.is_open;
     if (body.is_accepting_orders !== undefined) payload.is_accepting_orders = body.is_accepting_orders;
@@ -529,6 +589,12 @@ export const shopsApi = {
     };
     const updated = await apiRequest<BackendShopOut>(`/api/v1/shops/${id}`, { method: "PATCH", body: payload });
     return mapShopFromBackend(updated);
+  },
+  dashboard: async (id: string) => {
+    return apiRequest<any>(`/api/v1/shops/${id}/dashboard`);
+  },
+  stats: async (id: string) => {
+    return apiRequest<any>(`/api/v1/shops/${id}/stats`);
   },
 };
 
@@ -558,35 +624,44 @@ export const menuApi = {
 export const ordersApi = {
   create: (body: {
     shop_id: string;
-    items: CartItem[];
-    notes?: string | null;
+    items: { item_id: string; variant_id?: string; quantity: number; notes?: string }[];
+    instructions?: string | null;
     scheduled_at?: string | null;
-    loyalty_points_to_use?: number;
+    redeem_loyalty_points?: number;
+    payment_method: string;
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
+
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),
-  myOrders: (params: { status?: OrderStatus | string; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/orders", { query: params }),
+    apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }),
+
   get: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}`),
-  updateStatus: (id: string, status: OrderStatus) =>
-    apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status } }),
-  cancel: (id: string) =>
-    apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { method: "PATCH", body: { status: "cancelled" } }),
+
+  updateStatus: (id: string, status: OrderStatus, reason?: string) =>
+    apiRequest<OrderOut>(`/api/v1/orders/${id}/status`, { 
+      method: "PATCH", 
+      body: { status, reason } 
+    }),
+
+  cancel: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}/cancel`, { method: "PATCH" }),
+
   shopOrders: (shopId: string, params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>(`/api/v1/shops/${shopId}/orders`, { query: params }),
+    apiRequest<OrderOut[]>(`/api/v1/orders/shops/${shopId}`, { query: params }),
+
+  submitReview: (shopId: string, data: { rating: number | null; comment: string; order_id: string }) => 
+    apiRequest<any>(`/api/v1/reviews/shops/${shopId}`, { method: "POST", body: data }),
+  
+  getTicket: (orderId: string) => 
+    apiRequest<OrderOut>(`/api/v1/orders/ticket/${orderId}`, { method: "GET" }),
 };
 
 // ── Payments API ───────────────────────────────────────────────────────────────
 
 export const paymentsApi = {
   create: (body: { order_id: string; provider?: string }) =>
-    apiRequest<PaymentOut>("/api/v1/payments", { method: "POST", body }),
-  get: (id: string) => apiRequest<PaymentOut>(`/api/v1/payments/${id}`),
-  list: (orderId: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${orderId}`),
-  confirm: (id: string, body: { status: string }) =>
-    apiRequest<PaymentOut>(`/api/v1/payments/${id}/confirm`, { method: "PATCH", body }),
-  verify: (body: { order_id: string; provider_order_id?: string | null; provider_payment_id?: string | null; signature?: string }) =>
-    apiRequest<PaymentOut>(`/api/v1/payments/${body.order_id}/confirm`, { method: "PATCH", body: { status: "paid" } }),
+    apiRequest<PaymentOut>("/api/v1/payments/create", { method: "POST", body }),
+  get: (id: string) => apiRequest<PaymentOut[]>(`/api/v1/payments/orders/${id}`),
+  verify: (body: { order_id: string; provider_order_id: string; provider_payment_id: string; signature: string }) =>
+    apiRequest<PaymentOut>("/api/v1/payments/verify", { method: "POST", body }),
 };
 
 // ── Reviews API ────────────────────────────────────────────────────────────────
@@ -600,22 +675,94 @@ export const reviewsApi = {
 // ── Loyalty API ────────────────────────────────────────────────────────────────
 
 export const loyaltyApi = {
-  me: (shopId?: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: shopId ? { shop_id: shopId } : undefined }),
-  transactions: () => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions"),
+  me: (shop_id: string) => apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me", { query: { shop_id } }),
+  transactions: (shop_id: string) => apiRequest<LoyaltyTransactionOut[]>("/api/v1/loyalty/me/transactions", { query: { shop_id } }),
+  redeem: (body: { shop_id: string; points: number }) =>
+    apiRequest<LoyaltyAccountOut>("/api/v1/loyalty/me/redeem", { method: "POST", body }),
+  adminAdjust: (customerId: string, body: { shop_id: string; points: number }) =>
+    apiRequest<any>(`/api/v1/admin/loyalty/adjust/${customerId}`, { method: "POST", body }),
 };
 
 // ── Admin API ──────────────────────────────────────────────────────────────────
 
 export interface AdminAnalytics {
-  total_revenue: number;
-  total_orders: number;
-  total_users: number;
-  total_shops: number;
-  revenue_by_day: { date: string; revenue: number; orders: number }[];
-  top_shops: { shop_id: string; name: string; revenue: number; orders: number }[];
-  orders_by_status: { status: string; count: number }[];
-  revenue_by_category: { category: string; revenue: number }[];
-  new_signups_by_day: { date: string; signups: number }[];
+  daily_orders: { date: string; orders: number; revenue: number }[];
+  daily_signups: { date: string; signups: number }[];
+  order_by_status: Record<string, number>;
+}
+
+export interface AdminShopOut {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  state: string;
+  phone: string;
+  is_verified: boolean;
+  is_active: boolean;
+  is_open: boolean;
+  is_accepting_orders: boolean;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  owner_name: string;
+  owner_email: string | null;
+  owner_id: string;
+}
+
+export interface AdminShopCounts {
+  total: number;
+  verified: number;
+  active: number;
+  open_now: number;
+}
+
+export interface AdminOrderOut {
+  id: string;
+  order_number?: number | null;
+  customer_id: string;
+  customer_name: string;
+  shop_id: string;
+  shop_name: string;
+  status: string;
+  total_price: number;
+  payment_method: string;
+  payment_status: string;
+  created_at: string;
+}
+
+export interface AdminUserCounts {
+  total: number;
+  active: number;
+  by_role: Record<string, number>;
+}
+
+export interface AdminCategoryRevenue {
+  category: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface AdminTopShop {
+  shop_id: string;
+  shop_name: string;
+  category: string;
+  city: string;
+  is_verified: boolean;
+  revenue: number;
+  order_count: number;
+}
+
+export interface AdminRecentOrder {
+  id: string;
+  order_number?: number | null;
+  customer_id?: string;
+  customer_name?: string;
+  shop_id?: string;
+  shop_name?: string;
+  status: string;
+  total: number;
+  created_at?: string;
 }
 
 export interface AdminUserOut extends UserOut {
@@ -624,39 +771,84 @@ export interface AdminUserOut extends UserOut {
 
 export const adminApi = {
   analytics: (days?: number) =>
-    apiRequest<AdminAnalytics>("/api/v1/admin/analytics", { query: days ? { days } : undefined }),
+    apiRequest<AdminAnalytics>("/api/v1/admin/analytics/trends", { query: days ? { days } : undefined }),
+  trends: (days?: number) =>
+    apiRequest<AdminAnalytics>("/api/v1/admin/analytics/trends", { query: days ? { days } : undefined }),
+  topShops: (limit = 10) =>
+    apiRequest<AdminTopShop[]>("/api/v1/admin/analytics/top-shops", { query: { limit } }),
+  recentOrders: (limit = 10) =>
+    apiRequest<AdminRecentOrder[]>("/api/v1/admin/analytics/recent-orders", { query: { limit } }),
+  revenueByCategory: () =>
+    apiRequest<AdminCategoryRevenue[]>("/api/v1/admin/analytics/revenue-by-category"),
   users: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
     apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
+  listUsers: (params: { search?: string; role?: string; page?: number; page_size?: number } = {}) =>
+    apiRequest<AdminUserOut[]>("/api/v1/admin/users", { query: params }),
+  countUsers: () =>
+    apiRequest<AdminUserCounts>("/api/v1/admin/users/count"),
+  setUserActive: (userId: string, body: { is_active: boolean }) =>
+    apiRequest<{ updated: boolean; user_id: string; is_active: boolean }>(
+      `/api/v1/admin/users/${userId}/active`,
+      { method: "PATCH", query: { is_active: body.is_active } },
+    ),
+  changeUserRole: (userId: string, body: { role: string }) =>
+    apiRequest<{ updated: boolean; user_id: string; role: string }>(
+      `/api/v1/admin/users/${userId}/role`,
+      { method: "PATCH", query: { role: body.role } },
+    ),
   updateUser: (userId: string, body: { role?: string; is_active?: boolean }) =>
     apiRequest<AdminUserOut>(`/api/v1/admin/users/${userId}`, { method: "PATCH", body }),
   createUser: (body: { name: string; phone: string; email?: string; password: string; role: string }) =>
     apiRequest<AdminUserOut>("/api/v1/admin/users", { method: "POST", body }),
-  shops: (params: { search?: string; is_verified?: boolean; page?: number; page_size?: number } = {}) =>
-    apiRequest<ShopOut[]>("/api/v1/admin/shops", { query: params }),
+  shops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
+    apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
+  listShops: (params: { page?: number; page_size?: number; search?: string; verified?: boolean; active?: boolean } = {}) =>
+    apiRequest<AdminShopOut[]>("/api/v1/admin/shops", { query: params }),
+  countShops: () =>
+    apiRequest<AdminShopCounts>("/api/v1/admin/shops/count"),
+  verifyShop: (shopId: string, body: { is_verified: boolean }) =>
+    apiRequest<{ updated: boolean; shop_id: string; is_verified: boolean }>(
+      `/api/v1/admin/shops/${shopId}/verify`,
+      { 
+        method: "PATCH", 
+        query: { verified: body.is_verified },
+        body: { is_verified: body.is_verified }
+      },
+    ),
+  setShopActive: (shopId: string, body: { is_active: boolean }) =>
+    apiRequest<{ updated: boolean; shop_id: string; is_active: boolean }>(
+      `/api/v1/admin/shops/${shopId}/active`,
+      { 
+        method: "PATCH", 
+        query: { is_active: body.is_active },
+        body: { is_active: body.is_active }
+      },
+    ),
   updateShop: (shopId: string, body: { is_verified?: boolean; is_active?: boolean }) =>
     apiRequest<ShopOut>(`/api/v1/admin/shops/${shopId}`, { method: "PATCH", body }),
+  listOrders: (params: { status?: string; page?: number; page_size?: number } = {}) =>
+    apiRequest<AdminOrderOut[]>("/api/v1/admin/orders", { query: params }),
   orders: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/admin/orders", { query: params }),
-  loyalty: (userId: string, body: { delta: number; reason: string }) =>
-    apiRequest<LoyaltyAccountOut>(`/api/v1/admin/loyalty/${userId}`, { method: "POST", body }),
-};
-
-// ── Notifications API ──────────────────────────────────────────────────────────
-
-export interface NotificationOut {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
-}
-
-export const notificationsApi = {
-  list: () => apiRequest<NotificationOut[]>("/api/v1/notifications"),
-  markRead: (id: string) => apiRequest<{ success: boolean }>(`/api/v1/notifications/${id}/read`, { method: "PATCH" }),
-  markAllRead: () => apiRequest<{ success: boolean }>("/api/v1/notifications/read-all", { method: "POST" }),
+  updateOrderStatus: (orderId: string, status: string) =>
+    apiRequest<{ updated: boolean; order_id: string; new_status: string }>(
+      `/api/v1/admin/orders/${orderId}/status`,
+      { 
+        method: "PUT", 
+        query: { status } 
+      }
+    ),
+  loyalty: (userId: string, body: { shopId: string; points: number }) =>
+    apiRequest<LoyaltyAccountOut>(
+      `/api/v1/loyalty/admin/adjust/${userId}`, 
+      { 
+        method: "POST", 
+        query: { 
+          shop_id: body.shopId, 
+          points: body.points 
+        } 
+      }
+    ),
 };
 
 // ── Health ─────────────────────────────────────────────────────────────────────
@@ -664,4 +856,3 @@ export const notificationsApi = {
 export const healthApi = {
   check: () => apiRequest<{ status: string }>("/health"),
 };
-

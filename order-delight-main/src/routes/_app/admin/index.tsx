@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -81,11 +81,6 @@ function StatCard({
 function AdminOverview() {
   const [trendDays, setTrendDays] = useState("30");
 
-  const { data: overview, isLoading: ovLoading } = useQuery({
-    queryKey: ["admin", "analytics", "overview"],
-    queryFn: adminApi.analytics(30),
-    refetchInterval: 60_000,
-  });
   const { data: trends, isLoading: trLoading } = useQuery({
     queryKey: ["admin", "analytics", "trends", trendDays],
     queryFn: () => adminApi.trends(Number(trendDays)),
@@ -101,10 +96,10 @@ function AdminOverview() {
   });
   const { data: catRevenue } = useQuery({
     queryKey: ["admin", "analytics", "category-revenue"],
-    queryFn: adminApi.revenueByCategory,
+    queryFn: () => adminApi.revenueByCategory(),
   });
 
-  if (ovLoading) {
+  if (trLoading) {
     return (
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -115,14 +110,16 @@ function AdminOverview() {
     );
   }
 
-  const ov = overview;
-  const pieData = ov
-    ? [
-        { name: "Customers", value: ov.users - ((ov as any).shop_owners ?? 0) },
-        { name: "Verified Shops", value: ov.verified_shops },
-        { name: "Unverified Shops", value: ov.shops - ov.verified_shops },
-      ]
-    : [];
+  const dailyOrders = trends?.daily_orders ?? [];
+  const dailySignups = trends?.daily_signups ?? [];
+  const totalRevenue = dailyOrders.reduce((sum: number, day) => sum + day.revenue, 0);
+  const totalOrders = dailyOrders.reduce((sum: number, day) => sum + day.orders, 0);
+  const latestOrderDay = dailyOrders[dailyOrders.length - 1];
+  const latestSignupDay = dailySignups[dailySignups.length - 1];
+  const last7Revenue = dailyOrders.slice(-7).reduce((sum: number, day) => sum + day.revenue, 0);
+  const totalSignups = dailySignups.reduce((sum: number, item) => sum + item.signups, 0);
+  const cancelledOrders = trends?.order_by_status?.cancelled ?? 0;
+  const statusCount = Object.keys(trends?.order_by_status ?? {}).length;
 
   const statusPieData = trends
     ? Object.entries(trends.order_by_status).map(([k, v]) => ({ name: k, value: v }))
@@ -138,18 +135,18 @@ function AdminOverview() {
 
       {/* Primary Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Total Revenue" value={formatCurrency(ov?.total_revenue ?? 0)} icon={DollarSign} sub="All time" />
-        <StatCard label="This Month" value={formatCurrency(ov?.month_revenue ?? 0)} icon={TrendingUp} sub="Non-cancelled orders" />
-        <StatCard label="Today" value={formatCurrency(ov?.today_revenue ?? 0)} icon={Clock} sub={`${ov?.today_orders ?? 0} orders today`} />
-        <StatCard label="This Week" value={formatCurrency(ov?.week_revenue ?? 0)} icon={ArrowUpRight} sub="Current week" />
+        <StatCard label="Total Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} sub={`Last ${trendDays} days`} />
+        <StatCard label="Total Orders" value={totalOrders} icon={ShoppingBag} sub={`Last ${trendDays} days`} />
+        <StatCard label="Latest Day Revenue" value={formatCurrency(latestOrderDay?.revenue ?? 0)} icon={Clock} sub={`${latestOrderDay?.orders ?? 0} orders on ${latestOrderDay?.date ?? "-"}`} />
+        <StatCard label="Last 7 Days" value={formatCurrency(last7Revenue)} icon={ArrowUpRight} sub="Recent week" />
       </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Total Users" value={ov?.users ?? 0} icon={Users} sub={`${ov?.active_users ?? 0} active`} />
-        <StatCard label="Total Shops" value={ov?.shops ?? 0} icon={Store} sub={`${ov?.verified_shops ?? 0} verified`} />
-        <StatCard label="Total Orders" value={ov?.orders ?? 0} icon={ShoppingBag} sub={`${ov?.pending_orders ?? 0} pending`} />
-        <StatCard label="Cancelled" value={ov?.cancelled_orders ?? 0} icon={AlertCircle} sub="Platform-wide" />
+        <StatCard label="New Signups" value={totalSignups} icon={Users} sub={`Last ${trendDays} days`} />
+        <StatCard label="Status Categories" value={statusCount} icon={Store} sub="Order status breakdown" />
+        <StatCard label="Cancelled Orders" value={cancelledOrders} icon={AlertCircle} sub="From status mix" />
+        <StatCard label="Latest Signups" value={latestSignupDay?.signups ?? 0} icon={Star} sub={latestSignupDay ? latestSignupDay.date : "No data"} />
       </div>
 
       {/* Revenue + Signups Charts */}
@@ -344,11 +341,15 @@ function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {(recentOrders ?? []).map((o) => (
+              {(recentOrders ?? []).map((o: any) => (
                 <div key={o.id} className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium">{o.customer_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{o.shop_name}</p>
+                    <p className="truncate text-sm font-medium">
+                      Order #{o.order_number ?? o.id.slice(0, 8).toUpperCase()}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {o.created_at ? formatDate(o.created_at) : "Recent transaction"}
+                    </p>
                   </div>
                   <Badge
                     variant="outline"
@@ -357,7 +358,9 @@ function AdminOverview() {
                   >
                     {o.status}
                   </Badge>
-                  <p className="shrink-0 text-sm font-semibold">{formatCurrency(o.total)}</p>
+                  <p className="shrink-0 text-sm font-semibold">
+                    {formatCurrency(o.total_price ?? o.total ?? 0)}
+                  </p>
                 </div>
               ))}
               {!recentOrders || recentOrders.length === 0 ? (
