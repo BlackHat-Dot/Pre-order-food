@@ -18,9 +18,11 @@ declare global {
   }
 }
 
+const RAILWAY_BACKEND_URL = "https://pre-order-food-production.up.railway.app";
+
 export const API_BASE_URL: string = import.meta.env.SSR
-  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8000")
-  : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "");
+  ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? RAILWAY_BACKEND_URL)
+  : ((import.meta.env.VITE_PUBLIC_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? RAILWAY_BACKEND_URL);
 
 const ACCESS_KEY = "pof_access_token";
 const REFRESH_KEY = "pof_refresh_token";
