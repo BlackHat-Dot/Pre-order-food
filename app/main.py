@@ -14,11 +14,7 @@ from fastapi.middleware.gzip import (
     GZipMiddleware,
 )
 from fastapi.responses import (
-    FileResponse,
     JSONResponse,
-)
-from fastapi.staticfiles import (
-    StaticFiles,
 )
 from sqlalchemy import text
 
@@ -299,7 +295,15 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "https://pre-order-food-frontend.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+        ],
+        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -346,123 +350,18 @@ def create_app() -> FastAPI:
         )
 
     # ─────────────────────────────────────────
-    # Frontend Hosting
+    # Root API Endpoint
     # ─────────────────────────────────────────
 
-    candidate_frontends = [
-        (
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            / "frontend-vanilla"
-        ),
-        (
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            / "frontend"
-        ),
-        (
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            / "order-delight-main"
-            / "dist"
-        ),
-    ]
-
-    frontend_dir = next(
-        (
-            path
-            for path in candidate_frontends
-            if path.exists()
-        ),
-        None,
-    )
-
-    if frontend_dir is not None:
-        app.mount(
-            "/static",
-            StaticFiles(
-                directory=str(
-                    frontend_dir
-                )
-            ),
-            name="static",
-        )
-
-        css_dir = frontend_dir / "css"
-        if css_dir.exists():
-            app.mount(
-                "/css",
-                StaticFiles(
-                    directory=str(
-                        css_dir
-                    )
-                ),
-                name="css",
-            )
-
-        js_dir = frontend_dir / "js"
-        if js_dir.exists():
-            app.mount(
-                "/js",
-                StaticFiles(
-                    directory=str(
-                        js_dir
-                    )
-                ),
-                name="js",
-            )
-
-        @app.get(
-            "/",
-            include_in_schema=False,
-        )
-        async def frontend_index(
-        ) -> FileResponse:
-            return FileResponse(
-                str(
-                    frontend_dir
-                    / "index.html"
-                )
-            )
-
-        @app.get(
-            "/{page_name}.html",
-            include_in_schema=False,
-        )
-        async def frontend_page(
-            page_name: str,
-        ) -> FileResponse:
-            target = (
-                frontend_dir
-                / f"{page_name}.html"
-            )
-            if target.exists():
-                return FileResponse(
-                    str(target)
-                )
-            return FileResponse(
-                str(
-                    frontend_dir
-                    / "index.html"
-                )
-            )
-
-    else:
-
-        @app.get(
-            "/",
-            include_in_schema=False,
-        )
-        async def root() -> dict:
-            return {
-                "status": "ok",
-                "message": (
-                    "Backend running"
-                ),
-            }
+    @app.get("/", include_in_schema=False)
+    async def root() -> dict:
+        return {
+            "status": "ok",
+            "message": "PreOrder API backend running",
+            "docs": "/docs",
+            "health": "/health",
+            "api": "/api/v1",
+        }
 
     # ─────────────────────────────────────────
     # Health

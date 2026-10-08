@@ -1,72 +1,14 @@
 #!/bin/bash
-
 set -e
 
-export NODE_ENV=production
-export PORT=${PORT:-5000}
-export BACKEND_PORT=${BACKEND_PORT:-8000}
+export PORT=${PORT:-8000}
 export PYTHONPATH="${PYTHONPATH}:/app"
 
 cd /app
 
 echo "=================================="
-echo "Pre-Order Food: Railway Deployment"
+echo "Pre-Order Food: Backend API Service"
 echo "=================================="
+echo "Starting FastAPI backend on port $PORT..."
 
-echo "Node:"
-which node
-node -v
-
-echo "NPM:"
-which npm
-npm -v
-
-echo "Frontend port: $PORT"
-echo "Backend port: $BACKEND_PORT"
-echo "Working directory: $(pwd)"
-echo "Python path: $PYTHONPATH"
-echo ""
-
-if [ -n "$DATABASE_URL" ]; then
-    echo "Running database migrations..."
-
-    PYTHONPATH="/app" /opt/venv/bin/alembic upgrade head
-    migration_status=$?
-
-    if [ $migration_status -ne 0 ]; then
-        echo "✗ Migration failed with status $migration_status"
-        exit 1
-    else
-        echo "✓ Migrations completed successfully"
-    fi
-
-    echo ""
-fi
-
-echo "Starting runtime processes..."
-echo "Starting backend and frontend SSR services..."
-
-if [ ! -d "/app/node_modules" ]; then
-    echo "Installing root Node dependencies..."
-    npm install --ignore-scripts
-fi
-
-echo "Preparing frontend..."
-
-cd /app/order-delight-main
-
-if [ ! -d "node_modules" ]; then
-    echo "Installing frontend dependencies..."
-    npm install
-fi
-
-echo "Building frontend with Railway environment variables..."
-npm run build
-
-cd /app
-
-chmod +x /app/node_modules/.bin/concurrently || true
-
-exec node ./node_modules/concurrently/dist/bin/concurrently.js \
-  "cd /app/order-delight-main && npm start" \
-  "cd /app && PYTHONPATH=/app uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT"
+exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
