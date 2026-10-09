@@ -387,6 +387,9 @@ export interface OrderOut {
   loyalty_points_used: number;
   customer_name?: string;
   shop_name?: string;
+  order_type?: string;
+  delivery_address?: string | null;
+  delivery_address_id?: string | null;
 }
 
 export interface ReviewOut {

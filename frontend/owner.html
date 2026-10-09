@@ -109,6 +109,7 @@ function board() {
     return `<article class="ticket ${hold ? 'hold' : o.status === 'completed' ? 'done' : ''}">
       <div style="display:flex;justify-content:space-between;gap:12px"><div><h3 class="h2">${esc(num)}</h3><div class="small muted">${formatDate(o.created_at)} · ${o.order_type === 'delivery' ? 'Delivery' : 'Counter'}</div></div><span class="status">${LABEL[o.status] || esc(o.status)}</span></div>
       <div class="small"><strong>${esc(o.customer?.name || 'Diner')}</strong> <span class="muted">${esc(o.customer?.phone || '')}</span></div>
+      ${o.order_type === 'delivery' && (o.delivery_address || o.delivery_address_id) ? `<div class="small muted">📍 ${esc(o.delivery_address || o.delivery_address_id)}</div>` : ''}
       ${o.instructions ? `<div class="note"><strong>Note:</strong> ${esc(o.instructions)}</div>` : ''}
       <div>${(o.items || []).map(i => `<div class="kv"><dt><strong>${i.quantity}×</strong> ${esc(i.item_name_snapshot || i.item_name || 'Dish')}${(i.variant_name_snapshot || i.variant_name) ? ` <span class="muted">(${esc(i.variant_name_snapshot || i.variant_name)})</span>` : ''}</dt><dd class="num">${formatPrice(i.total_price || i.unit_price * i.quantity)}</dd></div>`).join('')}</div>
       <div class="totals"><span class="small muted">${esc((o.payment_method || 'cod').toUpperCase())} · ${esc(o.payment_status || 'unpaid')}</span><span class="num">${formatPrice(o.total_price || o.total_amount)}</span></div>

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useRef } from "react";
-import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, ShieldAlert, Bike, UtensilsCrossed, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Plus, Pencil, Trash2, Copy, Eye, Zap, User, Phone, Mail, ShieldAlert, Bike, UtensilsCrossed, Upload, Image as ImageIcon, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import {
   menuApi,
@@ -783,7 +783,8 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
             const isCurrentOrderUpdating = updatingOrderId === o.id;
 
             const fulfillmentType = String(o.order_type || "delivery").toLowerCase();
-            const isTableMode = fulfillmentType === "table_booking" || !o.delivery_address_id;
+            const isDining = fulfillmentType === "table_booking" || fulfillmentType === "dining" || fulfillmentType === "dine_in";
+            const isTableMode = isDining;
 
             const methodDisplay = String(o.payment_method || "cod").toUpperCase();
             const isSettled = String(o.payment_status || "pending").toLowerCase() === "paid";
@@ -970,10 +971,23 @@ function OrdersTab({ shopId, forceRequestsOnly = false }: { shopId: string; forc
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] bg-background border p-3 rounded-lg border-border/50">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Destination</p>
-                        <p className="font-medium text-foreground">{isTableMode ? "🪑 Dine-In Table Booking" : o.delivery_address_id || "Counter Pickup"}</p>
-                      </div>
+                      {isDining ? (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Fulfillment Mode</p>
+                          <p className="font-medium text-foreground flex items-center gap-1.5">
+                            <UtensilsCrossed className="h-3.5 w-3.5 text-amber-500" /> Dine-In Table Booking
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-primary" /> Delivery Address
+                          </p>
+                          <p className="font-medium text-foreground leading-relaxed break-words">
+                            {o.delivery_address || (o.delivery_address_id && (o.delivery_address_id.length !== 36 || !o.delivery_address_id.includes("-")) ? o.delivery_address_id : "📍 Address provided on customer profile")}
+                          </p>
+                        </div>
+                      )}
                       <div className="space-y-1 md:border-l md:pl-4 border-border/40">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Financial Protocol</p>
                         <p className="font-medium text-foreground">{methodDisplay} ({isSettled ? "Settled paid" : "Unpaid state"})</p>

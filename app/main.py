@@ -84,6 +84,7 @@ async def create_database_tables() -> None:
                     "ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT nextval('orders_order_number_seq');",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(30) NOT NULL DEFAULT 'delivery';",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address_id VARCHAR(255);",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id VARCHAR(36);",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount_applied FLOAT NOT NULL DEFAULT 0;",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;",
@@ -105,6 +106,11 @@ async def create_database_tables() -> None:
                     await conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret_encrypted VARCHAR(255);"))
                 if "totp_enabled" not in col_names:
                     await conn.execute(text("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0;"))
+
+                orders_cols_res = await conn.execute(text("PRAGMA table_info(orders);"))
+                orders_col_names = {row[1] for row in orders_cols_res.fetchall()}
+                if "delivery_address" not in orders_col_names:
+                    await conn.execute(text("ALTER TABLE orders ADD COLUMN delivery_address TEXT;"))
 
         logger.info(
             "Database schema ready"

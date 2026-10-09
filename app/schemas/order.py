@@ -155,6 +155,10 @@ class OrderCreate(
         str | None
     ) = None
 
+    delivery_address: (
+        str | None
+    ) = None
+
 
 # ─────────────────────────────────────────────────────────────
 # Status Updates
@@ -292,6 +296,10 @@ class OrderOut(
     order_type: str
 
     delivery_address_id: (
+        str | None
+    ) = None
+
+    delivery_address: (
         str | None
     ) = None
 

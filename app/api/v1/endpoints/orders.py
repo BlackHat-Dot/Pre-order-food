@@ -126,6 +126,47 @@ async def get_order_with_relations(
     ).scalar_one_or_none()
 
 
+async def populate_delivery_addresses(
+    db: AsyncSession,
+    orders: list[Order],
+) -> None:
+    delivery_orders = [o for o in orders if getattr(o, "order_type", "delivery") == "delivery"]
+    for o in orders:
+        if getattr(o, "order_type", "delivery") in {"table_booking", "dining", "dine_in"}:
+            o.delivery_address = None
+
+    needs_lookup_ids = {
+        o.delivery_address_id
+        for o in delivery_orders
+        if o.delivery_address_id
+        and not getattr(o, "delivery_address", None)
+        and len(o.delivery_address_id) == 36
+        and "-" in o.delivery_address_id
+    }
+
+    if needs_lookup_ids:
+        from app.models.address import UserAddress
+        addr_stmt = select(UserAddress).where(UserAddress.id.in_(needs_lookup_ids))
+        addrs = (await db.execute(addr_stmt)).scalars().all()
+        addr_map = {}
+        for a in addrs:
+            parts = [a.address_line]
+            if a.landmark:
+                parts.append(f"Near {a.landmark}")
+            addr_map[a.id] = ", ".join(parts)
+
+        for o in delivery_orders:
+            if not getattr(o, "delivery_address", None):
+                if o.delivery_address_id in addr_map:
+                    o.delivery_address = addr_map[o.delivery_address_id]
+                elif o.delivery_address_id and (len(o.delivery_address_id) != 36 or "-" not in o.delivery_address_id):
+                    o.delivery_address = o.delivery_address_id
+    else:
+        for o in delivery_orders:
+            if not getattr(o, "delivery_address", None) and o.delivery_address_id and (len(o.delivery_address_id) != 36 or "-" not in o.delivery_address_id):
+                o.delivery_address = o.delivery_address_id
+
+
 async def get_order_or_404(
     db: AsyncSession,
     order_id: str,
@@ -140,6 +181,8 @@ async def get_order_or_404(
             status_code=404,
             detail="Order not found",
         )
+
+    await populate_delivery_addresses(db, [order])
 
     return order
 
@@ -633,6 +676,24 @@ async def create_order(
         max_num = max_num_res.scalar() or 1000
         order_extra["order_number"] = max_num + 1
 
+    resolved_delivery_address = None
+    if payload.order_type == "delivery":
+        raw_addr = getattr(payload, "delivery_address", None) or getattr(payload, "delivery_address_id", None)
+        if raw_addr:
+            from app.models.address import UserAddress
+            addr_stmt = select(UserAddress).where(
+                UserAddress.id == raw_addr,
+                UserAddress.user_id == user.id,
+            )
+            user_addr = (await db.execute(addr_stmt)).scalar_one_or_none()
+            if user_addr:
+                parts = [user_addr.address_line]
+                if user_addr.landmark:
+                    parts.append(f"Near {user_addr.landmark}")
+                resolved_delivery_address = ", ".join(parts)
+            elif len(raw_addr) != 36 or "-" not in raw_addr:
+                resolved_delivery_address = raw_addr
+
     try:
         order = Order(
             id=new_id(),
@@ -665,6 +726,7 @@ async def create_order(
                 "delivery_address_id",
                 None,
             ),
+            delivery_address=resolved_delivery_address,
             loyalty_points_used=(
                 loyalty_points
             ),
@@ -858,7 +920,10 @@ async def customer_orders(
         await db.execute(stmt)
     ).scalars().all()
 
-    return list(orders)
+    orders_list = list(orders)
+    await populate_delivery_addresses(db, orders_list)
+
+    return orders_list
 
 
 # ─────────────────────────────────────────────────────────────
@@ -958,7 +1023,10 @@ async def shop_orders(
         await db.execute(stmt)
     ).scalars().all()
 
-    return list(orders)
+    orders_list = list(orders)
+    await populate_delivery_addresses(db, orders_list)
+
+    return orders_list
 
 
 # ─────────────────────────────────────────────────────────────

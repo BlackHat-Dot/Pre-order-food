@@ -131,6 +131,11 @@ class Order(Base):
         nullable=True,
     )
 
+    delivery_address: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     coupon_id: Mapped[str | None] = mapped_column(
         String(36),
         nullable=True,
