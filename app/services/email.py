@@ -113,7 +113,7 @@ async def send_otp_email(
         resend = _get_resend()
         resend.api_key = settings.RESEND_API_KEY
 
-        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <onboarding@resend.dev>"
+        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <otp@relaydtc.online>"
 
         print("RESEND_API_KEY:", repr(settings.RESEND_API_KEY))
         print("RESEND_FROM_EMAIL:", repr(settings.RESEND_FROM_EMAIL))
@@ -312,7 +312,7 @@ async def send_coupon_email(
         resend = _get_resend()
         resend.api_key = settings.RESEND_API_KEY
 
-        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <onboarding@resend.dev>"
+        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <otp@relaydtc.online>"
 
         resend.Emails.send({
             "from": from_addr,
