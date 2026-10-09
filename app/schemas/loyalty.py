@@ -38,8 +38,6 @@ class LoyaltyTransactionOut(
 
     id: str
 
-    account_id: str
-
     order_id: str | None
 
     points: int

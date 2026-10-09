@@ -58,12 +58,12 @@ function LoyaltyPage() {
 
   // 3. Fetch shop discount metrics to calculate dynamic coupon value transformations
   const { data: shop } = useQuery({
-    queryKey: ["shop", shopId],
-    queryFn: () => shopsApi.get(shopId),
+    queryKey: ["shop", "loyaltyRate", shopId],
+    queryFn: () => shopsApi.graphqlLoyaltyRate(shopId),
     enabled: !!shopId,
   });
 
-  const discountPerPoint = (shop as any)?.loyalty_discount_per_point ?? 0.1;
+  const discountPerPoint = shop?.loyalty_discount_per_point ?? 0.1;
   const currentBalance = account?.points_balance ?? 0;
 
   // 4. Coupon minting mutation engine pointing directly to your new backend route
@@ -136,7 +136,7 @@ function LoyaltyPage() {
                 </p>
                 {shop && (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Value factor at <span className="font-semibold text-foreground">{(shop as any).name}</span>: 1 pt = {formatCurrency(discountPerPoint)} discount
+                    Value factor at <span className="font-semibold text-foreground">{shop.name}</span>: 1 pt = {formatCurrency(discountPerPoint)} discount
                   </p>
                 )}
               </div>

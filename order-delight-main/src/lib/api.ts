@@ -439,7 +439,7 @@ export interface LoyaltyAccountOut {
 
 export interface LoyaltyTransactionOut {
   id: string;
-  account_id: string;
+  account_id?: string;
   order_id: string | null;
   points: number;
   action: string;
@@ -659,6 +659,35 @@ export const shopsApi = {
     }));
 
     return { shops, totalCount: data.shopsCount };
+  },
+  graphqlLoyaltyRate: async (id: string): Promise<{ id: string; name: string; loyalty_discount_per_point: number } | null> => {
+    try {
+      const query = `
+        query GetShopLoyaltyRate($id: ID!) {
+          shop(id: $id) {
+            id
+            name
+            loyaltyDiscountPerPoint
+          }
+        }
+      `;
+      const data = await graphqlRequest<{
+        shop: {
+          id: string;
+          name: string;
+          loyaltyDiscountPerPoint: number;
+        } | null;
+      }>(query, { id });
+
+      if (!data?.shop) return null;
+      return {
+        id: data.shop.id,
+        name: data.shop.name,
+        loyalty_discount_per_point: data.shop.loyaltyDiscountPerPoint,
+      };
+    } catch {
+      return null;
+    }
   },
   count: async (params: { search?: string; cuisine?: string; city?: string } = {}) => {
     const backendQuery = {
