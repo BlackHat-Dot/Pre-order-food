@@ -227,6 +227,13 @@ def create_app() -> FastAPI:
             "Application startup"
         )
 
+        if is_prod and not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+            logger.warning(
+                "RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not configured in %s. "
+                "Online card/UPI payments are disabled. Cash on Delivery (COD) and coupon orders remain active.",
+                settings.ENV,
+            )
+
         try:
             if is_prod and not settings.REDIS_URL:
                 raise RuntimeError("REDIS_URL is strictly required when running in production or staging")

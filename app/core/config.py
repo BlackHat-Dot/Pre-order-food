@@ -111,6 +111,8 @@ class Settings(BaseSettings):
 
     RAZORPAY_KEY_SECRET: str | None = None
 
+    REQUIRE_PAYMENT_GATEWAY: bool = False
+
     # ─────────────────────────────────────────
     # MSG91
     # ─────────────────────────────────────────
@@ -203,9 +205,9 @@ class Settings(BaseSettings):
                     "REDIS_URL is strictly required when running in production or staging"
                 )
 
-            if not self.RAZORPAY_KEY_ID or not self.RAZORPAY_KEY_SECRET:
+            if self.REQUIRE_PAYMENT_GATEWAY and (not self.RAZORPAY_KEY_ID or not self.RAZORPAY_KEY_SECRET):
                 raise ValueError(
-                    "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are strictly required in production or staging"
+                    "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are strictly required when REQUIRE_PAYMENT_GATEWAY is enabled"
                 )
 
             if self.ENABLE_ADMIN_SEED:
