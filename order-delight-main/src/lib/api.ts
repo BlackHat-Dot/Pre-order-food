@@ -222,6 +222,22 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return attempt(retries);
 }
 
+// ── GraphQL Helper ─────────────────────────────────────────────────────────────
+
+export async function graphqlRequest<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const result = await apiRequest<{ data?: T; errors?: Array<{ message: string }> }>("/graphql", {
+    method: "POST",
+    body: { query, variables },
+  });
+  if (result.errors && result.errors.length > 0) {
+    throw new ApiError(400, result.errors[0].message, result.errors);
+  }
+  if (!result.data) {
+    throw new ApiError(500, "Empty GraphQL response");
+  }
+  return result.data;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type Role = "customer" | "shop_owner" | "admin";
@@ -356,6 +372,9 @@ export interface OrderItemOut {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  item_name_snapshot?: string;
+  variant_name_snapshot?: string;
+  total_price?: number;
 }
 
 export interface PaymentOut {
@@ -581,6 +600,66 @@ export const shopsApi = {
     const rows = await apiRequest<BackendShopOut[]>("/api/v1/shops", { query: backendQuery, auth: false, retries: 2 });
     return rows.map(mapShopFromBackend);
   },
+  graphqlList: async (params: { page?: number; page_size?: number; search?: string } = {}): Promise<{
+    shops: ShopOut[];
+    totalCount: number;
+  }> => {
+    const query = `
+      query GetDiscoverShops($page: Int!, $pageSize: Int!, $search: String) {
+        shops(page: $page, pageSize: $pageSize, search: $search) {
+          id
+          name
+          imageUrl
+          isOpen
+          isVerified
+          ratingAvg
+          ratingCount
+          category
+          addressLine
+        }
+        shopsCount(search: $search)
+      }
+    `;
+    const data = await graphqlRequest<{
+      shops: Array<{
+        id: string;
+        name: string;
+        imageUrl: string | null;
+        isOpen: boolean;
+        isVerified: boolean;
+        ratingAvg: number;
+        ratingCount: number;
+        category: string;
+        addressLine: string;
+      }>;
+      shopsCount: number;
+    }>(query, {
+      page: params.page || 1,
+      pageSize: params.page_size || 5,
+      search: params.search || null,
+    });
+
+    const shops: ShopOut[] = (data.shops || []).map((s) => ({
+      id: s.id,
+      owner_id: "",
+      name: s.name,
+      phone: "",
+      description: null,
+      address: s.addressLine,
+      cuisine: s.category,
+      image_url: s.imageUrl,
+      is_verified: s.isVerified,
+      is_active: true,
+      is_open: s.isOpen,
+      is_accepting_orders: true,
+      rating: s.ratingAvg,
+      total_reviews: s.ratingCount,
+      loyalty_discount_per_point: 0.1,
+      created_at: "",
+    }));
+
+    return { shops, totalCount: data.shopsCount };
+  },
   count: async (params: { search?: string; cuisine?: string; city?: string } = {}) => {
     const backendQuery = {
       q: params.search,
@@ -676,6 +755,83 @@ export const ordersApi = {
 
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }),
+
+  graphqlList: async (params: { status?: OrderStatus; page?: number; page_size?: number } = {}): Promise<OrderOut[]> => {
+    const query = `
+      query GetCustomerOrders($status: String, $page: Int!, $pageSize: Int!) {
+        myOrders(status: $status, page: $page, pageSize: $pageSize) {
+          id
+          orderNumber
+          status
+          totalPrice
+          shopName
+          createdAt
+          items {
+            id
+            quantity
+            itemName
+            variantName
+            unitPrice
+            totalPrice
+          }
+        }
+      }
+    `;
+    const data = await graphqlRequest<{
+      myOrders: Array<{
+        id: string;
+        orderNumber: number | null;
+        status: string;
+        totalPrice: number;
+        shopName: string | null;
+        createdAt: string;
+        items: Array<{
+          id: string;
+          quantity: number;
+          itemName: string;
+          variantName: string | null;
+          unitPrice: number;
+          totalPrice: number;
+        }>;
+      }>;
+    }>(query, {
+      status: params.status || null,
+      page: params.page || 1,
+      pageSize: params.page_size || 50,
+    });
+
+    return (data.myOrders || []).map((o) => ({
+      id: o.id,
+      order_number: o.orderNumber,
+      shop_id: "",
+      customer_id: "",
+      status: o.status as OrderStatus,
+      total_price: o.totalPrice,
+      shop_name: o.shopName || undefined,
+      instructions: null,
+      scheduled_at: null,
+      created_at: o.createdAt,
+      updated_at: o.createdAt,
+      prep_time_minutes: 0,
+      loyalty_points_earned: 0,
+      loyalty_points_used: 0,
+      payment: null,
+      items: (o.items || []).map((i) => ({
+        id: i.id,
+        item_id: "",
+        menu_item_id: "",
+        variant_id: null,
+        item_name_snapshot: i.itemName,
+        name: i.itemName,
+        variant_name_snapshot: i.variantName || undefined,
+        variant_name: i.variantName || null,
+        quantity: i.quantity,
+        unit_price: i.unitPrice,
+        subtotal: i.totalPrice,
+        total_price: i.totalPrice,
+      })),
+    }));
+  },
 
   get: (id: string) => apiRequest<OrderOut>(`/api/v1/orders/${id}`),
 
@@ -937,3 +1093,24 @@ export const uploadsApi = {
     return res.json();
   },
 };
+
+// ── Notifications API ──────────────────────────────────────────────────────────
+
+export interface NotificationOut {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  me: () => apiRequest<NotificationOut[]>("/api/v1/notifications/me"),
+  list: () => apiRequest<NotificationOut[]>("/api/v1/notifications/me"),
+  markRead: (id: string) =>
+    apiRequest<{ success: boolean }>(`/api/v1/notifications/${id}/read`, { method: "PATCH" }),
+  markAllRead: () =>
+    apiRequest<{ success: boolean; message?: string }>("/api/v1/notifications/read-all", { method: "POST" }),
+};

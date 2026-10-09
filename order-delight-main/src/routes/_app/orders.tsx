@@ -282,7 +282,7 @@ function OrdersPage() {
   const { data = [], isLoading } = useQuery({
     queryKey: ["my-orders", status],
     queryFn: () =>
-      ordersApi.list({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
+      ordersApi.graphqlList({ page: 1, page_size: 50, status: status === "all" ? undefined : (status as OrderStatus) }),
   });
 
   if (activeOrderId) {

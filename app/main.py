@@ -27,6 +27,7 @@ except Exception:
 import app.models  # noqa: F401
 
 from app.api.v1.router import api_router
+from app.graphql.router import graphql_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.security import hash_password
@@ -461,6 +462,11 @@ def create_app() -> FastAPI:
     app.include_router(
         api_router,
         prefix="/api/v1",
+    )
+
+    app.include_router(
+        graphql_router,
+        prefix="/graphql",
     )
 
     return app

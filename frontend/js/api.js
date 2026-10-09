@@ -364,6 +364,28 @@ export const api = {
     return request('/notifications/read-all', {
       method: 'POST'
     });
+  },
+
+  // ── GraphQL ──
+  async graphql(query, variables) {
+    const gqlUrl = BASE_URL.replace(/\/api\/v1\/?$/, '/graphql');
+    const token = auth.getToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(gqlUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({ query, variables })
+    });
+    const result = await res.json();
+    if (result.errors && result.errors.length) {
+      throw new Error(result.errors[0].message || 'GraphQL error');
+    }
+    return result.data;
   }
 };
 

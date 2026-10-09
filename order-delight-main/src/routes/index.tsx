@@ -147,18 +147,15 @@ function HomePage() {
   const [inputVal, setInputVal] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["shops", "list", search, page],
-    queryFn: () => shopsApi.list({ page, page_size: PAGE_SIZE, search: search || undefined }),
+  const { data: discoverResult, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ["shops", "graphql-list", search, page],
+    queryFn: () => shopsApi.graphqlList({ page, page_size: PAGE_SIZE, search: search || undefined }),
     staleTime: 30 * 1000,
     retry: 2,
   });
 
-  const { data: totalCount = 0 } = useQuery({
-    queryKey: ["shops", "count", search],
-    queryFn: () => shopsApi.count({ search: search || undefined }),
-    staleTime: 30 * 1000,
-  });
+  const data = discoverResult?.shops;
+  const totalCount = discoverResult?.totalCount ?? 0;
 
   const totalShops = typeof totalCount === "number" && totalCount > 0 ? totalCount : (data?.length ?? 0);
   const totalPages = Math.max(1, Math.ceil(totalShops / PAGE_SIZE));
