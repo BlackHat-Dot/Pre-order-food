@@ -260,6 +260,43 @@ class OrderItemOut(
 
 
 # ─────────────────────────────────────────────────────────────
+# Order Creation Output (Lightweight Confirmation)
+# ─────────────────────────────────────────────────────────────
+
+class OrderCreateOut(
+    BaseModel
+):
+
+    id: str
+
+    order_number: int | None = None
+
+    customer_id: str
+
+    shop_id: str
+
+    shop_name: str | None = None
+
+    status: str
+
+    total_price: float
+
+    prep_time_minutes: int
+
+    payment_method: str
+
+    payment_status: str
+
+    order_type: str
+
+    created_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+# ─────────────────────────────────────────────────────────────
 # Order Output
 # ─────────────────────────────────────────────────────────────
 

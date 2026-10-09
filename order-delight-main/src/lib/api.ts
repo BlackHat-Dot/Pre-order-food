@@ -391,6 +391,21 @@ export interface PaymentOut {
   created_at: string;
 }
 
+export interface OrderCreateOut {
+  id: string;
+  order_number?: number | null;
+  shop_id: string;
+  customer_id: string;
+  shop_name?: string | null;
+  status: OrderStatus;
+  total_price: number;
+  prep_time_minutes: number;
+  payment_method: string;
+  payment_status: string;
+  order_type: string;
+  created_at: string;
+}
+
 export interface OrderOut {
   id: string;
   order_number?: number | null;
@@ -782,7 +797,7 @@ export const ordersApi = {
     scheduled_at?: string | null;
     redeem_loyalty_points?: number;
     payment_method: string;
-  }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
+  }) => apiRequest<OrderCreateOut>("/api/v1/orders", { method: "POST", body }),
 
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
     ordersApi.graphqlList(params),

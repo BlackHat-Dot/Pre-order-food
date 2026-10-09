@@ -38,6 +38,7 @@ from app.models.shop import Shop
 from app.models.user import User
 from app.schemas.order import (
     OrderCreate,
+    OrderCreateOut,
     OrderOut,
     OrderStatusUpdate,
 )
@@ -300,7 +301,7 @@ async def restore_loyalty_points(
 
 @router.post(
     "",
-    response_model=OrderOut,
+    response_model=OrderCreateOut,
     status_code=201,
     dependencies=[Depends(rate_limit_checkout)],
 )
@@ -320,7 +321,7 @@ async def create_order(
             )
         ),
     ],
-) -> OrderOut:
+) -> OrderCreateOut:
 
     shop = await get_shop_or_404(
         db,
@@ -703,6 +704,8 @@ async def create_order(
     try:
         order = Order(
             id=new_id(),
+            status="pending",
+            created_at=datetime.now(timezone.utc),
             customer_id=user.id,
             shop_id=shop.id,
             total_price=round(
@@ -781,14 +784,8 @@ async def create_order(
         ),
     )
 
-    created_order = (
-        await get_order_or_404(
-            db,
-            order.id,
-        )
-    )
-
-    return created_order
+    setattr(order, "shop_name", shop.name)
+    return order
 
 
 # ─────────────────────────────────────────────────────────────

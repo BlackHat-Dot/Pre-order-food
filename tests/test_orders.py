@@ -218,4 +218,38 @@ async def test_create_order_rejects_coupon_owned_by_another_customer():
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.anyio
+async def test_create_order_returns_lean_response():
+    from unittest.mock import MagicMock
+    from app.api.v1.endpoints.orders import create_order
+    from app.models.menu import MenuItem
+    from app.schemas.order import OrderCreate, OrderItemInput, OrderCreateOut
+
+    db = AsyncMock()
+    db.bind = MagicMock()
+    db.bind.dialect.name = "postgresql"
+    shop = Shop(id="shop-1", name="Best Bakery", is_open=True, is_accepting_orders=True, is_active=True)
+    menu_item = MenuItem(id="item-1", shop_id="shop-1", price=50.0, is_available=True, prep_time_minutes=5, name="Puff")
+
+    db.get.side_effect = lambda model, ident, **kwargs: {
+        (Shop, "shop-1"): shop,
+        (MenuItem, "item-1"): menu_item,
+    }.get((model, ident))
+
+    user = User(id="user-1", phone="+919876543210", role="customer")
+    payload = OrderCreate(
+        shop_id="shop-1",
+        items=[OrderItemInput(item_id="item-1", quantity=2)],
+    )
+
+    res = await create_order(payload, db, user)
+    validated = OrderCreateOut.model_validate(res)
+    assert validated.shop_id == "shop-1"
+    assert validated.shop_name == "Best Bakery"
+    assert validated.total_price == 100.0
+    assert validated.status == "pending"
+    assert validated.id is not None
+
+
+
 
