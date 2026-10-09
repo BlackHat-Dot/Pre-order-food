@@ -178,6 +178,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
               message = "Please enter a valid pincode";
             } else if (locs.includes("phone")) {
               message = "Please enter a valid phone number";
+            } else if (locs.includes("email")) {
+              message = "A valid email address is required so we can safely deliver your voucher";
             } else {
               message = "Please check your input";
             }

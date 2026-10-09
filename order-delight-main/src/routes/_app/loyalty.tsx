@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Sparkles, Info, Ticket, Copy, Check, Share2, Receipt, Mail } from "lucide-react";
+import { Sparkles, Info, Ticket, Copy, Check, Share2, Receipt, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, apiRequest, ordersApi, shopsApi, loyaltyApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,11 +103,11 @@ function LoyaltyPage() {
     e.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      return toast.error("Please enter an email address to receive your voucher code.");
+      return toast.error("An email address is required so we can safely deliver your voucher code.");
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(trimmedEmail)) {
-      return toast.error("Please provide a valid email address.");
+      return toast.error("Please provide a valid email address. For your safety, the voucher code is sent to your email.");
     }
     const pts = parseInt(pointsToRedeem, 10);
     if (isNaN(pts) || pts <= 0) return toast.error("Please provide a valid point value.");
@@ -166,27 +166,35 @@ function LoyaltyPage() {
       {/* SECTION 2: Interactive Coupon Generator Minting Module */}
       {shopId && (
         <Card className="border-border/60 shadow-sm rounded-2xl">
-          <CardHeader className="pb-3 flex flex-row items-center gap-2 space-y-0">
-            <CardTitle className="text-base font-bold">Generate Shareable Voucher</CardTitle>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" className="text-muted-foreground/60 hover:text-foreground transition-colors outline-none">
-                    <Info className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs p-3 space-y-2 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
-                  <p className="text-xs font-bold">💡 How coupons work:</p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Converting points creates a standalone code voucher worth <span className="text-primary font-medium">{formatCurrency(discountPerPoint)} per point</span>.
-                  </p>
-                  <p className="text-[11px] text-emerald-500 dark:text-emerald-400 font-medium leading-relaxed">
-                    ⭐️ Coupons are shop-specific but public! You can use them yourself at checkout, or text the generated code to friends and family so they can save on their food.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <CardHeader className="pb-3 space-y-1">
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-bold">Generate Shareable Voucher</CardTitle>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground/60 hover:text-foreground transition-colors outline-none">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3 space-y-2 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
+                      <p className="text-xs font-bold">💡 How coupons work:</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Converting points creates a standalone code voucher worth <span className="text-primary font-medium">{formatCurrency(discountPerPoint)} per point</span>.
+                      </p>
+                      <p className="text-[11px] text-emerald-500 dark:text-emerald-400 font-medium leading-relaxed">
+                        ⭐️ Coupons are shop-specific but public! You can use them yourself at checkout, or text the generated code to friends and family so they can save on their food.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <CardDescription className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+              For your voucher's safety, a valid email address is required to generate and send your code.
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -209,8 +217,9 @@ function LoyaltyPage() {
                 </div>
 
                 <div className="flex-1 min-w-[200px] space-y-1.5">
-                  <Label htmlFor="coupon-email" className="text-xs font-medium text-muted-foreground">
-                    Recipient Email Address
+                  <Label htmlFor="coupon-email" className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                    <span>Recipient Email Address</span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">Required for safety</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -225,6 +234,9 @@ function LoyaltyPage() {
                     />
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Without an email, your voucher cannot be issued. We email it so your code stays safe and protected.
+                  </p>
                 </div>
 
                 <Button 
