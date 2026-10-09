@@ -150,6 +150,12 @@ class OrderItemType:
 
 
 @strawberry.type
+class OrderShopType:
+    id: strawberry.ID
+    name: str
+
+
+@strawberry.type
 class OrderType:
     id: strawberry.ID
     order_number: int | None
@@ -165,3 +171,13 @@ class OrderType:
     instructions: str | None
     created_at: datetime
     items: list[OrderItemType]
+
+    @strawberry.field
+    def shop(self) -> OrderShopType | None:
+        if not self.shop_name and not self.shop_id:
+            return None
+        return OrderShopType(
+            id=strawberry.ID(self.shop_id or ""),
+            name=self.shop_name or "",
+        )
+

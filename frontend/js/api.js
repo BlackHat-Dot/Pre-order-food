@@ -228,12 +228,60 @@ export const api = {
   },
 
   async getCustomerOrders(params = {}) {
-    const q = new URLSearchParams();
-    if (params.status) q.append('status', params.status);
-    if (params.page) q.append('page', params.page);
-    if (params.page_size) q.append('page_size', params.page_size);
-    const qs = q.toString() ? `?${q.toString()}` : '';
-    return request(`/orders/customer/me${qs}`);
+    const query = `
+      query GetMyOrders($status: String, $page: Int!, $pageSize: Int!) {
+        myOrders(status: $status, page: $page, pageSize: $pageSize) {
+          id
+          orderNumber
+          status
+          totalPrice
+          shopName
+          createdAt
+          items {
+            id
+            quantity
+            itemName
+            variantName
+            unitPrice
+            totalPrice
+          }
+        }
+      }
+    `;
+    try {
+      const data = await api.graphql(query, {
+        status: params.status || null,
+        page: parseInt(params.page, 10) || 1,
+        pageSize: parseInt(params.page_size, 10) || 50,
+      });
+      return (data.myOrders || []).map(o => ({
+        id: o.id,
+        order_number: o.orderNumber,
+        status: o.status,
+        total_price: o.totalPrice,
+        total_amount: o.totalPrice,
+        shop_name: o.shopName,
+        shop: { name: o.shopName },
+        created_at: o.createdAt,
+        items: (o.items || []).map(i => ({
+          id: i.id,
+          quantity: i.quantity,
+          item_name: i.itemName,
+          item_name_snapshot: i.itemName,
+          variant_name: i.variantName,
+          variant_name_snapshot: i.variantName,
+          unit_price: i.unitPrice,
+          total_price: i.totalPrice,
+        })),
+      }));
+    } catch {
+      const q = new URLSearchParams();
+      if (params.status) q.append('status', params.status);
+      if (params.page) q.append('page', params.page);
+      if (params.page_size) q.append('page_size', params.page_size);
+      const qs = q.toString() ? `?${q.toString()}` : '';
+      return request(`/orders/customer/me${qs}`);
+    }
   },
 
   async getShopOrders(shopId, params = {}) {

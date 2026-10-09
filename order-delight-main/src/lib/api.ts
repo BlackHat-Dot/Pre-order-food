@@ -754,7 +754,7 @@ export const ordersApi = {
   }) => apiRequest<OrderOut>("/api/v1/orders", { method: "POST", body }),
 
   list: (params: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-    apiRequest<OrderOut[]>("/api/v1/orders/customer/me", { query: params }),
+    ordersApi.graphqlList(params),
 
   graphqlList: async (params: { status?: OrderStatus; page?: number; page_size?: number } = {}): Promise<OrderOut[]> => {
     const query = `
@@ -808,6 +808,7 @@ export const ordersApi = {
       status: o.status as OrderStatus,
       total_price: o.totalPrice,
       shop_name: o.shopName || undefined,
+      shop: o.shopName ? { id: "", name: o.shopName } : null,
       instructions: null,
       scheduled_at: null,
       created_at: o.createdAt,
