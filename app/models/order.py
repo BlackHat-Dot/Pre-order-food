@@ -227,6 +227,19 @@ class Order(Base):
         lazy="selectin",
     )
 
+    @property
+    def shop_name(self) -> str | None:
+        if "_shop_name" in self.__dict__ and self.__dict__["_shop_name"] is not None:
+            return self.__dict__["_shop_name"]
+        if "shop" in self.__dict__ and self.__dict__["shop"] is not None:
+            return self.__dict__["shop"].name
+        return None
+
+    @shop_name.setter
+    def shop_name(self, value: str | None) -> None:
+        self.__dict__["_shop_name"] = value
+
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"

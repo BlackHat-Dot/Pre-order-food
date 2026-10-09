@@ -166,6 +166,12 @@ async def populate_delivery_addresses(
             if not getattr(o, "delivery_address", None) and o.delivery_address_id and (len(o.delivery_address_id) != 36 or "-" not in o.delivery_address_id):
                 o.delivery_address = o.delivery_address_id
 
+    # Ensure shop_name is populated if shop relation is loaded
+    for o in orders:
+        if "shop" in o.__dict__ and o.__dict__["shop"] is not None and not getattr(o, "shop_name", None):
+            o.shop_name = o.__dict__["shop"].name
+
+
 
 async def get_order_or_404(
     db: AsyncSession,

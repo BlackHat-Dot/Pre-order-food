@@ -9,6 +9,7 @@ import {
   HelpCircle,
   XCircle,
   Clock,
+  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +45,10 @@ type Order = {
   cancellation_reason?: string | null;
   cancellation_requests_sent?: number;
   items?: OrderItem[];
+  shop_name?: string;
   shop?: {
+    id?: string;
+    name?: string;
     phone?: string;
     email?: string;
   };
@@ -417,16 +421,26 @@ function OrderDetailsPage() {
 
       <Card className="overflow-hidden rounded-2xl border shadow-sm text-left">
         <CardContent className="space-y-4 p-6">
-          <div className="flex items-center justify-between border-b pb-4">
-            <div>
-              <h2 className="text-sm font-black tracking-tight text-foreground">
-                Order #{order.order_number ?? String(order.id).slice(0, 8).toUpperCase()}
-              </h2>
-              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                Reference ID: {order.id}
-              </p>
+          <div className="flex items-center justify-between border-b pb-4 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-black tracking-tight text-foreground">
+                  Order #{order.order_number ?? String(order.id).slice(0, 8).toUpperCase()}
+                </h2>
+                <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                  ID: {order.id.slice(0, 8)}...
+                </p>
+              </div>
+              {(order.shop_name || order.shop?.name) && (
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <Store className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-bold text-foreground">
+                    {order.shop_name || order.shop?.name}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase text-primary">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase text-primary shrink-0">
               <Clock className="h-3.5 w-3.5" />
               {statusLabel}
             </div>

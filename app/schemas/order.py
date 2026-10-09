@@ -344,6 +344,8 @@ class OrderOut(
         | None
     ) = None
 
+    shop_name: str | None = None
+
     shop: ShopOut | None = None
 
     model_config = ConfigDict(

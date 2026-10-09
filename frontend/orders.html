@@ -55,7 +55,7 @@ async function openOrder(id) {
 }
 function paint(o) {
   $('t-num').textContent = `Order #${o.order_number || o.id.slice(0, 8).toUpperCase()}`;
-  $('t-meta').textContent = `${o.shop?.name || 'Kitchen'} · ${o.order_type === 'delivery' ? 'Delivery' : 'Counter pickup'}`;
+  $('t-meta').textContent = `${o.shop?.name || o.shop_name || 'Kitchen'} · ${o.order_type === 'delivery' ? 'Delivery' : 'Counter pickup'}`;
   $('t-total').textContent = formatPrice(o.total_price || o.total_amount);
   $('t-pay').textContent = `${(o.payment_method || 'cod').toUpperCase()} · ${o.payment_status || 'unpaid'}`;
   $('t-status').textContent = LABEL[o.status] || o.status; $('t-status').className = `status ${cls(o.status)}`;
@@ -83,7 +83,7 @@ function render() {
   $('count').textContent = `${rows.length} of ${all.length} orders`;
   $('body').innerHTML = rows.length ? rows.map(o => `<tr>
     <td class="num"><strong>#${esc(o.order_number || o.id.slice(0, 8).toUpperCase())}</strong></td><td class="muted num">${formatDate(o.created_at)}</td>
-    <td>${esc(o.shop?.name || 'Kitchen')}</td><td class="num">${(o.items || []).reduce((n, i) => n + i.quantity, 0)}</td>
+    <td>${esc(o.shop?.name || o.shop_name || 'Kitchen')}</td><td class="num">${(o.items || []).reduce((n, i) => n + i.quantity, 0)}</td>
     <td class="num"><strong>${formatPrice(o.total_price || o.total_amount)}</strong></td><td><span class="status ${cls(o.status)}">${LABEL[o.status] || esc(o.status)}</span></td>
     <td><button class="btn line sm" data-id="${esc(o.id)}">Track</button></td></tr>`).join('')
     : `<tr><td colspan="7" class="empty">No orders here yet. <a href="/index.html"><strong>Find a kitchen</strong></a></td></tr>`;

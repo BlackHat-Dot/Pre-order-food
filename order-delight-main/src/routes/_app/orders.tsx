@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock, Mail, Phone, Lock, Loader2 } from "lucide-react";
+import { ChevronLeft, AlertTriangle, HelpCircle, XCircle, Clock, Mail, Phone, Lock, Loader2, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,12 +57,26 @@ function EmbeddedOrderDetailsPage({ orderId, onBack }: { orderId: string; onBack
 
       <Card className="rounded-2xl border shadow-sm overflow-hidden text-left">
         <CardContent className="p-6 space-y-4">
-          <div className="flex justify-between items-center border-b pb-4">
-            <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground">Order Reference ID</p>
-              <h2 className="font-mono text-xs font-bold">{order.id}</h2>
+          <div className="flex justify-between items-start border-b pb-4 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold bg-muted px-2 py-0.5 rounded border">
+                  #{order.order_number ?? (order.id ? String(order.id).slice(0, 8).toUpperCase() : "")}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  ID: {order.id.slice(0, 8)}...
+                </span>
+              </div>
+              {(order.shop_name || order.shop?.name) && (
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <Store className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-bold text-foreground">
+                    {order.shop_name || order.shop?.name}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase">
+            <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary uppercase shrink-0">
               <Clock className="h-3.5 w-3.5" /> {order.status ? String(order.status).replace("_", " ") : ""}
             </div>
           </div>
@@ -333,15 +347,20 @@ function OrdersPage() {
                           </span>
                           <StatusBadge status={o.status} />
                         </div>
+                        {(o.shop_name || o.shop?.name) && (
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <Store className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="text-sm font-bold text-foreground tracking-tight">
+                              {o.shop_name || o.shop?.name}
+                            </span>
+                          </div>
+                        )}
                         <p className="text-[11px] text-muted-foreground font-mono">
                           {formatDate(o.created_at)}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-base font-bold text-foreground">{formatCurrency(o.total_price)}</p>
-                        {o.shop_name && (
-                          <p className="text-xs text-muted-foreground font-medium mt-0.5">{o.shop_name}</p>
-                        )}
                       </div>
                     </div>
 
