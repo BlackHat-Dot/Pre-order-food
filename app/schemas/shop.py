@@ -214,7 +214,7 @@ class ShopOut(
 
     rating_count: int
 
-    created_at: datetime | None = None
+    created_at: datetime | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(
         from_attributes=True,

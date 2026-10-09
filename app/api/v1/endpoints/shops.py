@@ -406,6 +406,8 @@ async def get_shop(
     )
 
     if cached:
+        if isinstance(cached, dict):
+            cached.pop("created_at", None)
         return ShopOut.model_validate(
             cached
         )

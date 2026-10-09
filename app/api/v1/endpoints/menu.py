@@ -313,6 +313,12 @@ async def list_items(
     )
 
     if cached:
+        for it in cached:
+            if isinstance(it, dict):
+                it.pop("created_at", None)
+                for var in it.get("variants") or []:
+                    if isinstance(var, dict):
+                        var.pop("created_at", None)
         return cached
 
     stmt = (
@@ -408,6 +414,11 @@ async def get_item(
     )
 
     if cached:
+        if isinstance(cached, dict):
+            cached.pop("created_at", None)
+            for var in cached.get("variants") or []:
+                if isinstance(var, dict):
+                    var.pop("created_at", None)
         return cached
 
     item = await get_item_or_404(

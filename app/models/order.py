@@ -311,6 +311,10 @@ class OrderItem(Base):
         back_populates="items",
     )
 
+    @property
+    def total_price(self) -> float:
+        return float(self.unit_price * self.quantity)
+
 
 class Payment(Base):
     __tablename__ = "payments"

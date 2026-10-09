@@ -210,7 +210,7 @@ class Query:
                         variant_name=item.variant_name_snapshot,
                         quantity=int(item.quantity),
                         unit_price=float(item.unit_price),
-                        total_price=float(item.total_price or item.unit_price * item.quantity),
+                        total_price=float(item.unit_price * item.quantity),
                     )
                     for item in (o.items or [])
                 ],
@@ -276,7 +276,7 @@ class Query:
                     variant_name=item.variant_name_snapshot,
                     quantity=int(item.quantity),
                     unit_price=float(item.unit_price),
-                    total_price=float(item.total_price or item.unit_price * item.quantity),
+                    total_price=float(item.unit_price * item.quantity),
                 )
                 for item in (o.items or [])
             ],
