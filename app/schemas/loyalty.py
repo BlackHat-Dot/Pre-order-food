@@ -13,19 +13,9 @@ class LoyaltyAccountOut(
     BaseModel
 ):
 
-    id: str
-
-    customer_id: str
-
-    shop_id: str
-
     points_balance: int
 
     tier: str
-
-    created_at: datetime
-
-    updated_at: datetime
 
     model_config = ConfigDict(
         from_attributes=True,

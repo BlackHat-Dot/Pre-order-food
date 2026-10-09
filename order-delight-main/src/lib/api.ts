@@ -428,13 +428,13 @@ export interface ReviewOut {
 }
 
 export interface LoyaltyAccountOut {
-  id: string;
-  customer_id: string;
-  shop_id: string;
+  id?: string;
+  customer_id?: string;
+  shop_id?: string;
   points_balance: number;
   tier: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface LoyaltyTransactionOut {
