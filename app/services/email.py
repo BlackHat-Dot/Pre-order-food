@@ -146,55 +146,132 @@ async def send_otp_email(
 
 _COUPON_HTML_TEMPLATE = """\
 <!doctype html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Your Voucher Code — PreOrder</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
+  <title>Your voucher for {shop_name}</title>
+  <style>
+    body, table, td, a {{ -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }}
+    table, td {{ mso-table-lspace:0pt; mso-table-rspace:0pt; }}
+    @media only screen and (max-width:600px) {{
+      .container {{ width:100% !important; }}
+      .px {{ padding-left:20px !important; padding-right:20px !important; }}
+      .code {{ font-size:26px !important; letter-spacing:3px !important; }}
+    }}
+    @media (prefers-color-scheme: dark) {{
+      .bg-page {{ background:#121212 !important; }}
+      .bg-card {{ background:#1c1c1e !important; }}
+      .text-main {{ color:#f4f4f5 !important; }}
+      .text-muted {{ color:#a1a1aa !important; }}
+      .code-box {{ background:#262628 !important; border-color:#3f3f46 !important; }}
+      .divider {{ border-color:#3f3f46 !important; }}
+    }}
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
-    <tr><td align="center">
-      <table width="100%" style="max-width:480px;background:#ffffff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;">
+<body class="bg-page" style="margin:0;padding:0;background:#f5f5f5;">
 
-        <!-- Header -->
-        <tr>
-          <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:28px 32px;text-align:center;">
-            <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">🍽 PreOrder</span>
-          </td>
-        </tr>
+  <!-- Preheader (inbox preview text) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#f5f5f5;">
+    Rs. {discount_value:.2f} off at {shop_name}. Your code: {code}
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
 
-        <!-- Body -->
-        <tr>
-          <td style="padding:36px 32px 28px;">
-            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;">Your Voucher is Ready! 🎟</p>
-            <p style="margin:0 0 24px;font-size:15px;color:#71717a;line-height:1.6;">
-              {greeting}Here is your voucher code for <strong>{shop_name}</strong> with a total discount of <strong>Rs. {discount_value:.2f}</strong>.
-            </p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-page" style="background:#f5f5f5;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
 
-            <!-- Coupon box -->
-            <div style="background:#f0fdf4;border:2px dashed #22c55e;border-radius:10px;padding:24px;text-align:center;margin-bottom:28px;">
-              <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#16a34a;letter-spacing:2px;text-transform:uppercase;">Voucher Code</p>
-              <p style="margin:0;font-size:36px;font-weight:800;letter-spacing:6px;color:#15803d;font-family:monospace;">{code}</p>
-              <p style="margin:8px 0 0;font-size:14px;font-weight:600;color:#166534;">Discount Value: Rs. {discount_value:.2f}</p>
-            </div>
+        <table role="presentation" class="container bg-card" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:560px;background:#ffffff;border-radius:8px;">
 
-            <p style="margin:0;font-size:13px;color:#71717a;line-height:1.6;">
-              💡 <strong>How to use:</strong> Enter this code at checkout when ordering from {shop_name}, or share it with a friend! It applies directly to the order total.
-            </p>
-          </td>
-        </tr>
+          <!-- Wordmark -->
+          <tr>
+            <td class="px" style="padding:28px 40px 20px;border-bottom:1px solid #ececec;" >
+              <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:#ea580c;letter-spacing:-0.3px;">PreOrder</span>
+            </td>
+          </tr>
+
+          <!-- Headline + intro -->
+          <tr>
+            <td class="px" style="padding:32px 40px 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <h1 class="text-main" style="margin:0 0 12px;font-size:24px;line-height:32px;font-weight:700;color:#18181b;">
+                Your voucher is ready
+              </h1>
+              <p class="text-main" style="margin:0;font-size:16px;line-height:24px;color:#3f3f46;">
+                {greeting}Here is your voucher code for <strong>{shop_name}</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Code block -->
+          <tr>
+            <td class="px" style="padding:24px 40px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="code-box" align="center" style="background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;padding:24px 16px;">
+                    <div class="text-muted" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#71717a;padding-bottom:8px;">
+                      Voucher code
+                    </div>
+                    <div class="code text-main" style="font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:32px;line-height:40px;font-weight:700;letter-spacing:5px;color:#18181b;">
+                      {code}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Details -->
+          <tr>
+            <td class="px" style="padding:16px 40px 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="text-muted divider" style="padding:12px 0;border-bottom:1px solid #ececec;font-size:14px;line-height:20px;color:#71717a;">Restaurant</td>
+                  <td class="text-main divider" align="right" style="padding:12px 0;border-bottom:1px solid #ececec;font-size:14px;line-height:20px;font-weight:600;color:#18181b;">{shop_name}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted divider" style="padding:12px 0;border-bottom:1px solid #ececec;font-size:14px;line-height:20px;color:#71717a;">Discount value</td>
+                  <td class="text-main divider" align="right" style="padding:12px 0;border-bottom:1px solid #ececec;font-size:14px;line-height:20px;font-weight:600;color:#18181b;">Rs. {discount_value:.2f}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted" style="padding:12px 0;font-size:14px;line-height:20px;color:#71717a;">Applies to</td>
+                  <td class="text-main" align="right" style="padding:12px 0;font-size:14px;line-height:20px;font-weight:600;color:#18181b;">Order total</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- How to use -->
+          <tr>
+            <td class="px" style="padding:16px 40px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p class="text-main" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#18181b;">How to redeem</p>
+              <p class="text-muted" style="margin:0;font-size:14px;line-height:22px;color:#52525b;">
+                Enter the code at checkout when ordering from {shop_name}. The discount is applied directly to your order total. You can also share the code with a friend.
+              </p>
+            </td>
+          </tr>
+
+        </table>
 
         <!-- Footer -->
-        <tr>
-          <td style="background:#f9f9f9;border-top:1px solid #e4e4e7;padding:16px 32px;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#a1a1aa;">
-              &copy; PreOrder &middot; This is an automated message, please do not reply.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
+        <table role="presentation" class="container" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:560px;">
+          <tr>
+            <td class="px" style="padding:24px 40px 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#a1a1aa;text-align:center;">
+              You received this email because a voucher was issued to your PreOrder account.<br />
+              This is an automated message. Please do not reply.
+            </td>
+          </tr>
+          <tr>
+            <td class="px" style="padding:0 40px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#a1a1aa;text-align:center;">
+              &copy; PreOrder. All rights reserved.
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
   </table>
 </body>
 </html>
