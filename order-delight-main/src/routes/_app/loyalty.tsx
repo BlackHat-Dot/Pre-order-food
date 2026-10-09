@@ -182,7 +182,11 @@ function LoyaltyPage() {
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" align="end" className="max-w-[260px] space-y-1.5 px-3 py-2.5">
+                    <TooltipContent
+                      side="top"
+                      align="end"
+                      className="max-w-[260px] space-y-1.5 border border-border bg-popover px-3 py-2.5 text-popover-foreground shadow-md"
+                    >
                       <p className="text-sm font-medium">How coupons work</p>
                       <p className="text-xs leading-relaxed text-muted-foreground">
                         Converting points creates a voucher code worth{" "}
