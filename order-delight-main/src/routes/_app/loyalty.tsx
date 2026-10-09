@@ -171,24 +171,27 @@ function LoyaltyPage() {
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base font-bold">Generate Shareable Voucher</CardTitle>
                 
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground/60 hover:text-foreground transition-colors outline-none">
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs p-3 space-y-2 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl">
-                      <p className="text-xs font-bold">💡 How coupons work:</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Converting points creates a standalone code voucher worth <span className="text-primary font-medium">{formatCurrency(discountPerPoint)} per point</span>.
-                      </p>
-                      <p className="text-[11px] text-emerald-500 dark:text-emerald-400 font-medium leading-relaxed">
-                        ⭐️ Coupons are shop-specific but public! You can use them yourself at checkout, or text the generated code to friends and family so they can save on their food.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="How coupons work"
+                      className="rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="end" className="max-w-[260px] space-y-1.5 px-3 py-2.5">
+                    <p className="text-sm font-medium">How coupons work</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Converting points creates a voucher code worth{" "}
+                      <span className="font-medium text-foreground">{formatCurrency(discountPerPoint)}</span> per point.
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      The code is valid only at this shop. Anyone who has it can redeem it, so you can use it yourself or share it with someone else.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
             <CardDescription className="text-xs text-muted-foreground flex items-center gap-1.5">
