@@ -110,7 +110,7 @@ function LoyaltyPage() {
       return toast.error("Please provide a valid email address. For your safety, the voucher code is sent to your email.");
     }
     const pts = parseInt(pointsToRedeem, 10);
-    if (isNaN(pts) || pts <= 0) return toast.error("Please provide a valid point value.");
+    if (isNaN(pts) || pts < 100) return toast.error("Minimum 100 loyalty points required to convert to a voucher.");
     if (pts > currentBalance) return toast.error("Requested points exceed your available balance.");
 
     mintCoupon.mutate({ points: pts, email: trimmedEmail });
@@ -209,19 +209,20 @@ function LoyaltyPage() {
           <CardContent className="space-y-4">
             <form onSubmit={handleMintSubmit} className="space-y-3">
               <div className="flex flex-wrap items-end gap-3">
-                <div className="w-full sm:w-36 space-y-1.5">
+                <div className="w-full sm:w-44 space-y-1.5">
                   <Label htmlFor="points" className="text-xs font-medium text-muted-foreground">
-                    Points (Max {currentBalance})
+                    Points (Min 100, Max {currentBalance})
                   </Label>
                   <Input
                     id="points"
                     type="number"
-                    min={1}
+                    min={100}
+                    step={10}
                     max={currentBalance}
                     value={pointsToRedeem}
                     onChange={(e) => setPointsToRedeem(e.target.value)}
                     className="h-10 rounded-xl focus-visible:ring-primary"
-                    disabled={currentBalance === 0}
+                    disabled={currentBalance < 100}
                   />
                 </div>
 
@@ -238,7 +239,7 @@ function LoyaltyPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-10 rounded-xl focus-visible:ring-primary pl-9 text-xs"
-                      disabled={currentBalance === 0}
+                      disabled={currentBalance < 100}
                     />
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   </div>
@@ -246,7 +247,7 @@ function LoyaltyPage() {
 
                 <Button 
                   type="submit" 
-                  disabled={mintCoupon.isPending || !pointsToRedeem || !email.trim() || currentBalance === 0}
+                  disabled={mintCoupon.isPending || !pointsToRedeem || parseInt(pointsToRedeem, 10) < 100 || !email.trim() || currentBalance < 100}
                   className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-md shadow-primary/10 transition-all active:scale-95"
                 >
                   <Ticket className="h-3.5 w-3.5" /> 

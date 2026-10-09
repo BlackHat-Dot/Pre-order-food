@@ -103,6 +103,12 @@ async def mint_shop_coupon(
             detail="Shop not found",
         )
 
+    if payload.points < 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Minimum 100 loyalty points required to generate a voucher.",
+        )
+
     stmt = select(LoyaltyAccount).where(
         LoyaltyAccount.shop_id == payload.shop_id,
         LoyaltyAccount.customer_id == user.id,

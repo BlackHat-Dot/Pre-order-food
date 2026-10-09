@@ -16,7 +16,7 @@
     <div class="panel"><h2 class="h2">Make a voucher</h2>
       <p class="muted small" style="margin-bottom:18px">Lock some points into a code you can use at checkout or give to someone.</p>
       <div class="field"><label for="amt">Points to convert <span class="faint" id="max" style="font-weight:400"></span></label>
-        <div style="display:flex;gap:8px"><input class="input" id="amt" type="number" min="10" step="10" placeholder="100"><button class="btn line sm" id="all">Use all</button></div></div>
+        <div style="display:flex;gap:8px"><input class="input" id="amt" type="number" min="100" step="10" placeholder="100"><button class="btn line sm" id="all">Use all</button></div></div>
       <div class="field" style="margin-top:12px"><label for="email">Recipient Email Address</label>
         <input class="input" id="email" type="email" placeholder="name@example.com">
         <p class="muted small" style="margin-top:4px;font-size:11px">For your voucher's safety, a valid email is required to deliver your code.</p></div>
@@ -60,7 +60,7 @@ $('amt').addEventListener('input', prev);
 $('all').addEventListener('click', () => { if (acct) { $('amt').value = acct.points_balance || 0; prev(); } });
 $('mint').addEventListener('click', async () => {
   const p = Number($('amt').value);
-  if (!p || p <= 0) return toast.error('Enter how many points to convert');
+  if (!p || p < 100) return toast.error('Minimum 100 points required to convert to a voucher');
   if (acct && p > acct.points_balance) return toast.error("You don't have that many points");
   const em = ($('email').value || '').trim();
   if (!em) return toast.error('Enter recipient email address');
