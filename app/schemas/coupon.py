@@ -1,12 +1,18 @@
 from pydantic import (
     BaseModel,
     ConfigDict,
+    EmailStr,
     Field,
 )
 
 
 class CouponMint(BaseModel):
     shop_id: str
+
+    email: EmailStr = Field(
+        ...,
+        description="Recipient email address for the voucher code",
+    )
 
     points: int = Field(
         gt=0,

@@ -311,10 +311,10 @@ export const api = {
     return request(`/coupons/validate/${encodeURIComponent(code)}?shop_id=${encodeURIComponent(shopId)}`);
   },
 
-  async mintCoupon(shopId, points) {
+  async mintCoupon(shopId, points, email) {
     return request('/coupons/mint', {
       method: 'POST',
-      body: JSON.stringify({ shop_id: shopId, points: Number(points) })
+      body: JSON.stringify({ shop_id: shopId, points: Number(points), email })
     });
   },
 

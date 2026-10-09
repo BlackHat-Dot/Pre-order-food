@@ -17,6 +17,7 @@ from app.models.user import User
 from app.schemas.coupon import CouponMint, CouponOut
 from app.utils.ids import new_id
 from app.api.v1.endpoints.orders import create_notification
+from app.services.email import send_coupon_email
 
 router = APIRouter(
     prefix="/coupons",
@@ -196,6 +197,15 @@ async def mint_shop_coupon(
         ),
     )
     await db.commit()
+
+    # Send voucher code to recipient email via Resend
+    await send_coupon_email(
+        to_email=str(payload.email),
+        code=coupon.code,
+        discount_value=discount_value,
+        shop_name=shop.name or "PreOrder",
+        user_name=user.name,
+    )
 
     return CouponOut.model_validate(coupon)
 

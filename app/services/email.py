@@ -142,3 +142,121 @@ async def send_otp_email(
             return True
         logger.error("[Email] Failed to send OTP to %s: %s", to_email, exc)
         return False
+
+
+_COUPON_HTML_TEMPLATE = """\
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Voucher Code — PreOrder</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#ffffff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:28px 32px;text-align:center;">
+            <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">🍽 PreOrder</span>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 32px 28px;">
+            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;">Your Voucher is Ready! 🎟</p>
+            <p style="margin:0 0 24px;font-size:15px;color:#71717a;line-height:1.6;">
+              {greeting}Here is your voucher code for <strong>{shop_name}</strong> with a total discount of <strong>Rs. {discount_value:.2f}</strong>.
+            </p>
+
+            <!-- Coupon box -->
+            <div style="background:#f0fdf4;border:2px dashed #22c55e;border-radius:10px;padding:24px;text-align:center;margin-bottom:28px;">
+              <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#16a34a;letter-spacing:2px;text-transform:uppercase;">Voucher Code</p>
+              <p style="margin:0;font-size:36px;font-weight:800;letter-spacing:6px;color:#15803d;font-family:monospace;">{code}</p>
+              <p style="margin:8px 0 0;font-size:14px;font-weight:600;color:#166534;">Discount Value: Rs. {discount_value:.2f}</p>
+            </div>
+
+            <p style="margin:0;font-size:13px;color:#71717a;line-height:1.6;">
+              💡 <strong>How to use:</strong> Enter this code at checkout when ordering from {shop_name}, or share it with a friend! It applies directly to the order total.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9f9f9;border-top:1px solid #e4e4e7;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#a1a1aa;">
+              &copy; PreOrder &middot; This is an automated message, please do not reply.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+
+
+async def send_coupon_email(
+    *,
+    to_email: str,
+    code: str,
+    discount_value: float,
+    shop_name: str,
+    user_name: str | None = None,
+) -> bool:
+    """
+    Send a voucher/coupon code email via Resend.
+
+    Returns True on success.
+    In dev mode (no RESEND_API_KEY) logs to console and returns True.
+    """
+    greeting = f"Hi {user_name}, " if user_name else ""
+    html_body = _COUPON_HTML_TEMPLATE.format(
+        code=code,
+        discount_value=discount_value,
+        shop_name=shop_name,
+        greeting=greeting,
+    )
+
+    if not settings.RESEND_API_KEY:
+        logger.warning(
+            "[Email] RESEND_API_KEY not set — DEV MODE. Voucher %s (Rs. %.2f) for %s sent to %s",
+            code, discount_value, shop_name, to_email,
+        )
+        print(f"\n[Email Voucher] To: {to_email}  Shop: {shop_name}  Code: {code}  Discount: Rs. {discount_value:.2f}\n", flush=True)
+        return True
+
+    try:
+        resend = _get_resend()
+        resend.api_key = settings.RESEND_API_KEY
+
+        from_addr = settings.RESEND_FROM_EMAIL or "PreOrder <onboarding@resend.dev>"
+
+        resend.Emails.send({
+            "from": from_addr,
+            "to": [to_email],
+            "subject": f"Your {shop_name} Voucher Code: {code}",
+            "html": html_body,
+        })
+        logger.info("[Email] Voucher sent to %s", to_email)
+        return True
+
+    except Exception as exc:
+        err_str = str(exc)
+        if "domain" in err_str.lower() or "testing emails" in err_str.lower():
+            logger.warning(
+                "[Email] Resend domain not verified. "
+                "Add a verified domain at resend.com/domains and set RESEND_FROM_EMAIL. "
+                "Falling back to console — Voucher for %s: %s (Rs. %.2f)",
+                to_email, code, discount_value,
+            )
+            print(f"\n[Email Voucher] To: {to_email}  Shop: {shop_name}  Code: {code}  Discount: Rs. {discount_value:.2f}\n", flush=True)
+            return True
+        logger.error("[Email] Failed to send voucher to %s: %s", to_email, exc)
+        return False
+

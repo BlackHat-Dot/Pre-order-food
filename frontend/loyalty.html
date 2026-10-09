@@ -17,6 +17,8 @@
       <p class="muted small" style="margin-bottom:18px">Lock some points into a code you can use at checkout or give to someone.</p>
       <div class="field"><label for="amt">Points to convert <span class="faint" id="max" style="font-weight:400"></span></label>
         <div style="display:flex;gap:8px"><input class="input" id="amt" type="number" min="10" step="10" placeholder="100"><button class="btn line sm" id="all">Use all</button></div></div>
+      <div class="field" style="margin-top:12px"><label for="email">Recipient Email Address</label>
+        <input class="input" id="email" type="email" placeholder="name@example.com"></div>
       <div class="kv"><dt>Voucher value</dt><dd class="num" id="prev">₹0</dd></div>
       <button class="btn accent lg" id="mint" style="width:100%;margin-top:16px">Create voucher</button>
       <div id="res" hidden style="margin-top:20px;padding:18px;border:1.5px solid var(--leaf);border-radius:8px">
@@ -59,8 +61,10 @@ $('mint').addEventListener('click', async () => {
   const p = Number($('amt').value);
   if (!p || p <= 0) return toast.error('Enter how many points to convert');
   if (acct && p > acct.points_balance) return toast.error("You don't have that many points");
+  const em = ($('email').value || '').trim();
+  if (!em) return toast.error('Enter recipient email address');
   const b = $('mint'); b.disabled = true; b.textContent = 'Creating…';
-  try { const c = await api.mintCoupon(sid, p); $('code').textContent = c.code; $('res').hidden = false; $('amt').value = ''; prev(); toast.success('Voucher created'); vault(); }
+  try { const c = await api.mintCoupon(sid, p, em); $('code').textContent = c.code; $('res').hidden = false; $('amt').value = ''; prev(); toast.success('Voucher created & emailed'); vault(); }
   catch (e) { toast.error(e.message || 'Voucher could not be created'); }
   finally { b.disabled = false; b.textContent = 'Create voucher'; }
 });

@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Sparkles, Info, Ticket, Copy, Check, Share2, Receipt } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Info, Ticket, Copy, Check, Share2, Receipt, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, apiRequest, ordersApi, shopsApi, loyaltyApi } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,10 +38,18 @@ type Order = {
 
 function LoyaltyPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [shopId, setShopId] = useState<string>("");
   const [pointsToRedeem, setPointsToRedeem] = useState<string>("100");
+  const [email, setEmail] = useState<string>("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [latestCoupon, setLatestCoupon] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (user?.email && !email) {
+      setEmail(user.email);
+    }
+  }, [user?.email]);
 
   // 1. Fetch live customer wallet tracking parameters
   const { data: account } = useQuery({
@@ -68,15 +77,15 @@ function LoyaltyPage() {
 
   // 4. Coupon minting mutation engine pointing directly to your new backend route
   const mintCoupon = useMutation({
-    mutationFn: async (points: number) => {
+    mutationFn: async (vars: { points: number; email: string }) => {
       return await apiRequest<any>("/api/v1/coupons/mint", {
         method: "POST",
-        body: { shop_id: shopId, points },
+        body: { shop_id: shopId, points: vars.points, email: vars.email },
       });
     },
-    onSuccess: (data) => {
-      toast.success(`Successfully minted voucher: ${data.code}`);
-      setLatestCoupon(data);
+    onSuccess: (data, vars) => {
+      toast.success(`Successfully minted voucher: ${data.code} (emailed to ${vars.email})`);
+      setLatestCoupon({ ...data, sent_to_email: vars.email });
       setPointsToRedeem("");
       // Sync layout cache matrices instantly
       qc.invalidateQueries({ queryKey: ["loyalty"] });
@@ -92,11 +101,19 @@ function LoyaltyPage() {
 
   const handleMintSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      return toast.error("Please enter an email address to receive your voucher code.");
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return toast.error("Please provide a valid email address.");
+    }
     const pts = parseInt(pointsToRedeem, 10);
     if (isNaN(pts) || pts <= 0) return toast.error("Please provide a valid point value.");
     if (pts > currentBalance) return toast.error("Requested points exceed your available balance.");
 
-    mintCoupon.mutate(pts);
+    mintCoupon.mutate({ points: pts, email: trimmedEmail });
   };
 
   const handleCopyCode = (code: string) => {
@@ -173,30 +190,52 @@ function LoyaltyPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <form onSubmit={handleMintSubmit} className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[180px] space-y-1.5">
-                <Label htmlFor="points" className="text-xs font-medium text-muted-foreground">
-                  Points to burn (Max {currentBalance} pts)
-                </Label>
-                <Input
-                  id="points"
-                  type="number"
-                  min={1}
-                  max={currentBalance}
-                  value={pointsToRedeem}
-                  onChange={(e) => setPointsToRedeem(e.target.value)}
-                  className="h-10 rounded-xl focus-visible:ring-primary"
-                  disabled={currentBalance === 0}
-                />
+            <form onSubmit={handleMintSubmit} className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-full sm:w-36 space-y-1.5">
+                  <Label htmlFor="points" className="text-xs font-medium text-muted-foreground">
+                    Points (Max {currentBalance})
+                  </Label>
+                  <Input
+                    id="points"
+                    type="number"
+                    min={1}
+                    max={currentBalance}
+                    value={pointsToRedeem}
+                    onChange={(e) => setPointsToRedeem(e.target.value)}
+                    className="h-10 rounded-xl focus-visible:ring-primary"
+                    disabled={currentBalance === 0}
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[200px] space-y-1.5">
+                  <Label htmlFor="coupon-email" className="text-xs font-medium text-muted-foreground">
+                    Recipient Email Address
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="coupon-email"
+                      type="email"
+                      required
+                      placeholder="Enter email to receive voucher..."
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-10 rounded-xl focus-visible:ring-primary pl-9 text-xs"
+                      disabled={currentBalance === 0}
+                    />
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  disabled={mintCoupon.isPending || !pointsToRedeem || !email.trim() || currentBalance === 0}
+                  className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-md shadow-primary/10 transition-all active:scale-95"
+                >
+                  <Ticket className="h-3.5 w-3.5" /> 
+                  {mintCoupon.isPending ? "Generating & Sending..." : "Convert & Email Voucher"}
+                </Button>
               </div>
-              <Button 
-                type="submit" 
-                disabled={mintCoupon.isPending || !pointsToRedeem || currentBalance === 0}
-                className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-md shadow-primary/10 transition-all active:scale-95"
-              >
-                <Ticket className="h-3.5 w-3.5" /> 
-                {mintCoupon.isPending ? "Generating..." : "Convert to Coupon"}
-              </Button>
             </form>
 
             {latestCoupon && (
@@ -223,6 +262,14 @@ function LoyaltyPage() {
                     {copiedCode === latestCoupon.code ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
+
+                {latestCoupon.sent_to_email && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    Delivered to <strong>{latestCoupon.sent_to_email}</strong> via email.
+                  </p>
+                )}
+
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <Share2 className="h-3 w-3 text-primary" /> Pass this code to a friend! Anyone who inputs it at checkout will get the discount applied instantly.
                 </p>
