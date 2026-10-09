@@ -219,7 +219,6 @@ function LoyaltyPage() {
                 <div className="flex-1 min-w-[200px] space-y-1.5">
                   <Label htmlFor="coupon-email" className="text-xs font-medium text-muted-foreground flex items-center justify-between">
                     <span>Recipient Email Address</span>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">Required for safety</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -234,9 +233,6 @@ function LoyaltyPage() {
                     />
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Without an email, your voucher cannot be issued. We email it so your code stays safe and protected.
-                  </p>
                 </div>
 
                 <Button 
