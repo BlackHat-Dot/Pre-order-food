@@ -283,6 +283,7 @@ async def create_item(
 @router.get(
     "/shops/{shop_id}/items",
     response_model=list[MenuItemOut],
+    response_model_exclude={"created_at": True, "variants": {"__all__": {"created_at": True}}},
 )
 async def list_items(
     shop_id: str,
@@ -362,7 +363,13 @@ async def list_items(
     serialized = [
         MenuItemOut.model_validate(
             item
-        ).model_dump(mode="json")
+        ).model_dump(
+            mode="json",
+            exclude={
+                "created_at": True,
+                "variants": {"__all__": {"created_at": True}},
+            },
+        )
         for item in items
     ]
 
@@ -382,6 +389,7 @@ async def list_items(
 @router.get(
     "/items/{item_id}",
     response_model=MenuItemOut,
+    response_model_exclude={"created_at": True, "variants": {"__all__": {"created_at": True}}},
 )
 async def get_item(
     item_id: str,
@@ -410,7 +418,13 @@ async def get_item(
     serialized = (
         MenuItemOut.model_validate(
             item
-        ).model_dump(mode="json")
+        ).model_dump(
+            mode="json",
+            exclude={
+                "created_at": True,
+                "variants": {"__all__": {"created_at": True}},
+            },
+        )
     )
 
     await cache_set_json(
@@ -643,6 +657,7 @@ async def create_variant(
 @router.get(
     "/items/{item_id}/variants",
     response_model=list[VariantOut],
+    response_model_exclude={"created_at"},
 )
 async def list_variants(
     item_id: str,

@@ -299,7 +299,7 @@ interface BackendShopOut {
   rating_avg: number;
   rating_count: number;
   loyalty_discount_per_point: number;
-  created_at: string;
+  created_at?: string;
 }
 
 function mapShopFromBackend(s: BackendShopOut): ShopOut {
@@ -320,7 +320,7 @@ function mapShopFromBackend(s: BackendShopOut): ShopOut {
     rating: s.rating_avg,
     total_reviews: s.rating_count,
     loyalty_discount_per_point: s.loyalty_discount_per_point,
-    created_at: s.created_at,
+    created_at: s.created_at || "",
   };
 }
 

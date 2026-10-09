@@ -116,7 +116,7 @@ class VariantOut(BaseModel):
     price: float
     prep_time_minutes: int
     is_available: bool
-    created_at: datetime
+    created_at: datetime | None = None
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -134,7 +134,7 @@ class MenuItemOut(BaseModel):
     image_url: str | None
     is_available: bool
     is_featured: bool
-    created_at: datetime
+    created_at: datetime | None = None
     variants: list[VariantOut] = Field(default_factory=list)
 
     model_config = ConfigDict(

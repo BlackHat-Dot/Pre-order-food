@@ -389,6 +389,7 @@ async def my_shops(
 @router.get(
     "/{shop_id}",
     response_model=ShopOut,
+    response_model_exclude={"created_at"},
 )
 async def get_shop(
     shop_id: str,
@@ -417,7 +418,7 @@ async def get_shop(
     serialized = (
         ShopOut.model_validate(
             shop
-        ).model_dump(mode="json")
+        ).model_dump(mode="json", exclude={"created_at"})
     )
 
     await cache_set_json(
