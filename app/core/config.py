@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     ENV: str = "local"
 
+    DEBUG: bool = False
+
     APP_NAME: str = "PreOrder Food API"
 
     API_PREFIX: str = "/api/v1"
@@ -119,9 +121,31 @@ class Settings(BaseSettings):
     # Firebase
     # ─────────────────────────────────────────
 
-    FIREBASE_API_KEY: str = "AIzaSyBWW6GIPeIf30LJVx3rJUO1n1FO_O33_z4"
+    FIREBASE_API_KEY: str | None = None
 
-    FIREBASE_PROJECT_ID: str = "pre-order-food-68244"
+    FIREBASE_PROJECT_ID: str | None = None
+
+    ENVIRONMENT: str | None = None
+
+    # ─────────────────────────────────────────
+    # Privilege & Security Gates
+    # ─────────────────────────────────────────
+
+    ADMIN_SECRET: str | None = None
+
+    OWNER_SECRET: str | None = None
+
+    TOTP_ENCRYPTION_KEY: str | None = None
+
+    RAZORPAY_WEBHOOK_SECRET: str | None = None
+
+    CORS_ORIGINS: str = (
+        "https://pre-order-food-frontend.vercel.app,"
+        "http://localhost:5173,"
+        "http://localhost:3000"
+    )
+
+    COOKIE_SECURE: bool = False
 
     # ─────────────────────────────────────────
     # Resend
@@ -135,15 +159,13 @@ class Settings(BaseSettings):
     # Admin Bootstrap
     # ─────────────────────────────────────────
 
-    ENABLE_ADMIN_SEED: bool = True
+    ENABLE_ADMIN_SEED: bool = False
 
-    DEFAULT_ADMIN_PHONE: str = "+919999999999"
+    DEFAULT_ADMIN_PHONE: str | None = None
 
-    DEFAULT_ADMIN_NAME: str = (
-        "PreOrder Admin"
-    )
+    DEFAULT_ADMIN_NAME: str = "PreOrder Admin"
 
-    DEFAULT_ADMIN_PASSWORD: str = "AdminPassword123!"
+    DEFAULT_ADMIN_PASSWORD: str | None = None
 
     # ─────────────────────────────────────────
     # Validation
@@ -155,49 +177,45 @@ class Settings(BaseSettings):
     ) -> "Settings":
 
         env = (
-            self.ENV or "local"
+            self.ENVIRONMENT or self.ENV or "local"
         ).lower()
+        self.ENV = env
+        self.ENVIRONMENT = env
 
         if env in {
             "production",
             "prod",
             "staging",
         }:
+            self.DEBUG = False
+            self.COOKIE_SECURE = True
 
             if (
-                self.JWT_SECRET_KEY
-                == "change-me"
-                or len(
-                    self.JWT_SECRET_KEY
-                )
-                < 32
+                self.JWT_SECRET_KEY == "change-me"
+                or len(self.JWT_SECRET_KEY) < 32
             ):
                 raise ValueError(
-                    (
-                        "JWT_SECRET_KEY "
-                        "must be changed "
-                        "and contain at least "
-                        "32 characters"
-                    )
+                    "JWT_SECRET_KEY must be changed and contain at least 32 characters in production"
                 )
 
-            if (
-                self.ENABLE_ADMIN_SEED
-            ):
-                required = [
-                    self.DEFAULT_ADMIN_PHONE,
-                    self.DEFAULT_ADMIN_PASSWORD,
-                ]
+            if not self.REDIS_URL or not self.REDIS_URL.strip():
+                raise ValueError(
+                    "REDIS_URL is strictly required when running in production or staging"
+                )
 
-                if not all(required):
+            if not self.RAZORPAY_KEY_ID or not self.RAZORPAY_KEY_SECRET:
+                raise ValueError(
+                    "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are strictly required in production or staging"
+                )
+
+            if self.ENABLE_ADMIN_SEED:
+                if not self.DEFAULT_ADMIN_PASSWORD or self.DEFAULT_ADMIN_PASSWORD == "AdminPassword123!":
                     raise ValueError(
-                        (
-                            "DEFAULT_ADMIN_PHONE "
-                            "and "
-                            "DEFAULT_ADMIN_PASSWORD "
-                            "are required when "
-                            "ENABLE_ADMIN_SEED=true"
-                        )
+                        "A secure, non-default DEFAULT_ADMIN_PASSWORD is required when ENABLE_ADMIN_SEED=true"
+                    )
+                if not self.DEFAULT_ADMIN_PHONE:
+                    raise ValueError(
+                        "DEFAULT_ADMIN_PHONE is required when ENABLE_ADMIN_SEED=true"
                     )
 
         return self

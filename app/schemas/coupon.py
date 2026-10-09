@@ -12,6 +12,8 @@ class CouponMint(BaseModel):
 
     points: int = Field(
         gt=0,
+        le=10000,
+        strict=True,
         description=(
             "Loyalty points to redeem"
         ),

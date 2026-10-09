@@ -152,6 +152,15 @@ async def create_shop(
         ),
     ],
 ) -> ShopOut:
+    existing_phone = (
+        await db.execute(select(Shop.id).where(Shop.phone == payload.phone))
+    ).scalar_one_or_none()
+    if existing_phone:
+        raise HTTPException(
+            status_code=409,
+            detail="A shop with this phone number already exists",
+        )
+
     shop = Shop(
         id=new_id(),
         owner_id=user.id,

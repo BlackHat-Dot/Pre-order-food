@@ -157,10 +157,10 @@ function AppLayout() {
   }
 
   if (path.startsWith("/admin") && user.role !== "admin") {
-    return <RedirectTo to="/unauthorized" />;
+    return <RedirectTo to="/login" />;
   }
   if (path.startsWith("/owner") && user.role !== "shop_owner" && user.role !== "admin") {
-    return <RedirectTo to="/unauthorized" />;
+    return <RedirectTo to="/login" />;
   }
 
   return (

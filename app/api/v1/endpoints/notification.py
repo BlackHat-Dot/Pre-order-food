@@ -8,11 +8,11 @@ from fastapi import (
     HTTPException,
     status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, rate_limit_sensitive, require_roles
 from app.db.session import get_db
 from app.models.notification import Notification
 from app.models.user import User
@@ -29,7 +29,7 @@ MAX_NOTIFICATIONS_PER_USER = 5
 
 class NotificationCreate(BaseModel):
     user_id: str
-    message: str
+    message: str = Field(min_length=1, max_length=1000)
 
 
 async def get_notification_or_404(
@@ -186,12 +186,17 @@ async def mark_all_notifications_as_read(
 @router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def create_notification(
     payload: NotificationCreate,
     db: Annotated[
         AsyncSession,
         Depends(get_db),
+    ],
+    _: Annotated[
+        User,
+        Depends(require_roles("admin")),
     ],
 ):
     notification = Notification(

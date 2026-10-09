@@ -10,13 +10,14 @@ from fastapi import (
     HTTPException,
     Query,
 )
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import (
     basic_rate_limit,
     get_current_user,
+    rate_limit_checkout,
     require_roles,
 )
 from app.db.session import get_db
@@ -218,6 +219,32 @@ async def unlock_coupon(
     )
 
 
+async def restore_loyalty_points(
+    db: AsyncSession,
+    order: Order,
+) -> None:
+    if not order.loyalty_points_used or order.loyalty_points_used <= 0:
+        return
+
+    from app.models.loyalty import LoyaltyAccount, LoyaltyTransaction
+
+    stmt = select(LoyaltyAccount).where(
+        LoyaltyAccount.customer_id == order.customer_id,
+        LoyaltyAccount.shop_id == order.shop_id,
+    )
+    loyalty_account = (await db.execute(stmt)).scalar_one_or_none()
+    if loyalty_account:
+        loyalty_account.points_balance += order.loyalty_points_used
+        refund_tx = LoyaltyTransaction(
+            id=new_id(),
+            account_id=loyalty_account.id,
+            points=order.loyalty_points_used,
+            action="refund",
+        )
+        db.add(refund_tx)
+        order.loyalty_points_used = 0
+
+
 # ─────────────────────────────────────────────────────────────
 # Create Order
 # ─────────────────────────────────────────────────────────────
@@ -226,6 +253,7 @@ async def unlock_coupon(
     "",
     response_model=OrderOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_checkout)],
 )
 async def create_order(
     payload: OrderCreate,
@@ -399,7 +427,7 @@ async def create_order(
                 == user.id,
                 LoyaltyAccount.shop_id
                 == shop.id,
-            )
+            ).with_for_update()
         )
 
         loyalty_account = (
@@ -440,6 +468,25 @@ async def create_order(
             total_price,
         )
 
+        from sqlalchemy import update
+
+        update_stmt = (
+            update(LoyaltyAccount)
+            .where(
+                LoyaltyAccount.id == loyalty_account.id,
+                LoyaltyAccount.points_balance >= loyalty_points,
+            )
+            .values(
+                points_balance=LoyaltyAccount.points_balance - loyalty_points
+            )
+        )
+        res = await db.execute(update_stmt)
+        if res.rowcount == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Insufficient loyalty points",
+            )
+
         loyalty_account.points_balance -= (
             loyalty_points
         )
@@ -470,6 +517,18 @@ async def create_order(
             raise HTTPException(
                 status_code=404,
                 detail="Coupon not found",
+            )
+
+        if coupon.shop_id != shop.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Coupon is not valid for this shop",
+            )
+
+        if coupon.creator_id != user.id and user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Coupon belongs to another customer",
             )
 
         if (
@@ -547,6 +606,14 @@ async def create_order(
         - coupon_discount,
     )
 
+    if payload.payment_method == "coupon" and final_total > 0:
+        if coupon_lock_key:
+            await release_lock(coupon_lock_key)
+        raise HTTPException(
+            status_code=400,
+            detail="Coupon payment method is only valid when total payable amount is 0",
+        )
+
     payment_method = (
         "coupon"
         if final_total == 0
@@ -558,6 +625,13 @@ async def create_order(
         if payment_method == "coupon"
         else "pending"
     )
+
+    order_extra = {}
+    dialect_name = db.bind.dialect.name if db.bind is not None else ""
+    if dialect_name == "sqlite":
+        max_num_res = await db.execute(select(func.coalesce(func.max(Order.order_number), 1000)))
+        max_num = max_num_res.scalar() or 1000
+        order_extra["order_number"] = max_num + 1
 
     try:
         order = Order(
@@ -603,6 +677,7 @@ async def create_order(
             coupon_discount_applied=(
                 coupon_discount
             ),
+            **order_extra,
         )
 
         db.add(order)
@@ -922,6 +997,12 @@ async def update_order_status(
         payload.status
     )
 
+    if user.role == "customer" and incoming_status not in ["cancelled", "cancel_requested"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Customers cannot update order to this status",
+        )
+
     if incoming_status == "cancelled":
         if order.status in [
             "cancelled",
@@ -931,6 +1012,15 @@ async def update_order_status(
                 status_code=400,
                 detail=(
                     "Order already finalized"
+                ),
+            )
+
+        if user.role == "customer" and order.status != "pending":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Orders already being processed cannot be cancelled directly. "
+                    "Please submit a cancellation request instead."
                 ),
             )
 
@@ -946,6 +1036,11 @@ async def update_order_status(
             )
 
         await restore_coupon(
+            db,
+            order,
+        )
+
+        await restore_loyalty_points(
             db,
             order,
         )

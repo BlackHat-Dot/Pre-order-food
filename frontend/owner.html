@@ -48,7 +48,19 @@
 <script type="module">
 import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice, formatDate } from '/js/shell.js';
 const $ = id => document.getElementById(id);
-if (!auth.requireOwner()) throw 0;
+
+let currentUser = null;
+try {
+  currentUser = await api.getCurrentUser();
+} catch (err) {
+  auth.logout();
+  throw 0;
+}
+if (!currentUser || (currentUser.role !== 'shop_owner' && currentUser.role !== 'admin')) {
+  auth.logout();
+  throw 0;
+}
+
 let shops = [], shop = null, orders = [], menu = [], tab = 'orders', filt = '', dishFor = null, timer;
 const NEXT = { pending: ['accepted', 'Accept order'], accepted: ['preparing', 'Start cooking'], preparing: ['ready', 'Mark ready'], ready: ['completed', 'Hand over'] };
 const LABEL = { pending: 'New', accepted: 'Accepted', preparing: 'Cooking', ready: 'Ready', completed: 'Done', cancelled: 'Cancelled', cancel_requested: 'Cancel requested' };

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
     get_current_user_optional,
+    rate_limit_auth,
 )
 from app.core.security import (
     create_otp_proof_token,
@@ -180,7 +181,10 @@ def build_msg91_proof_token(
 # Send OTP
 # ─────────────────────────────────────────────────────────────
 
-@router.post("/send-otp")
+@router.post(
+    "/send-otp",
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def send_otp(
     body: SendOtpRequest,
     request: Request,
@@ -277,7 +281,10 @@ async def send_otp(
 # Verify OTP
 # ─────────────────────────────────────────────────────────────
 
-@router.post("/verify-otp")
+@router.post(
+    "/verify-otp",
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def verify_otp(
     body: VerifyOtpRequest,
     db: Annotated[
@@ -337,7 +344,10 @@ async def verify_otp(
 # Verify MSG91
 # ─────────────────────────────────────────────────────────────
 
-@router.post("/verify-msg91")
+@router.post(
+    "/verify-msg91",
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def verify_msg91(
     body: Msg91VerifyRequest,
     request: Request,

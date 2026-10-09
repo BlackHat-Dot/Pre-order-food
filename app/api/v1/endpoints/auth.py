@@ -15,11 +15,19 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import (
+    decode_access_token,
+    get_current_user,
+    get_optional_token_from_request,
+    is_token_revoked,
+    rate_limit_auth,
+    revoke_token,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
+    set_auth_cookies,
     verify_password,
 )
 from app.crud.user import (
@@ -148,17 +156,17 @@ async def authenticate_user(
     "/register",
     response_model=UserOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_auth)],
 )
 async def register(
     payload: RegisterRequest,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserOut:
-    if payload.role == "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Admin registration is restricted",
-        )
+    # Public registration strictly creates customer accounts.
+    # Privileged roles (admin/shop_owner) cannot be registered publicly.
+    if payload.role and payload.role != "customer":
+        logger.warning("Attempted privileged role registration blocked: role=%s", payload.role)
 
     try:
         normalized_phone = normalize_e164(
@@ -185,7 +193,7 @@ async def register(
 
     user = User(
         id=user_id,
-        role=payload.role,
+        role="customer",
         name=payload.name,
         phone=normalized_phone,
         password_hash=hash_password(
@@ -224,7 +232,10 @@ async def register(
 
     return UserOut.model_validate(user)
 
-@router.get("/check-phone")
+@router.get(
+    "/check-phone",
+    dependencies=[Depends(rate_limit_auth)],
+)
 async def check_phone(
     phone: str,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -254,9 +265,11 @@ async def check_phone(
 @router.post(
     "/login",
     response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_auth)],
 )
 async def login(
     request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
     username, password = await get_login_payload(
@@ -275,15 +288,20 @@ async def login(
         password,
     )
 
+    access_token = create_access_token(
+        user.id,
+        user.role,
+    )
+    refresh_token = create_refresh_token(
+        user.id,
+        user.role,
+    )
+
+    set_auth_cookies(response, access_token, refresh_token)
+
     return TokenResponse(
-        access_token=create_access_token(
-            user.id,
-            user.role,
-        ),
-        refresh_token=create_refresh_token(
-            user.id,
-            user.role,
-        ),
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
@@ -294,11 +312,19 @@ async def login(
 @router.post(
     "/refresh",
     response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_auth)],
 )
 async def refresh_token(
     payload: RefreshTokenRequest,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
+    if await is_token_revoked(payload.refresh_token):
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token has been revoked",
+        )
+
     try:
         data = jwt.decode(
             payload.refresh_token,
@@ -335,15 +361,23 @@ async def refresh_token(
             detail="User not found",
         )
 
+    # Rotate refresh token: revoke current one
+    await revoke_token(payload.refresh_token, exp_timestamp=data.get("exp"))
+
+    new_access = create_access_token(
+        user.id,
+        user.role,
+    )
+    new_refresh = create_refresh_token(
+        user.id,
+        user.role,
+    )
+
+    set_auth_cookies(response, new_access, new_refresh)
+
     return TokenResponse(
-        access_token=create_access_token(
-            user.id,
-            user.role,
-        ),
-        refresh_token=create_refresh_token(
-            user.id,
-            user.role,
-        ),
+        access_token=new_access,
+        refresh_token=new_refresh,
     )
 
 
@@ -372,7 +406,31 @@ async def me(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def logout() -> Response:
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT
+async def logout(
+    request: Request,
+    response: Response,
+) -> Response:
+    token = await get_optional_token_from_request(request)
+    if token:
+        await revoke_token(token)
+
+    refresh_cookie = request.cookies.get("refresh_token")
+    if refresh_cookie:
+        await revoke_token(refresh_cookie)
+
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
     )
+    response.delete_cookie(
+        key="refresh_token",
+        path="/",
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
+    )
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response

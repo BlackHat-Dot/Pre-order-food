@@ -24,7 +24,10 @@ const BASE_URL = (() => {
 
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
-  const headers = options.headers || {};
+  const headers = {
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(options.headers || {})
+  };
 
   const token = auth.getToken();
   if (token && !headers['Authorization']) {
@@ -37,6 +40,7 @@ async function request(endpoint, options = {}) {
 
   const config = {
     ...options,
+    credentials: 'include',
     headers
   };
 

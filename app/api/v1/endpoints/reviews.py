@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import require_roles
+from app.core.deps import rate_limit_sensitive, require_roles
 from app.db.session import get_db
 from app.models.order import Order
 from app.models.review import Review
@@ -162,6 +162,7 @@ async def verify_review_owner(
     "",
     response_model=ReviewOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def create_review(
     payload: ReviewCreate,
@@ -195,6 +196,12 @@ async def create_review(
         user,
         order.customer_id,
     )
+
+    if order.status == "cancelled":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot review a cancelled order",
+        )
 
     is_review_allowed = (
         order.status in {
@@ -277,6 +284,7 @@ async def create_review(
     "/shops/{shop_id}",
     response_model=ReviewOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def create_shop_profile_review(
     shop_id: str,

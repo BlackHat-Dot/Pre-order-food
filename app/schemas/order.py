@@ -53,6 +53,7 @@ class OrderItemInput(
     quantity: int = Field(
         ge=1,
         le=10,
+        strict=True,
         description="Quantity between 1 and 10",
     )
 
@@ -112,6 +113,7 @@ class OrderCreate(
         OrderItemInput
     ] = Field(
         min_length=1,
+        max_length=50,
     )
 
     scheduled_at: (
@@ -130,6 +132,7 @@ class OrderCreate(
             default=0,
             ge=0,
             le=10000,
+            strict=True,
         )
     )
 
@@ -147,8 +150,6 @@ class OrderCreate(
         "counter",
         "pickup",
     ] = "table_booking"
-
-    payment_confirmed: bool = False
 
     delivery_address_id: (
         str | None

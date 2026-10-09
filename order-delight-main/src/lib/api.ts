@@ -100,7 +100,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
   }
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "X-Requested-With": "XMLHttpRequest",
+  };
   const token = explicitToken ?? (auth ? tokenStore.access : null);
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
@@ -108,6 +110,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const init: RequestInit = {
     method,
     headers,
+    credentials: "include",
     body: body instanceof URLSearchParams
       ? body.toString()
       : body !== undefined
@@ -131,7 +134,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         try {
           const ref = await fetch(`${base}/api/v1/auth/refresh`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
             body: JSON.stringify({ refresh_token: refreshToken }),
           });
           if (ref.ok) {
@@ -900,11 +907,14 @@ export const uploadsApi = {
     formData.append("file", file);
     const base = API_BASE_URL;
     const token = tokenStore.access;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      "X-Requested-With": "XMLHttpRequest",
+    };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const res = await fetch(`${base}/api/v1/uploads/image`, {
       method: "POST",
+      credentials: "include",
       headers,
       body: formData,
     });

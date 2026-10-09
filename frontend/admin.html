@@ -18,7 +18,19 @@
 <script type="module">
 import { api } from '/js/api.js'; import { auth } from '/js/auth.js'; import { toast } from '/js/toast.js'; import { esc, formatPrice } from '/js/shell.js';
 const $ = id => document.getElementById(id);
-if (!auth.requireAdmin()) throw 0;
+
+let currentUser = null;
+try {
+  currentUser = await api.getCurrentUser();
+} catch (err) {
+  auth.logout();
+  throw 0;
+}
+if (!currentUser || currentUser.role !== 'admin') {
+  auth.logout();
+  throw 0;
+}
+
 api.getAdminStats().then(s => { $('u').textContent = s.total_users || 0; $('k').textContent = s.total_shops || 0; $('o').textContent = s.total_orders || 0; $('g').textContent = formatPrice(s.total_gmv || 0); }).catch(() => toast.error('Totals could not be loaded'));
 async function shops() {
   try {

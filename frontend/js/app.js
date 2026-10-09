@@ -7,6 +7,16 @@ import { auth } from './auth.js';
 import { cart } from './cart.js';
 import { toast } from './toast.js';
 
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function formatPrice(num) {
   return `₹${Number(num || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -78,8 +88,10 @@ function updateAuthUI() {
 
   if (auth.isLoggedIn()) {
     const user = auth.getUser();
-    const name = (user && user.name) ? user.name.split(' ')[0] : 'Account';
-    const role = (user && user.role) ? user.role : 'user';
+    const rawName = (user && user.name) ? user.name.split(' ')[0] : 'Account';
+    const rawRole = (user && user.role) ? user.role : 'user';
+    const name = escapeHtml(rawName);
+    const role = escapeHtml(rawRole);
 
     slot.innerHTML = `
       <div style="display:flex; align-items:center; gap:8px;">
@@ -212,14 +224,21 @@ function updateCartDrawerUI(cartState) {
   if (prepTimeEl) prepTimeEl.textContent = `${cart.getMaxPrepMinutes()} MIN`;
   if (totalPriceEl) totalPriceEl.textContent = formatPrice(cart.getSubtotal());
 
-  itemsList.innerHTML = cartState.items.map(item => `
+  itemsList.innerHTML = cartState.items.map(item => {
+    const safeName = escapeHtml(item.name);
+    const safeVariantName = item.variantName ? escapeHtml(item.variantName) : '';
+    const safeDietaryType = escapeHtml(item.dietaryType || '');
+    const safeItemId = encodeURIComponent(String(item.itemId || ''));
+    const safeVariantId = item.variantId ? `'${encodeURIComponent(String(item.variantId))}'` : 'null';
+
+    return `
     <div class="drawer-item-card">
       <div class="drawer-item-top">
         <div>
-          <div class="drawer-item-title">${item.name}</div>
-          ${item.variantName ? `<div class="drawer-item-variant">[ ${item.variantName} ]</div>` : ''}
+          <div class="drawer-item-title">${safeName}</div>
+          ${safeVariantName ? `<div class="drawer-item-variant">[ ${safeVariantName} ]</div>` : ''}
           <div style="margin-top:2px;">
-            <span class="dietary-tag ${item.dietaryType}">${item.dietaryType}</span>
+            <span class="dietary-tag ${safeDietaryType}">${safeDietaryType}</span>
           </div>
         </div>
         <div class="mono-meta" style="font-weight:700; color:var(--text-primary); font-size:0.88rem;">
@@ -228,16 +247,17 @@ function updateCartDrawerUI(cartState) {
       </div>
       <div class="drawer-item-bottom">
         <div class="qty-stepper">
-          <button class="qty-btn" onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, -1)">-</button>
-          <span class="qty-val">${item.quantity}</span>
-          <button class="qty-btn" ${item.quantity >= 10 ? 'disabled title="Maximum quantity is 10"' : ''} onclick="window.cart.updateQuantity('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'}, 1)">+</button>
+          <button class="qty-btn" onclick="window.cart.updateQuantity(decodeURIComponent('${safeItemId}'), ${safeVariantId ? `decodeURIComponent(${safeVariantId})` : 'null'}, -1)">-</button>
+          <span class="qty-val">${Number(item.quantity) || 1}</span>
+          <button class="qty-btn" ${item.quantity >= 10 ? 'disabled title="Maximum quantity is 10"' : ''} onclick="window.cart.updateQuantity(decodeURIComponent('${safeItemId}'), ${safeVariantId ? `decodeURIComponent(${safeVariantId})` : 'null'}, 1)">+</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="window.cart.removeItem('${item.itemId}', ${item.variantId ? `'${item.variantId}'` : 'null'})" style="padding:2px 6px; font-size:0.68rem; color:var(--status-danger);">
+        <button class="btn btn-ghost btn-sm" onclick="window.cart.removeItem(decodeURIComponent('${safeItemId}'), ${safeVariantId ? `decodeURIComponent(${safeVariantId})` : 'null'})" style="padding:2px 6px; font-size:0.68rem; color:var(--status-danger);">
           REMOVE
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderFooter() {

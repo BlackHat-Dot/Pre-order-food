@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_roles
+from app.core.deps import rate_limit_sensitive, require_roles
 from app.db.session import get_db
 from app.models.loyalty import (
     LoyaltyAccount,
@@ -47,6 +47,7 @@ async def ensure_loyalty_account(
     db: AsyncSession,
     customer_id: str,
     shop_id: str,
+    for_update: bool = False,
 ) -> LoyaltyAccount:
     await get_shop_or_404(db, shop_id)
 
@@ -54,6 +55,8 @@ async def ensure_loyalty_account(
         LoyaltyAccount.customer_id == customer_id,
         LoyaltyAccount.shop_id == shop_id,
     )
+    if for_update:
+        stmt = stmt.with_for_update()
 
     account = (
         await db.execute(stmt)
@@ -183,6 +186,7 @@ async def my_loyalty_transactions(
 @router.post(
     "/me/redeem",
     response_model=LoyaltyAccountOut,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def redeem_points(
     payload: LoyaltyRedeemRequest,
@@ -205,15 +209,28 @@ async def redeem_points(
         db,
         user.id,
         payload.shop_id,
+        for_update=True,
     )
 
-    if account.points_balance < payload.points:
+    from sqlalchemy import update
+
+    update_stmt = (
+        update(LoyaltyAccount)
+        .where(
+            LoyaltyAccount.id == account.id,
+            LoyaltyAccount.points_balance >= payload.points,
+        )
+        .values(
+            points_balance=LoyaltyAccount.points_balance - payload.points
+        )
+    )
+    res = await db.execute(update_stmt)
+    if res.rowcount == 0:
+        await db.rollback()
         raise HTTPException(
             status_code=400,
             detail="Insufficient points",
         )
-
-    account.points_balance -= payload.points
 
     await create_transaction(
         db=db,
@@ -249,6 +266,7 @@ async def redeem_points(
 @router.post(
     "/admin/adjust/{customer_id}",
     response_model=LoyaltyAccountOut,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def adjust_points(
     customer_id: str,
@@ -273,6 +291,7 @@ async def adjust_points(
         db,
         customer_id,
         shop_id,
+        for_update=True,
     )
 
     updated_balance = (

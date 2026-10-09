@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+import html
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 class MenuItemCreate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -32,6 +33,13 @@ class MenuItemCreate(BaseModel):
     )
     image_url: HttpUrl | None = None
 
+    @field_validator("name", "description", "category", mode="before")
+    @classmethod
+    def sanitize_input(cls, v: str | None) -> str | None:
+        if isinstance(v, str):
+            return html.escape(v.strip())
+        return v
+
 class MenuItemUpdate(BaseModel):
     name: str | None = Field(
         default=None,
@@ -62,6 +70,13 @@ class MenuItemUpdate(BaseModel):
     image_url: HttpUrl | None = None
     is_available: bool | None = None
     is_featured: bool | None = None
+
+    @field_validator("name", "description", "category", mode="before")
+    @classmethod
+    def sanitize_input(cls, v: str | None) -> str | None:
+        if isinstance(v, str):
+            return html.escape(v.strip())
+        return v
 
 class VariantCreate(BaseModel):
     name: str = Field(

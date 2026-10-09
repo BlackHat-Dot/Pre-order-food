@@ -36,6 +36,11 @@ async def create_payment_order(
         settings.RAZORPAY_KEY_ID
         and settings.RAZORPAY_KEY_SECRET
     ):
+        env = (settings.ENVIRONMENT or settings.ENV or "local").lower()
+        if env in ("production", "prod", "staging"):
+            raise ValueError(
+                "Payment gateway credentials not configured in production environment"
+            )
         return {
             "provider": "mock",
             "order_id": (
@@ -98,6 +103,9 @@ def verify_payment_signature(
     )
 
     if provider == "mock":
+        env = (settings.ENVIRONMENT or settings.ENV or "local").lower()
+        if env in ("production", "prod", "staging"):
+            return False
         return bool(
             provider_order_id
             and provider_payment_id

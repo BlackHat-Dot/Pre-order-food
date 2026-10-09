@@ -116,4 +116,106 @@ async def test_update_order_status_customer_cannot_set_arbitrary_status():
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.anyio
+async def test_order_cancellation_restores_loyalty_points():
+    from unittest.mock import MagicMock
+    from app.api.v1.endpoints.orders import update_order_status
+    from app.models.loyalty import LoyaltyAccount
+    from app.schemas.order import OrderStatusUpdate
+
+    db = AsyncMock()
+    order = Order(
+        id="order-1",
+        customer_id="user-1",
+        shop_id="shop-1",
+        status="pending",
+        loyalty_points_used=50,
+    )
+    
+    loyalty_acc = LoyaltyAccount(
+        id="acc-1",
+        customer_id="user-1",
+        shop_id="shop-1",
+        points_balance=10,
+    )
+    db.execute.side_effect = [
+        MagicMock(scalar_one_or_none=lambda: order),       # initial order lookup
+        MagicMock(scalar_one_or_none=lambda: loyalty_acc), # restore loyalty points
+        MagicMock(scalar_one_or_none=lambda: order),       # final get_order_or_404 return
+    ]
+    db.get.return_value = order
+
+    user = User(id="user-1", role="customer")
+    await update_order_status("order-1", OrderStatusUpdate(status="cancelled"), db, user)
+
+    # State assertion (Chicago School TDD):
+    # Customer had 10 points, spent 50 on order; after cancellation points should be restored to 60.
+    assert loyalty_acc.points_balance == 60
+
+
+@pytest.mark.anyio
+async def test_create_order_rejects_coupon_for_different_shop():
+    from app.api.v1.endpoints.orders import create_order
+    from app.models.coupon import Coupon
+    from app.models.menu import MenuItem
+    from app.schemas.order import OrderCreate, OrderItemInput
+
+    db = AsyncMock()
+    shop = Shop(id="shop-1", is_open=True, is_accepting_orders=True, is_active=True)
+    menu_item = MenuItem(id="item-1", shop_id="shop-1", price=100.0, is_available=True, prep_time_minutes=10, name="Item")
+    
+    # Coupon is for shop-2, but order is for shop-1
+    coupon = Coupon(id="c-1", shop_id="shop-2", creator_id="user-1", is_active=True, is_redeemed=False, discount_value=20.0)
+
+    db.get.side_effect = lambda model, ident, **kwargs: {
+        (Shop, "shop-1"): shop,
+        (MenuItem, "item-1"): menu_item,
+        (Coupon, "c-1"): coupon,
+    }.get((model, ident))
+
+    user = User(id="user-1", role="customer")
+    payload = OrderCreate(
+        shop_id="shop-1",
+        items=[OrderItemInput(item_id="item-1", quantity=1)],
+        coupon_id="c-1",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await create_order(payload, db, user)
+    assert exc_info.value.status_code == 400
+    assert "shop" in exc_info.value.detail.lower()
+
+
+@pytest.mark.anyio
+async def test_create_order_rejects_coupon_owned_by_another_customer():
+    from app.api.v1.endpoints.orders import create_order
+    from app.models.coupon import Coupon
+    from app.models.menu import MenuItem
+    from app.schemas.order import OrderCreate, OrderItemInput
+
+    db = AsyncMock()
+    shop = Shop(id="shop-1", is_open=True, is_accepting_orders=True, is_active=True)
+    menu_item = MenuItem(id="item-1", shop_id="shop-1", price=100.0, is_available=True, prep_time_minutes=10, name="Item")
+    
+    # Coupon is created by user-2, but user-1 is attempting to use it
+    coupon = Coupon(id="c-1", shop_id="shop-1", creator_id="user-2", is_active=True, is_redeemed=False, discount_value=20.0)
+
+    db.get.side_effect = lambda model, ident, **kwargs: {
+        (Shop, "shop-1"): shop,
+        (MenuItem, "item-1"): menu_item,
+        (Coupon, "c-1"): coupon,
+    }.get((model, ident))
+
+    user = User(id="user-1", role="customer")
+    payload = OrderCreate(
+        shop_id="shop-1",
+        items=[OrderItemInput(item_id="item-1", quantity=1)],
+        coupon_id="c-1",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await create_order(payload, db, user)
+    assert exc_info.value.status_code == 403
+
+
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, rate_limit_sensitive
 from app.db.session import get_db
 from app.models.coupon import Coupon
 from app.models.loyalty import LoyaltyAccount
@@ -78,6 +78,7 @@ async def get_coupon_by_code(
     "/mint",
     response_model=CouponOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def mint_shop_coupon(
     payload: CouponMint,
@@ -104,7 +105,7 @@ async def mint_shop_coupon(
     stmt = select(LoyaltyAccount).where(
         LoyaltyAccount.shop_id == payload.shop_id,
         LoyaltyAccount.customer_id == user.id,
-    )
+    ).with_for_update()
 
     loyalty_account = (
         await db.execute(stmt)
@@ -148,9 +149,25 @@ async def mint_shop_coupon(
         shop_prefix,
     )
 
-    loyalty_account.points_balance -= (
-        payload.points
+    from sqlalchemy import update
+
+    stmt_update = (
+        update(LoyaltyAccount)
+        .where(
+            LoyaltyAccount.id == loyalty_account.id,
+            LoyaltyAccount.points_balance >= payload.points,
+        )
+        .values(
+            points_balance=LoyaltyAccount.points_balance - payload.points
+        )
     )
+    res = await db.execute(stmt_update)
+    if res.rowcount == 0:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Insufficient points",
+        )
 
     coupon = Coupon(
         id=new_id(),
@@ -190,6 +207,7 @@ async def mint_shop_coupon(
 @router.get(
     "/validate/{code}",
     response_model=CouponOut,
+    dependencies=[Depends(rate_limit_sensitive)],
 )
 async def validate_coupon_code(
     code: str,

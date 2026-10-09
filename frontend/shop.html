@@ -80,8 +80,14 @@
       throw 0;
     }
     document.title = `${shop.name} — preorder`;
-    const open = shop.is_open && shop.is_accepting_orders;
-    if (shop.banner_url) { $('banner').hidden = false; $('banner').style.backgroundImage = `url("${shop.banner_url.replace(/"/g, '%22')}")`; }
+    const open = Boolean(shop.is_open && shop.is_accepting_orders);
+    if (shop.banner_url) {
+      const cleanBanner = String(shop.banner_url).trim();
+      if (/^(https?:\/\/|\/api\/v1\/uploads\/)/i.test(cleanBanner)) {
+        $('banner').hidden = false;
+        $('banner').style.backgroundImage = `url("${encodeURI(cleanBanner)}")`;
+      }
+    }
     $('head').innerHTML = `
       <div><h1 class="display" style="font-size:clamp(2.4rem,6vw,4.8rem)">${esc(shop.name)}</h1>
         <p class="lede" style="margin-top:14px">${esc(shop.description || '')}</p>

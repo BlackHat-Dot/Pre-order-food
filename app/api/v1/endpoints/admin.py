@@ -29,6 +29,7 @@ from app.models.order import OrderItem
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
+    require_admin,
     require_roles,
 )
 from app.db.session import get_db
@@ -39,15 +40,20 @@ from app.models.user import User
 from app.schemas.order import (
     OrderStatusUpdate,
 )
+from app.core.security import hash_password
+from app.crud.user import get_user_by_phone
 from app.services.cache import (
     cache_delete,
     cache_get_json,
     cache_set_json,
 )
+from app.utils.ids import new_id
+from app.utils.phone import normalize_e164
 
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"],
+    dependencies=[Depends(require_admin)],
 )
 
 VALID_ROLES = {
@@ -192,6 +198,50 @@ async def set_user_active(
     }
 
 
+class CreateShopOwnerRequest(BaseModel):
+    name: str
+    phone: str
+    password: str
+
+
+@router.post("/owners", status_code=201)
+async def admin_create_shop_owner(
+    payload: CreateShopOwnerRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_roles("admin"))],
+):
+    try:
+        norm_phone = normalize_e164(payload.phone)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+    existing = await get_user_by_phone(db, norm_phone)
+    if existing:
+        raise HTTPException(status_code=409, detail="Phone already registered")
+
+    owner = User(
+        id=new_id(),
+        role="shop_owner",
+        name=payload.name,
+        phone=norm_phone,
+        password_hash=hash_password(payload.password),
+        is_active=True,
+        phone_verified=True,
+    )
+    db.add(owner)
+    await db.commit()
+    await db.refresh(owner)
+    await clear_admin_analytics_cache()
+
+    return {
+        "id": owner.id,
+        "name": owner.name,
+        "phone": owner.phone,
+        "role": owner.role,
+        "created": True,
+    }
+
+
 @router.patch("/users/{user_id}/role")
 async def change_user_role(
     user_id: str,
@@ -209,6 +259,13 @@ async def change_user_role(
         raise HTTPException(
             status_code=400,
             detail="Invalid role",
+        )
+
+    # Admin accounts cannot be created or escalated via any API endpoint
+    if role == "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Admin role cannot be granted through API. Use scripts/create_admin.py.",
         )
 
     user = await db.get(

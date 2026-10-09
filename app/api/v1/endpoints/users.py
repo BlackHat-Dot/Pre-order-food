@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
     get_current_user,
+    rate_limit_sensitive,
     require_roles,
 )
 from app.core.security import (
@@ -509,8 +510,14 @@ async def update_profile(
 # Update Password
 # ─────────────────────────────────────────────────────────────
 
-@router.patch("/me/password")
-@router.put("/me/password")
+@router.patch(
+    "/me/password",
+    dependencies=[Depends(rate_limit_sensitive)],
+)
+@router.put(
+    "/me/password",
+    dependencies=[Depends(rate_limit_sensitive)],
+)
 async def update_password(
     payload: PasswordUpdate,
     db: Annotated[

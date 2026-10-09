@@ -18,9 +18,11 @@ preorder_dev.db*
 
 # Environment files
 .env
-.env.example
-.env.local
-.env.*.local
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
 # Node & Package Managers
 node_modules/
@@ -62,3 +64,5 @@ PRODUCT.md
 run-backend.bat
 run-backend.ps1
 scripts/run_backend.py
+top_20/
+

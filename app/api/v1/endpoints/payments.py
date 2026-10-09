@@ -1,5 +1,5 @@
-from __future__ import annotations
-
+import hashlib
+import hmac
 import json
 from typing import Annotated
 
@@ -7,11 +7,13 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_roles
+from app.core.config import settings
+from app.core.deps import rate_limit_checkout, require_roles
 from app.db.session import get_db
 from app.models.loyalty import (
     LoyaltyAccount,
@@ -147,6 +149,7 @@ async def ensure_loyalty_account(
     "/create",
     response_model=PaymentOut,
     status_code=201,
+    dependencies=[Depends(rate_limit_checkout)],
 )
 async def create_payment(
     payload: PaymentCreateRequest,
@@ -228,6 +231,7 @@ async def create_payment(
 @router.post(
     "/verify",
     response_model=PaymentOut,
+    dependencies=[Depends(rate_limit_checkout)],
 )
 async def verify_payment(
     payload: PaymentVerifyRequest,
@@ -255,6 +259,12 @@ async def verify_payment(
         raise HTTPException(
             status_code=404,
             detail="Payment not found",
+        )
+
+    if payment.status == "paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Payment already finalized",
         )
 
     order = await get_order_or_404(
@@ -428,3 +438,91 @@ async def list_order_payments(
         )
         for payment in payments
     ]
+
+
+# ─────────────────────────────────────────────────────────────
+# Payment Webhook (Idempotent signature-verified handler)
+# ─────────────────────────────────────────────────────────────
+
+@router.post(
+    "/webhook",
+    dependencies=[Depends(rate_limit_checkout)],
+)
+async def payment_webhook(
+    request: Request,
+    db: Annotated[
+        AsyncSession,
+        Depends(get_db),
+    ],
+) -> dict:
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET or settings.RAZORPAY_KEY_SECRET
+    signature = request.headers.get("X-Razorpay-Signature") or request.headers.get("x-razorpay-signature")
+
+    body_bytes = await request.body()
+
+    if not webhook_secret or not signature:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing webhook signature or server configuration",
+        )
+
+    expected = hmac.new(
+        webhook_secret.encode("utf-8"),
+        body_bytes,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid webhook signature",
+        )
+
+    try:
+        event = json.loads(body_bytes.decode("utf-8"))
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid webhook JSON payload",
+        )
+
+    event_type = event.get("event")
+    payload = event.get("payload", {})
+    payment_entity = payload.get("payment", {}).get("entity", {})
+    order_id = payment_entity.get("notes", {}).get("order_id") or payment_entity.get("receipt")
+
+    if not order_id:
+        return {"status": "ignored", "reason": "No order_id found"}
+
+    order = await db.get(Order, order_id)
+    if not order:
+        return {"status": "ignored", "reason": "Order not found"}
+
+    # Idempotency check: prevent duplicate replay state transitions
+    if order.payment_status == "paid":
+        return {"status": "ok", "message": "Order already processed as paid"}
+
+    if event_type in ("payment.captured", "order.paid"):
+        order.payment_status = "paid"
+        payment = await get_latest_payment(db, order.id)
+        if payment:
+            payment.status = "paid"
+            payment.provider_payment_id = payment_entity.get("id")
+
+        loyalty_points = order.loyalty_points_earned or 0
+        if loyalty_points > 0:
+            account = await ensure_loyalty_account(db, order)
+            account.points_balance += loyalty_points
+            db.add(
+                LoyaltyTransaction(
+                    id=new_id(),
+                    account_id=account.id,
+                    order_id=order.id,
+                    points=loyalty_points,
+                    action="earned",
+                )
+            )
+
+        await db.commit()
+
+    return {"status": "ok", "event": event_type}
