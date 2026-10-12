@@ -2,7 +2,7 @@
 
 A full-stack food pre-order platform that enables customers to order ahead, reduces waiting time at food outlets, and provides comprehensive management tools for shop owners and platform administrators.
 
-**Live Application:** https://web-production-248c50.up.railway.app/
+**Live Application:** https://pre-order-food-frontend.vercel.app/
 
 ---
 
