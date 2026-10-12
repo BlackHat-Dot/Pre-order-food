@@ -69,6 +69,7 @@ The platform includes secure authentication, role-based access control, loyalty 
 * Redis
 * JWT Authentication
 * Role-Based Access Control (RBAC)
+* GraphQL
 
 ### Infrastructure & Deployment
 
